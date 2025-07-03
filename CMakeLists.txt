@@ -1,6 +1,6 @@
 # Copyright (c) 2022, Alibaba Group Holding Limited
 
-cmake_minimum_required (VERSION 2.6)
+cmake_minimum_required (VERSION 3.10)
 project (xquic)
 
 set (xquic_VERSION_MAJOR 0)
@@ -11,42 +11,18 @@ option (XQC_ENABLE_BBR2 "enable bbr2" OFF)
 option (XQC_ENABLE_COPA "enable copa" OFF)
 option (XQC_ENABLE_RENO "enable reno" OFF)
 option (XQC_ENABLE_UNLIMITED "enable unlimited cc" OFF)
-option (XQC_ENABLE_MP_INTEROP "enable MPQUIC interop" OFF)
-option (XQC_NO_PID_PACKET_PROCESS "do not expose path_id in xqc_engine_packet_process" OFF)
 option (XQC_PROTECT_POOL_MEM "enable write protection for pool memory (for debug)" OFF)
-option (XQC_COMPAT_DUPLICATE "qpack compat dup" OFF)
 option (XQC_ENABLE_FEC "enable fec" OFF)
 option (XQC_ENABLE_XOR "enable fec scheme xor" OFF)
 option (XQC_ENABLE_RSC "enable fec scheme reed-solomon code" OFF)
 option (XQC_ENABLE_PKM "enable fec scheme packet mask" OFF)
+option (XQC_ENABLE_TESTING "Enable Testing" OFF)
+option (GCOV "Test Coverage" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-
-# SSL lib type, xquic support babassl and boringssl interfaces
-if(NOT SSL_TYPE)
-    set(SSL_TYPE "babassl")
-    message(NOTICE "-- SSL_TYPE not set, use default babassl")
-endif()
-
-if(${SSL_TYPE} MATCHES "babassl")
-    # PATH of ssl, by default XQUIC will use babassl installed in
-    # /usr/local/babassl if SSL_PATH is not set
-    if(NOT SSL_PATH)
-        set(SSL_PATH "/usr/local/babassl")
-        message(NOTICE "-- SSL_PATH not set, use default ${SSL_PATH}")
-    endif()
-
-elseif(${SSL_TYPE} MATCHES "boringssl")
-    add_definitions(-DNOCRYPT=1)
-    # PATH of ssl, by default XQUIC will use boringssl in third_party
-    if(NOT SSL_PATH)
-        set(SSL_PATH ${CMAKE_CURRENT_SOURCE_DIR}/third_party/boringssl)
-        message(NOTICE "-- SSL_PATH not set, use default ${SSL_PATH}")
-    endif()
-endif()
 
 # Users can use both SSL_DIR or SSL_PATH to specify the ssl path to find the ssl
 # module, if both are defined, SSL_DIR will be used.
@@ -59,49 +35,28 @@ if(NOT SSL_DIR)
     endif()
 endif()
 
+find_package(SSL)
+if(NOT SSL_FOUND)
+    message(FATAL_ERROR "ssl module not found")
+endif(NOT SSL_FOUND)
 
-# find ssl module from SSL_DIR if SSL_INC_PATH AND SSL_LIB_PATH not set.
-if(NOT SSL_INC_PATH AND NOT SSL_LIB_PATH)
-    find_package(SSL)
-
-    if(NOT SSL_FOUND)
-        message(FATAL_ERROR "ssl module not found")
-    endif(NOT SSL_FOUND)
-
-    # compat with elder macros
-    if(SSL_DYNAMIC)
-        message(NOTICE "-- Building with dynamic libssl")
-        set(SSL_LIB_PATH ${SSL_LIBRARIES})
-    else()
-        message(NOTICE "-- Building with static libssl")
-        set(SSL_LIB_PATH ${SSL_LIBRARIES_STATIC})
-    endif()
-    set(SSL_INC_PATH ${SSL_INCLUDE_DIR})
-
+if(SSL_DYNAMIC)
+    message(NOTICE "-- Building with dynamic libssl")
+    set(SSL_LIB_PATH ${SSL_LIBRARIES})
 else()
-    if(NOT EXISTS ${SSL_INC_PATH})
-        message(FATAL_ERROR "ssl include path not found")
-    endif()
-
-    foreach(LIB IN LISTS SSL_LIB_PATH)
-        if(NOT EXISTS ${LIB})
-            message(FATAL_ERROR "ssl lib not found ${LIB}")
-        endif()
-    endforeach()
-
+    message(NOTICE "-- Building with static libssl")
+    set(SSL_LIB_PATH ${SSL_LIBRARIES_STATIC})
 endif()
+set(SSL_INC_PATH ${SSL_INCLUDE_DIR})
 
-MESSAGE("-- SSL_TYPE: ${SSL_TYPE}")
 MESSAGE("-- SSL_PATH: ${SSL_PATH}")
 MESSAGE("-- SSL_LIB_PATH: ${SSL_LIB_PATH}")
 MESSAGE("-- SSL_INC_PATH: ${SSL_INC_PATH}")
 
 
 # C_FLAGS
-if(ANDROID_ABI OR PLATFORM MATCHES "mac")
-    if(PLATFORM STREQUAL "mac32")
-        set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
-    endif()
+if(PLATFORM STREQUAL "mac32")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
 endif()
 
 if(NOT (CMAKE_C_COMPILER_ID MATCHES "MSVC" OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC"))
@@ -136,7 +91,6 @@ include_directories(include
 )
 
 
-
 # print tls traffic secret in keylog
 if(XQC_PRINT_SECRET)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DXQC_PRINT_SECRET")
@@ -167,38 +121,6 @@ if(GCOV STREQUAL "on")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif()
 
-
-
-# testing
-if(XQC_ENABLE_TESTING)
-    add_subdirectory(tests)
-    add_subdirectory(demo)
-    add_subdirectory(mini)
-endif(XQC_ENABLE_TESTING)
-
-
-# http3/qpack source
-set(
-    HTTP3_SOURCES
-    "src/http3/xqc_h3_conn.c"
-    "src/http3/xqc_h3_stream.c"
-    "src/http3/xqc_h3_request.c"
-    "src/http3/frame/xqc_h3_frame.c"
-    "src/http3/xqc_h3_header.c"
-    "src/http3/xqc_h3_ctx.c"
-    "src/http3/xqc_h3_defs.c"
-    "src/http3/qpack/xqc_qpack.c"
-    "src/http3/qpack/xqc_prefixed_int.c"
-    "src/http3/qpack/xqc_prefixed_str.c"
-    "src/http3/qpack/xqc_decoder.c"
-    "src/http3/qpack/xqc_encoder.c"
-    "src/http3/qpack/xqc_rep.c"
-    "src/http3/qpack/xqc_ins.c"
-    "src/http3/qpack/stable/xqc_stable.c"
-    "src/http3/qpack/dtable/xqc_dtable.c"
-    "src/http3/xqc_h3_ext_dgram.c"
-    "src/http3/xqc_h3_ext_bytestream.c"
-)
 
 # Transport source
 set(
@@ -236,14 +158,6 @@ set(
     "src/transport/scheduler/xqc_scheduler_backup_fec.c"
     "src/transport/scheduler/xqc_scheduler_rap.c"
 )
-
-if(XQC_ENABLE_MP_INTEROP)
-    set(
-        TRANSPORT_SOURCES
-        ${TRANSPORT_SOURCES}
-        "src/transport/scheduler/xqc_scheduler_interop.c"
-    )
-endif()
 
 
 # fec framework
@@ -294,25 +208,10 @@ set (
     "src/tls/xqc_crypto.c"
     "src/tls/xqc_tls_ctx.c"
     "src/tls/xqc_tls.c"
+    "src/tls/boringssl/xqc_hkdf_impl.c"
+    "src/tls/boringssl/xqc_crypto_impl.c"
+    "src/tls/boringssl/xqc_ssl_if_impl.c"
 )
-
-if(${SSL_TYPE} MATCHES "boringssl")
-    set(
-        TLS_SOURCE
-        ${TLS_SOURCE}
-        "src/tls/boringssl/xqc_hkdf_impl.c"
-        "src/tls/boringssl/xqc_crypto_impl.c"
-        "src/tls/boringssl/xqc_ssl_if_impl.c"
-    )
-elseif(${SSL_TYPE} MATCHES "babassl")
-    set(
-        TLS_SOURCE
-        ${TLS_SOURCE}
-        "src/tls/babassl/xqc_hkdf_impl.c"
-        "src/tls/babassl/xqc_crypto_impl.c"
-        "src/tls/babassl/xqc_ssl_if_impl.c"
-    )
-endif()
 
 # common source
 set(
@@ -322,15 +221,12 @@ set(
     "src/common/xqc_log.c"
     "src/common/xqc_log_event_callback.c"
     "src/common/xqc_time.c"
-    "src/common/utils/huffman/xqc_huffman_code.c"
-    "src/common/utils/huffman/xqc_huffman.c"
     "src/common/utils/vint/xqc_discrete_int_parser.c"
     "src/common/utils/vint/xqc_variable_len_int.c"
     "src/common/utils/ringarray/xqc_ring_array.c"
     "src/common/utils/ringmem/xqc_ring_mem.c"
     "src/common/utils/2d_hash/xqc_2d_hash_table.c"
     "src/common/utils/var_buf/xqc_var_buf.c"
-
 )
 
 # congestion control
@@ -379,7 +275,6 @@ endif()
 set (
     XQC_SOURCE
     ${XQC_SOURCE}
-    ${HTTP3_SOURCES}
     ${TRANSPORT_SOURCES}
     ${TLS_SOURCE}
     ${COMMON_SOURCES}
@@ -387,43 +282,15 @@ set (
 )
 
 
-
 # target
 add_library(
-    xquic-static
+    xquic
     STATIC
     ${XQC_SOURCE}
 )
 
-add_library(
-    xquic
-    SHARED
-    ${XQC_SOURCE}
-)
 
-if(PLATFORM MATCHES "mac")
-    target_link_libraries(
-        xquic
-        "-ldl -Wl,-all_load"
-        ${SSL_LIB_PATH}
-        "-Wl"
-        -lpthread
-        -lstdc++
-    )
-else()
-    target_link_libraries(
-        xquic
-        "-ldl -Wl,--whole-archive -Wl,--version-script=${CMAKE_CURRENT_SOURCE_DIR}/scripts/xquic.lds"
-        ${SSL_LIB_PATH}
-        "-Wl,--no-whole-archive"
-        -lpthread
-    )
-endif()
-
-
-# Strip binary for release builds
-if(CMAKE_BUILD_TYPE STREQUAL MinSizeRel)
-    add_custom_command(TARGET ${PROJECT_NAME} POST_BUILD
-            COMMAND ${CMAKE_STRIP} libxquic.so)
-endif()
-
+# testing
+if(XQC_ENABLE_TESTING)
+    add_subdirectory(demo)
+endif(XQC_ENABLE_TESTING)

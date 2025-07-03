@@ -141,29 +141,6 @@ xqc_qlog_event_2_level(xqc_log_type_t type)
     case REC_MARKED_FOR_RETRANSMIT:
         return EVENT_IMPORTANCE_EXTRA;
 
-    /* draft-ietf-quic-qlog-h3-events */
-    case HTTP_PARAMETERS_SET:
-    case HTTP_PARAMETERS_RESTORED:
-    case HTTP_STREAM_TYPE_SET:
-    case HTTP_PRIORITY_UPDATED:
-        return EVENT_IMPORTANCE_BASE;
-
-    case HTTP_FRAME_PARSED:
-    case HTTP_FRAME_CREATED:
-        return EVENT_IMPORTANCE_CORE;
-
-    case HTTP_PUSH_RESOLVED:
-        return EVENT_IMPORTANCE_EXTRA;
-
-    /* quic-qlog-h3-events have removed all qpack event definitions since draft 05*/
-    case QPACK_STATE_UPDATED:
-    case QPACK_STREAM_STATE_UPDATED:
-    case QPACK_DYNAMIC_TABLE_UPDATED:
-    case QPACK_HEADERS_ENCODED:
-    case QPACK_HEADERS_DECODED:
-    case QPACK_INSTRUCTION_CREATED:
-    case QPACK_INSTRUCTION_PARSED:
-        return EVENT_IMPORTANCE_REMOVED;
     default:
         return EVENT_IMPORTANCE_EXTRA;
     }
@@ -177,8 +154,6 @@ qlog_importance_2_log_level(xqc_log_type_t type){
     switch (type)
     {
     /* datagrame, packet, frame level event should be xqc_log_debug */
-    case HTTP_FRAME_PARSED:
-    case HTTP_FRAME_CREATED:
     case TRA_PACKETS_ACKED:
     case TRA_DATAGRAM_DROPPED:
     case TRA_DATAGRAMS_SENT:
@@ -237,20 +212,6 @@ xqc_log_type_str(xqc_log_type_t type)
             [REC_LOSS_TIMER_UPDATED]            = "loss_timer_updated",
             [REC_PACKET_LOST]                   = "packet_lost",
             [REC_MARKED_FOR_RETRANSMIT]         = "marked_for_retransmit",
-            [HTTP_PARAMETERS_SET]               = "http_parameters_set",
-            [HTTP_PARAMETERS_RESTORED]          = "http_parameters_restored",
-            [HTTP_STREAM_TYPE_SET]              = "http_stream_type_set",
-            [HTTP_PRIORITY_UPDATED]             = "http_priority_updated",
-            [HTTP_FRAME_CREATED]                = "http_frame_created",
-            [HTTP_FRAME_PARSED]                 = "http_frame_parsed",
-            [HTTP_PUSH_RESOLVED]                = "push_resolved",
-            [QPACK_STATE_UPDATED]               = "qpack_state_updated",
-            [QPACK_STREAM_STATE_UPDATED]        = "qpack_stream_state_updated",
-            [QPACK_DYNAMIC_TABLE_UPDATED]       = "dynamic_table_updated",
-            [QPACK_HEADERS_ENCODED]             = "headers_encoded",
-            [QPACK_HEADERS_DECODED]             = "headers_decoded",
-            [QPACK_INSTRUCTION_CREATED]         = "instruction_created",
-            [QPACK_INSTRUCTION_PARSED]          = "instruction_parsed",
             [GEN_REPORT]                        = "report",
             [GEN_FATAL]                         = "fatal",
             [GEN_ERROR]                         = "error",

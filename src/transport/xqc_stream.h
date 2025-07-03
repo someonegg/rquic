@@ -32,7 +32,6 @@ typedef enum {
     XQC_STREAM_FLAG_READY_TO_READ   = 1 << 1,
     XQC_STREAM_FLAG_DATA_BLOCKED    = 1 << 2,
     XQC_STREAM_FLAG_HAS_0RTT        = 1 << 3,
-    XQC_STREAM_FLAG_HAS_H3          = 1 << 4,
     XQC_STREAM_FLAG_NEED_CLOSE      = 1 << 5,
     XQC_STREAM_FLAG_FIN_WRITE       = 1 << 6,
     XQC_STREAM_FLAG_CLOSED          = 1 << 7,

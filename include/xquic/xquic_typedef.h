@@ -66,7 +66,6 @@ typedef struct xqc_conn_settings_s          xqc_conn_settings_t;
 typedef struct xqc_engine_s                 xqc_engine_t;
 typedef struct xqc_log_callbacks_s          xqc_log_callbacks_t;
 typedef struct xqc_transport_callbacks_s    xqc_transport_callbacks_t;
-typedef struct xqc_h3_conn_callbacks_s      xqc_h3_conn_callbacks_t;
 typedef struct xqc_random_generator_s       xqc_random_generator_t;
 typedef struct xqc_client_connection_s      xqc_client_connection_t;
 typedef struct xqc_id_hash_table_s          xqc_id_hash_table_t;
@@ -81,18 +80,12 @@ typedef struct xqc_packet_s                 xqc_packet_t;
 typedef struct xqc_packet_in_s              xqc_packet_in_t;
 typedef struct xqc_packet_out_s             xqc_packet_out_t;
 typedef struct xqc_stream_frame_s           xqc_stream_frame_t;
-typedef struct xqc_h3_request_s             xqc_h3_request_t;
-typedef struct xqc_h3_conn_s                xqc_h3_conn_t;
-typedef struct xqc_h3_stream_s              xqc_h3_stream_t;
-typedef struct xqc_h3_frame_s               xqc_h3_frame_t;
-typedef struct xqc_qpack_s                  xqc_qpack_t;
 typedef struct xqc_dtable_s                 xqc_dtable_t;
 typedef struct xqc_sample_s                 xqc_sample_t;
 typedef struct xqc_memory_pool_s            xqc_memory_pool_t;
 typedef struct xqc_bbr_info_interface_s     xqc_bbr_info_interface_t;
 typedef struct xqc_path_ctx_s               xqc_path_ctx_t;
 typedef struct xqc_timer_manager_s          xqc_timer_manager_t;
-typedef struct xqc_h3_ext_bytestream_s      xqc_h3_ext_bytestream_t;
 typedef struct xqc_ping_record_s            xqc_ping_record_t;
 typedef struct xqc_conn_qos_stats_s         xqc_conn_qos_stats_t;
 
@@ -199,7 +192,7 @@ typedef enum {
 } xqc_stream_direction_t;
 
 /**
- * @brief FEC priority settings decided by h3 requests size
+ * @brief FEC priority settings decided by requests size
  */
 typedef enum {
     XQC_FEC_DEFAULT         = 0,
@@ -218,23 +211,6 @@ typedef enum {
     XQC_MIDDLE_SIZE_REQ,
     XQC_LARGE_SIZE_REQ
 } xqc_stream_size_type_t;
-
-#define XQC_DEFAULT_HTTP_PRIORITY_URGENCY 3
-#define XQC_HIGHEST_HTTP_PRIORITY_URGENCY 0
-#define XQC_LOWEST_HTTP_PRIORITY_URGENCY  7
-
-typedef struct xqc_http_priority_s {
-    uint8_t                 urgency;
-    uint8_t                 incremental;
-    uint8_t                 schedule;
-    uint8_t                 reinject;
-    uint32_t                fec;
-} xqc_h3_priority_t;
-
-/* ALPN definition */
-#define XQC_DEFINED_ALPN_H3      "h3"
-#define XQC_DEFINED_ALPN_H3_29   "h3-29"
-#define XQC_DEFINED_ALPN_H3_EXT  "h3-ext"
 
 /* max alpn buffer length */
 #define XQC_MAX_ALPN_BUF_LEN    256
@@ -332,5 +308,21 @@ typedef enum {
     /* max */
     XQC_APP_PATH_STATUS_MAX,
 } xqc_app_path_status_t;
+
+#define XQC_STREAM_INFO_LEN 128
+
+/**
+ * @brief request statistics structure
+ */
+typedef struct xqc_request_stats_s {
+    size_t      send_body_size;
+    size_t      recv_body_size;
+
+    /** QUIC layer error code, 0 for no error */
+    int         stream_err;
+
+    char        stream_info[XQC_STREAM_INFO_LEN];
+    char        extern_stream_info[XQC_STREAM_INFO_LEN];
+} xqc_request_stats_t;
 
 #endif /*_XQUIC_TYPEDEF_H_INCLUDED_*/

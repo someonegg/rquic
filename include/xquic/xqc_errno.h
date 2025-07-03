@@ -39,36 +39,12 @@ typedef enum {
 
 #define TRA_CRYPTO_ERROR_BASE   0x100
 
-/**
- * @brief QUIC Http/3 Protocol error codes
- */
 typedef enum {
-    H3_NO_ERROR                     = 0x100,
-    H3_GENERAL_PROTOCOL_ERROR       = 0x101,
-    H3_INTERNAL_ERROR               = 0x102,
-    H3_STREAM_CREATION_ERROR        = 0x103,
-    H3_CLOSED_CRITICAL_STREAM       = 0x104,
-    H3_FRAME_UNEXPECTED             = 0x105,
-    H3_FRAME_ERROR                  = 0x106,
-    H3_EXCESSIVE_LOAD               = 0x107,
-    H3_ID_ERROR                     = 0x108,
-    H3_SETTINGS_ERROR               = 0x109,
-    H3_MISSING_SETTINGS             = 0x10A,
-    H3_REQUEST_REJECTED             = 0x10B,
-    H3_REQUEST_CANCELLED            = 0x10C,
-    H3_REQUEST_INCOMPLETE           = 0x10D,
-    H3_CONNECT_ERROR                = 0x10F,
-    H3_VERSION_FALLBACK             = 0x110,
-} xqc_h3_err_code_t;
-
-/**
- * @brief QPACK protocol error codes
- */
-typedef enum {
-    QPACK_DECOMPRESSION_FAILED = 0x200,
-    QPACK_ENCODER_STREAM_ERROR = 0x201,
-    QPACK_DECODER_STREAM_ERROR = 0x202,
-} xqc_qpack_err_code_t;
+    REQUEST_NO_ERROR             = 0x100,
+    REQUEST_REJECTED             = 0x10B,
+    REQUEST_CANCELLED            = 0x10C,
+    REQUEST_INCOMPLETE           = 0x10D,
+} xqc_request_err_code_t;
 
 
 #define XQC_OK      0
@@ -211,78 +187,6 @@ typedef enum {
 
 #define TLS_ERR_START 700
 static const int TLS_ERR_CNT = XQC_TLS_ERR_MAX - TLS_ERR_START;
-
-
-/**
- * @brief xquic HTTP3/QPACK application error codes: 8xx 
- */
-typedef enum {
-    XQC_H3_EMALLOC                      = 800,  /**< malloc failure */
-    XQC_H3_ECREATE_STREAM               = 801,  /**< fail to create a stream */
-    XQC_H3_ECREATE_REQUEST              = 802,  /**< fail to create a request */
-    XQC_H3_EGOAWAY_RECVD                = 803,  /**< GOAWAY received, operation denied */
-    XQC_H3_ECREATE_CONN                 = 804,  /**< fail to create a connection */
-    XQC_H3_EQPACK_ENCODE                = 805,  /**< QPACK - encode error */
-    XQC_H3_EQPACK_DECODE                = 806,  /**< QPACK - decode error */
-    XQC_H3_EPRI_TREE                    = 807,  /**< priority tree error */
-    XQC_H3_EPROC_CONTROL                = 808,  /**< fail to process control stream */
-    XQC_H3_EPROC_REQUEST                = 809,  /**< fail to process request stream */
-    XQC_H3_EPROC_PUSH                   = 810,  /**< fail to process push stream */
-    XQC_H3_EPARAM                       = 811,  /**< wrong parameters */
-    XQC_H3_BUFFER_EXCEED                = 812,  /**< http send buffer exceeds the maximum */
-    XQC_H3_DECODE_ERROR                 = 813,  /**< decode error */
-    XQC_H3_INVALID_STREAM               = 814,  /**< invalid stream, such as multiple control streams, etc. */
-    XQC_H3_CLOSE_CRITICAL_STREAM        = 815,  /**< illegal closure of control stream and qpack encoder/decoder stream */
-    XQC_H3_STATE_ERROR                  = 816,  /**< http3 decoding status error */
-    XQC_H3_CONTROL_ERROR                = 817,  /**< control stream error, such as setting not send first or send twice */
-    XQC_H3_CONTROL_DECODE_ERROR         = 818,  /**< control stream decode error, such as encountering an unrecognized frame type */
-    XQC_H3_CONTROL_DECODE_INVALID       = 819,  /**< control stream decode invalid, eg. illegal remaining length */
-    XQC_H3_PRIORITY_ERROR               = 820,  /**< priority error */
-    XQC_H3_INVALID_FRAME_TYPE           = 821,  /**< invalid frame type */
-    XQC_H3_UNSUPPORT_FRAME_TYPE         = 822,  /**< unsupported frame type */
-    XQC_H3_INVALID_HEADER               = 823,  /**< invalid header field, such as the length exceeds the limit, etc. */
-    XQC_H3_SETTING_ERROR                = 824,  /**< SETTING error */
-    XQC_H3_BLOCKED_STREAM_EXCEED        = 825,  /**< blocked_stream exceed limit */
-    XQC_H3_STREAM_RECV_ERROR            = 826,  /**< call xqc_stream_recv error */
-    XQC_H3_INVALID_PRIORITY             = 827,  /**< invalid http priority params or values */
-    XQC_H3_INVALID_BIDI_STREAM_TYPE     = 828,  /**< invalid bidi stream type */
-    XQC_H3_ECREATE_BYTESTREAM           = 829,  /**< fail to create a bytestream */
-    XQC_H3_EPROC_BYTESTREAM             = 830,  /**< fail to process bytestream */
-    XQC_H3_BYTESTREAM_FIN_SENT          = 831,  /**< try to send data on a bytestream that already sent FIN */
-    XQC_H3_BYTESTREAM_MSG_BUF_EXIST     = 832,  /**< try to create a msg buf while it already exists */
-
-    XQC_H3_ERR_MAX,
-} xqc_h3_error_t;
-
-#define H3_ERR_START 800
-static const int H3_ERR_CNT = XQC_H3_ERR_MAX - H3_ERR_START;
-
-/**
- * @brief xquic QPACK application error codes: 9xx
- */
-typedef enum {
-    XQC_QPACK_DECODER_VARINT_ERROR      = 900,  /**< qpack decode variable-length integer error */
-    XQC_QPACK_ENCODER_ERROR             = 901,  /**< qpack encode error */
-    XQC_QPACK_DECODER_ERROR             = 902,  /**< qpack decode error */
-    XQC_QPACK_DYNAMIC_TABLE_ERROR       = 903,  /**< qpack dynamic table error */
-    XQC_QPACK_STATIC_TABLE_ERROR        = 904,  /**< qpack static table error */
-    XQC_QPACK_SET_DTABLE_CAP_ERROR      = 905,  /**< set dynamic table capacity error */
-    XQC_QPACK_SEND_ERROR                = 906,  /**< send data error or control message error */
-    XQC_QPACK_SAVE_HEADERS_ERROR        = 907,  /**< failed to save name-value to header structure */
-    XQC_QPACK_UNKNOWN_INSTRUCTION       = 908,  /**< unknown encoder/decoder instruction */
-    XQC_QPACK_INSTRUCTION_ERROR         = 909,  /**< error instruction */
-    XQC_QPACK_DYNAMIC_TABLE_REFERRED    = 910,  /**< dynamic table entry is still referred */
-    XQC_QPACK_DYNAMIC_TABLE_VOID_ENTRY  = 911,  /**< entry inexists in dynamic table */
-    XQC_QPACK_STATE_ERROR               = 912,  /**< state is error */
-    XQC_QPACK_DYNAMIC_TABLE_NOT_ENOUGH  = 913,  /**< dynamic table not enough */
-    XQC_QPACK_HUFFMAN_DEC_ERROR         = 914,  /**< huffman decode error */
-    XQC_QPACK_HUFFMAN_DEC_STATE_ERROR   = 915,  /**< huffman decode state error */
-
-    XQC_QPACK_ERR_MAX,
-} xqc_qpack_error_t;
-
-#define QPACK_ERR_START 900
-static const int QPACK_ERR_CNT = XQC_QPACK_ERR_MAX - QPACK_ERR_START;
 
 
 #endif /* _XQC_ERRNO_H_INCLUDED_ */

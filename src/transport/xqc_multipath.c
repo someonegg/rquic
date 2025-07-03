@@ -25,8 +25,6 @@
 
 #include "xquic/xqc_errno.h"
 
-#include "src/http3/xqc_h3_conn.h" /* TODO:delete me */
-
 #include <math.h>
 
 void
@@ -666,76 +664,6 @@ xqc_conn_path_metrics_print(xqc_connection_t *conn, xqc_conn_stats_t *stats)
     }
 }
 
-
-
-void
-xqc_request_path_metrics_print(xqc_connection_t *conn, xqc_h3_stream_t *h3_stream, xqc_request_stats_t *stats)
-{
-    stats->mp_default_path_send_weight = 1.0;
-    stats->mp_default_path_recv_weight = 1.0;
-
-    stats->mp_standby_path_send_weight = 0.0;
-    stats->mp_standby_path_recv_weight = 0.0;
-
-    int available_path_cnt = 0, standby_path_cnt = 0;
-
-    uint64_t aggregate_send_bytes = 0, aggregate_recv_bytes = 0;
-    uint64_t standby_path_send_bytes = 0, standby_path_recv_bytes = 0;
-
-    xqc_list_head_t *pos, *next;
-    xqc_path_ctx_t  *path;
-    xqc_list_for_each_safe(pos, next, &conn->conn_paths_list) {
-        path = xqc_list_entry(pos, xqc_path_ctx_t, path_list);
-
-        if (path->path_id < XQC_MAX_PATHS_COUNT
-            && path->path_id == h3_stream->paths_info[path->path_id].path_id)
-        {
-            uint64_t send_bytes = h3_stream->paths_info[path->path_id].path_send_bytes;
-            uint64_t recv_bytes = h3_stream->paths_info[path->path_id].path_recv_bytes;
-
-            h3_stream->paths_info[path->path_id].path_srtt = path->path_send_ctl->ctl_srtt;
-            h3_stream->paths_info[path->path_id].path_app_status = path->app_path_status;
-
-            if (send_bytes > 0 || recv_bytes > 0) {
-                aggregate_send_bytes += send_bytes;
-                aggregate_recv_bytes += recv_bytes;
-
-                if (path->app_path_status == XQC_APP_PATH_STATUS_STANDBY) {
-                    standby_path_cnt++;
-                    standby_path_send_bytes += send_bytes;
-                    standby_path_recv_bytes += recv_bytes;
-                } else {
-                    available_path_cnt++;
-                }
-            }
-        }
-    }
-
-    if (conn->enable_multipath && conn->active_path_count >= 2) {
-        if ((available_path_cnt > 0) && (standby_path_cnt > 0)) {
-            stats->mp_state = 1;
-
-        } else if ((available_path_cnt == 0) && (standby_path_cnt > 0)) {
-            stats->mp_state = 2;
-
-        } else if ((available_path_cnt > 0) && (standby_path_cnt == 0)) {
-            stats->mp_state = 3;
-        }
-
-    } else {
-        stats->mp_state = 0;
-    }
-
-    if (aggregate_send_bytes != 0) {
-        stats->mp_standby_path_send_weight = (float)(standby_path_send_bytes) / aggregate_send_bytes;
-        stats->mp_default_path_send_weight = 1.0 - stats->mp_standby_path_send_weight;
-    }
-
-    if (aggregate_recv_bytes != 0) {
-        stats->mp_standby_path_recv_weight = (float)(standby_path_recv_bytes) / aggregate_recv_bytes;
-        stats->mp_default_path_recv_weight = 1.0 - stats->mp_standby_path_recv_weight;
-    }
-}
 
 void
 xqc_stream_path_metrics_print(xqc_connection_t *conn, xqc_stream_t *stream, char *buff, size_t buff_size)

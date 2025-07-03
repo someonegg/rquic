@@ -1043,9 +1043,6 @@ XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_minrtt_sched
 XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_backup_scheduler_cb;
 XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_backup_fec_scheduler_cb;
 XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_rap_scheduler_cb;
-#ifdef XQC_ENABLE_MP_INTEROP
-XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_interop_scheduler_cb;
-#endif
 
 typedef enum {
     XQC_REINJ_UNACK_AFTER_SCHED   = 1 << 0,
@@ -1150,12 +1147,6 @@ typedef struct xqc_config_s {
      * engine. if write_mmsg is NULL and sendmmsg_on is non-zero, xqc_engine_create will fail
      */
     int             sendmmsg_on;
-
-    /**
-     * @brief enable h3 ext (default: 0)
-     * 
-     */
-    uint8_t         enable_h3_ext;
 
     /**
      * @brief manually call mainlogic after stream/request send      
@@ -1633,7 +1624,7 @@ void xqc_engine_destroy(xqc_engine_t *engine);
  * and request
  *
  * @param engine engine handler
- * @param alpn Application-Layer-Protocol, for example, h3, hq-interop, or self-defined
+ * @param alpn Application-Layer-Protocol, for example, hq-interop, or self-defined
  * @param alpn_len length of Application-Layer-Protocol string
  * @param ap_cbs connection and stream event callback functions for application-layer-protocol
  * @param alp_ctx the context of the upper layer protocol (e.g. the callback functions and default settings of the upper layer protocol)
@@ -1648,7 +1639,7 @@ xqc_int_t xqc_engine_register_alpn(xqc_engine_t *engine, const char *alpn, size_
  * @brief unregister an alpn and its quic connection callbacks
  *
  * @param engine engine handler
- * @param alpn Application-Layer-Protocol, for example, h3, hq-interop, or self-defined
+ * @param alpn Application-Layer-Protocol, for example, hq-interop, or self-defined
  * @param alpn_len length of alpn
  * @return XQC_EXPORT_PUBLIC_API
  */
@@ -1659,7 +1650,7 @@ xqc_int_t xqc_engine_unregister_alpn(xqc_engine_t *engine, const char *alpn, siz
  * @brief get the context an application layer protocol
  * 
  * @param engine engine handler
- * @param alpn Application-Layer-Protocol, for example, h3, hq-interop, or self-defined
+ * @param alpn Application-Layer-Protocol, for example, hq-interop, or self-defined
  * @param alpn_len length of alpn
  * @return the context
  */
@@ -1774,7 +1765,7 @@ xqc_connection_t *xqc_engine_get_conn_by_scid(xqc_engine_t *engine,
  *  QUIC layer APIs
  *************************************************************/
 /**
- * Client connect without http3
+ * Client connect
  * @param engine return from xqc_engine_create
  * @param conn_settings settings of connection
  * @param token token receive from server, xqc_save_token_pt callback
@@ -2070,7 +2061,7 @@ xqc_int_t xqc_cid_is_equal(const xqc_cid_t *dst, const xqc_cid_t *src);
 
 /**
  * Get scid in hex, end with '\0'
- * @param scid is returned from xqc_connect or xqc_h3_connect
+ * @param scid is returned from xqc_connect
  * @return user should copy return buffer to your own memory if you will access in the future
  */
 XQC_EXPORT_PUBLIC_API

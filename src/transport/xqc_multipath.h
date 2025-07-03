@@ -8,7 +8,6 @@
 
 #include <xquic/xquic_typedef.h>
 #include <xquic/xquic.h>
-#include <xquic/xqc_http3.h>
 #include "src/transport/xqc_cid.h"
 #include "src/common/xqc_common.h"
 #include "src/transport/xqc_packet.h"
@@ -236,7 +235,6 @@ xqc_int_t xqc_set_application_path_status(xqc_path_ctx_t *path, xqc_app_path_sta
 
 /* path statistics */
 void xqc_conn_path_metrics_print(xqc_connection_t *conn, xqc_conn_stats_t *stats);
-void xqc_request_path_metrics_print(xqc_connection_t *conn, xqc_h3_stream_t *h3_stream, xqc_request_stats_t *stats);
 
 void xqc_stream_path_metrics_print(xqc_connection_t *conn, xqc_stream_t *stream, char *buff, size_t buff_size);
 void xqc_stream_path_metrics_on_send(xqc_connection_t *conn, xqc_packet_out_t *po);

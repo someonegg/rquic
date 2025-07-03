@@ -1,6 +1,8 @@
-build/
-bss/
-*.swp
-third_party/
+.gradle/
+.vscode/
 .idea/
-cmake-build-debug/
+.DS_Store
+.cache/
+.coverage/
+
+/build/

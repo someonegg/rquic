@@ -13,15 +13,14 @@
 #include <inttypes.h>
 #include <xquic/xquic_typedef.h>
 #include <xquic/xquic.h>
-#include <xquic/xqc_http3.h>
 #include <ctype.h>
-#include "../tests/platform.h"
+#include "platform.h"
 
 #ifndef XQC_SYS_WINDOWS
 #include <unistd.h>
 #include <sys/wait.h>
 #else
-#include "../tests/getopt.h"
+#include "getopt.h"
 #pragma comment(lib,"ws2_32.lib")
 #pragma comment(lib,"event.lib")
 #pragma comment(lib, "Iphlpapi.lib")
@@ -218,10 +217,8 @@ typedef struct xqc_demo_svr_resource_s {
 
 
 #define REQ_BUF_SIZE        2048
-#define REQ_H3_BODY_SIZE    1024 * 1024
 typedef struct xqc_demo_svr_user_stream_s {
     xqc_hq_request_t           *hq_request;
-    xqc_h3_request_t           *h3_request;
 
     // uint64_t            send_offset;
     int                         header_sent;
@@ -664,349 +661,6 @@ xqc_demo_svr_hq_req_write_notify(xqc_hq_request_t *hqr, void *req_user_data)
 
     return 0;
 }
-
-
-
-/******************************************************************************
- *                     start of http/3 callback functions                     *
- ******************************************************************************/
-
-int
-xqc_demo_svr_h3_conn_create_notify(xqc_h3_conn_t *h3_conn, const xqc_cid_t *cid,
-    void *conn_user_data)
-{
-    DEBUG;
-    xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t*)conn_user_data;
-
-    xqc_demo_svr_user_conn_t *user_conn = calloc(1, sizeof(xqc_demo_svr_user_conn_t));
-    user_conn->ctx = &svr_ctx;
-    xqc_h3_conn_set_user_data(h3_conn, user_conn);
-
-/*
-    printf("xqc_demo_svr_h3_conn_create_notify, user_conn: %p, h3_conn: %p, ctx: %p\n", user_conn,
-        h3_conn, ctx);
-*/
-    xqc_h3_conn_get_peer_addr(h3_conn, (struct sockaddr *)&user_conn->peer_addr,
-                              sizeof(user_conn->peer_addr), &user_conn->peer_addrlen);
-
-    memcpy(&user_conn->cid, cid, sizeof(*cid));
-    return 0;
-}
-
-
-int
-xqc_demo_svr_h3_conn_close_notify(xqc_h3_conn_t *h3_conn, const xqc_cid_t *cid,
-    void *conn_user_data)
-{
-    DEBUG;
-    xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t*)conn_user_data;
-    xqc_conn_stats_t stats = xqc_conn_get_stats(user_conn->ctx->engine, cid);
-    printf("send_count:%u, lost_count:%u, tlp_count:%u, recv_count:%u, srtt:%"PRIu64" "
-            "early_data_flag:%d, conn_err:%d, ack_info:%s, path_info:%s\n", stats.send_count,
-            stats.lost_count, stats.tlp_count, stats.recv_count, stats.srtt,
-            stats.early_data_flag, stats.conn_err, stats.ack_info, stats.conn_info);
-
-    free(user_conn);
-    user_conn = NULL;
-    return 0;
-}
-
-
-void 
-xqc_demo_svr_h3_conn_handshake_finished(xqc_h3_conn_t *h3_conn, void *conn_user_data)
-{
-    DEBUG;
-    xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
-    xqc_conn_stats_t stats = xqc_conn_get_stats(user_conn->ctx->engine, &user_conn->cid);
-}
-
-
-int
-xqc_demo_svr_h3_request_create_notify(xqc_h3_request_t *h3_request, void *strm_user_data)
-{
-    DEBUG;
-/*
-    printf("xqc_demo_svr_h3_request_create_notify, h3_request: %p, strm_user_data: %p\n",
-        h3_request, strm_user_data);
-*/
-    xqc_demo_svr_user_stream_t *user_stream = calloc(1, sizeof(*user_stream));
-    user_stream->h3_request = h3_request;
-
-    // user_stream->conn = (xqc_demo_svr_user_conn_t*)strm_user_data;
-
-    xqc_h3_request_set_user_data(h3_request, user_stream);
-    user_stream->recv_buf = calloc(1, REQ_BUF_SIZE);
-
-    return 0;
-}
-
-
-int
-xqc_demo_svr_h3_request_close_notify(xqc_h3_request_t *h3_request, void *strm_user_data)
-{
-    DEBUG;
-    xqc_request_stats_t stats = xqc_h3_request_get_stats(h3_request);
-    printf("cwnd_blocked:%"PRIu64"\n", stats.cwnd_blocked_ms);
-
-    xqc_demo_svr_user_stream_t *user_stream = (xqc_demo_svr_user_stream_t*)strm_user_data;
-    xqc_demo_svr_close_user_stream_resource(user_stream);
-    free(user_stream);
-
-    return 0;
-}
-
-
-void
-xqc_demo_svr_set_rsp_header_value_str(xqc_http_headers_t *rsp_hdrs, H3_HDR_TYPE hdr_type, char *v)
-{
-    rsp_hdrs->headers[hdr_type].value.iov_base = v;
-    rsp_hdrs->headers[hdr_type].value.iov_len = strlen(v);
-}
-
-
-void
-xqc_demo_svr_set_rsp_header_value_int(xqc_http_headers_t *rsp_hdrs, H3_HDR_TYPE hdr_type, int v)
-{
-    sprintf(rsp_hdrs->headers[hdr_type].value.iov_base, "%d", v);
-    rsp_hdrs->headers[hdr_type].value.iov_len = strlen(
-        (char *)rsp_hdrs->headers[hdr_type].value.iov_base);
-}
-
-
-int
-xqc_demo_svr_request_send_body(xqc_demo_svr_user_stream_t *user_stream, char *data, ssize_t len,
-    int fin)
-{
-    ssize_t ret = xqc_h3_request_send_body(user_stream->h3_request, data, len, fin);
-    if (ret == -XQC_EAGAIN) {
-        ret = 0;
-    }
-    return ret;
-}
-
-
-int
-xqc_demo_svr_send_body(xqc_demo_svr_user_stream_t *user_stream)
-{
-    int ret = 0;
-    xqc_demo_svr_resource_t *res = &user_stream->res;
-    while (res->total_offset < res->total_len) {    /* still have bytes to be sent */
-        char *send_buf = NULL;  /* the buf need to be sent */
-        int send_len = 0;       /* len of the the buf gonna be sent */
-        if (res->buf_offset < res->buf_len) {
-            /* prev buf not sent completely, continue send from last offset */
-            send_buf = res->buf + res->buf_offset;
-            send_len = res->buf_len - res->buf_offset;
-
-        } else {
-            /* prev buf sent, read new buf and send */
-            res->buf_offset = 0;
-            if (!svr_ctx.args->quic_cfg.dummy_mode) {
-                res->buf_len = fread(res->buf, 1, res->buf_size, res->fp);
-                if (res->buf_len <= 0) {
-                    return -1;
-                }
-
-            } else {
-                res->buf_len = res->total_len - res->total_offset;
-                res->buf_len = res->buf_len > res->buf_size ? res->buf_size : res->buf_len;
-                memset(res->buf, 'D', res->buf_len);
-            }
-
-            send_buf = res->buf;
-            send_len = res->buf_len;
-        }
-
-        /* send buf */
-        int fin = send_len + res->total_offset == res->total_len ? 1 : 0;
-        ret = xqc_demo_svr_request_send_body(user_stream, send_buf, send_len, fin);
-
-        if (ret > 0) {
-            res->buf_offset += ret;
-            res->total_offset += ret;
-
-        } else if (ret == 0) {
-            break;
-
-        } else {
-            printf("send file data failed!!: ret: %d\n", ret);
-            return -1;
-        }
-    }
-
-    return res->total_offset == res->total_len;
-}
-
-
-int
-xqc_demo_svr_handle_h3_request(xqc_demo_svr_user_stream_t *user_stream,
-    xqc_http_headers_t *req_hdrs)
-{
-    DEBUG;
-    ssize_t ret = 0;
-
-    /* response header buf list */
-    char rsp_hdr_buf[H3_HDR_CNT][RSP_HDR_BUF_LEN];
-    xqc_http_header_t rsp_hdr[] = {
-        {
-            .name = {.iov_base = ":status", .iov_len = 7},
-            .value = {.iov_base = rsp_hdr_buf[H3_HDR_STATUS], .iov_len = 0},
-            .flags = 0,
-        },
-        {
-            .name = {.iov_base = "content-type", .iov_len = 12},
-            .value = {.iov_base = "text/plain", .iov_len = 10},
-            .flags = 0,
-        },
-        {
-            .name = {.iov_base = "content-length", .iov_len = 14},
-            .value = {.iov_base = rsp_hdr_buf[H3_HDR_CONTENT_LENGTH], .iov_len = 0},
-            .flags = 0,
-        }
-    };
-    /* response header */
-    xqc_http_headers_t rsp_hdrs;
-    rsp_hdrs.headers = rsp_hdr;
-    rsp_hdrs.count = sizeof(rsp_hdr) / sizeof(rsp_hdr[0]);
-
-    if (!svr_ctx.args->quic_cfg.dummy_mode) {
-        /* format file path */
-        char file_path[PATH_LEN] = {0};
-        snprintf(file_path, sizeof(file_path), "%s%s", 
-                svr_ctx.args->env_cfg.source_file_dir, user_stream->recv_buf);
-        user_stream->res.fp = fopen(file_path, "rb");
-        if (NULL == user_stream->res.fp) {
-            printf("error open file [%s]\n", file_path);
-            xqc_demo_svr_set_rsp_header_value_int(&rsp_hdrs, H3_HDR_STATUS, 404);
-            goto h3_handle_error;
-        }
-        /* get total len */
-        fseek(user_stream->res.fp, 0, SEEK_END);
-#ifdef XQC_SYS_WINDOWS
-        user_stream->res.total_len = ftell(user_stream->res.fp);
-#else
-        user_stream->res.total_len = ftello(user_stream->res.fp);
-#endif
-        fseek(user_stream->res.fp, 0, SEEK_SET);
-
-    } else {
-        user_stream->res.total_len = atoi(user_stream->recv_buf + 1);
-        if (user_stream->res.total_len == 0) {
-            user_stream->res.total_len = 1;
-        }
-    }
-
-    /* create buf */
-    user_stream->res.buf = (char *)malloc(READ_FILE_BUF_LEN);
-    if (NULL == user_stream->res.buf) {
-        printf("error create response buf\n");
-        xqc_demo_svr_set_rsp_header_value_int(&rsp_hdrs, H3_HDR_STATUS, 500);
-        goto h3_handle_error;
-    }
-    user_stream->res.buf_size = READ_FILE_BUF_LEN;
-
-
-    xqc_demo_svr_set_rsp_header_value_int(&rsp_hdrs, H3_HDR_CONTENT_LENGTH,
-        user_stream->res.total_len);
-    xqc_demo_svr_set_rsp_header_value_int(&rsp_hdrs, H3_HDR_STATUS, 200);
-
-    /* send header first */
-    if (user_stream->header_sent == 0) {
-        ret = xqc_h3_request_send_headers(user_stream->h3_request, &rsp_hdrs, 0);
-        if (ret < 0) {
-            printf("xqc_h3_request_send_headers error %zd\n", ret);
-            return ret;
-        } else {
-            printf("xqc_h3_request_send_headers success size=%zd\n", ret);
-            user_stream->header_sent = 1;
-        }
-    }
-
-    /* begin to send file */
-    ret = xqc_demo_svr_send_body(user_stream);
-    if (ret == 0) {
-        return 0;
-    }
-
-h3_handle_error:
-    xqc_demo_svr_close_user_stream_resource(user_stream);
-    return -1;
-}
-
-
-int
-xqc_demo_svr_h3_request_read_notify(xqc_h3_request_t *h3_request, xqc_request_notify_flag_t flag,
-    void *strm_user_data)
-{
-    DEBUG;
-    int ret;
-    unsigned char fin = 0;
-    xqc_demo_svr_user_stream_t *user_stream = (xqc_demo_svr_user_stream_t *)strm_user_data;
-
-    /* recv headers */
-    xqc_http_headers_t *headers = NULL;
-    if (flag & XQC_REQ_NOTIFY_READ_HEADER) {
-        headers = xqc_h3_request_recv_headers(h3_request, &fin);
-        if (headers == NULL) {
-            printf("xqc_h3_request_recv_headers error\n");
-            return -1;
-        }
-
-        /* print headers */
-        for (int i = 0; i < headers->count; i++) {
-            /* save path */
-            if (strcmp((char *)headers->headers[i].name.iov_base, ":path") == 0) {
-                strncpy(user_stream->recv_buf, (char *)headers->headers[i].value.iov_base,
-                    headers->headers[i].value.iov_len);
-            }
-            printf("%s = %s\n", (char *)headers->headers[i].name.iov_base,
-                (char *)headers->headers[i].value.iov_base);
-        }
-
-        /* TODO: if recv headers once for all? */
-        user_stream->header_recvd = 1;
-
-    } else if (flag & XQC_REQ_NOTIFY_READ_BODY) {   /* recv body */
-        char buff[4096] = {0};
-        size_t buff_size = 4096;
-        ssize_t read = 0;
-        ssize_t read_sum = 0;
-        do {
-            read = xqc_h3_request_recv_body(h3_request, buff, buff_size, &fin);
-            if (read == -XQC_EAGAIN) {
-                break;
-
-            } else if (read < 0) {
-                printf("xqc_h3_request_recv_body error %zd\n", read);
-                return 0;
-            }
-
-            read_sum += read;
-            user_stream->recv_body_len += read;
-        } while (read > 0 && !fin);
-
-        printf("xqc_h3_request_recv_body read:%zd, offset:%zu, fin:%d\n", read_sum,
-            user_stream->recv_body_len, fin);
-    }
-
-    if (fin) {
-        xqc_demo_svr_handle_h3_request(user_stream, headers);
-    }
-
-    return 0;
-}
-
-
-int
-xqc_demo_svr_h3_request_write_notify(xqc_h3_request_t *h3_request, void *strm_user_data)
-{
-    DEBUG;
-    xqc_demo_svr_user_stream_t *user_stream = (xqc_demo_svr_user_stream_t *)strm_user_data;
-    int ret = xqc_demo_svr_send_body(user_stream);
-
-    return ret;
-}
-
 
 /******************************************************************************
  *                     start of socket operation function                     *
@@ -1499,10 +1153,6 @@ xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
     } if (strncmp(args->quic_cfg.mp_sched, "backup", strlen("backup")) == 0) {
         sched = xqc_backup_scheduler_cb;
 
-    } else {
-#ifdef XQC_ENABLE_MP_INTEROP
-        sched = xqc_interop_scheduler_cb;
-#endif
     }
 
     /* init connection settings */
@@ -1556,27 +1206,6 @@ xqc_demo_svr_init_alpn_ctx(xqc_demo_svr_ctx_t *ctx)
     ret = xqc_hq_ctx_init(ctx->engine, &hq_cbs);
     if (ret != XQC_OK) {
         printf("init hq context error, ret: %d\n", ret);
-        return ret;
-    }
-
-    xqc_h3_callbacks_t h3_cbs = {
-        .h3c_cbs = {
-            .h3_conn_create_notify = xqc_demo_svr_h3_conn_create_notify,
-            .h3_conn_close_notify = xqc_demo_svr_h3_conn_close_notify,
-            .h3_conn_handshake_finished = xqc_demo_svr_h3_conn_handshake_finished,
-        },
-        .h3r_cbs = {
-            .h3_request_create_notify = xqc_demo_svr_h3_request_create_notify,
-            .h3_request_close_notify = xqc_demo_svr_h3_request_close_notify,
-            .h3_request_read_notify = xqc_demo_svr_h3_request_read_notify,
-            .h3_request_write_notify = xqc_demo_svr_h3_request_write_notify,
-        }
-    };
-
-    /* init http3 context */
-    ret = xqc_h3_ctx_init(ctx->engine, &h3_cbs);
-    if (ret != XQC_OK) {
-        printf("init h3 context error, ret: %d\n", ret);
         return ret;
     }
 

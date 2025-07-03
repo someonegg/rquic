@@ -495,8 +495,6 @@ struct xqc_connection_s {
     uint32_t                        conn_video_frames;
 };
 
-extern const xqc_h3_conn_settings_t default_local_h3_conn_settings;
-
 const char *xqc_conn_flag_2_str(xqc_connection_t *conn, xqc_conn_flag_t conn_flag);
 const char *xqc_conn_state_2_str(xqc_conn_state_t state);
 void xqc_conn_init_flow_ctl(xqc_connection_t *conn);

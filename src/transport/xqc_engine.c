@@ -21,14 +21,11 @@
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_timer.h"
 #include "src/transport/xqc_datagram.h"
-#include "src/http3/xqc_h3_conn.h"
 #include "src/tls/xqc_tls.h"
 #include "src/transport/xqc_datagram.h"
 #include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_packet_out.h"
 
-
-extern const xqc_qpack_ins_cb_t xqc_h3_qpack_ins_cb;
 
 xqc_config_t default_client_config = {
     .cfg_log_level             = XQC_LOG_WARN,
@@ -49,7 +46,6 @@ xqc_config_t default_client_config = {
     .reset_token_key           = {0},
     .reset_token_keylen        = 0,
     .sendmmsg_on               = 0,
-    .enable_h3_ext             = 0,
     .manually_triggered_send   = 0,
 };
 
@@ -73,7 +69,6 @@ xqc_config_t default_server_config = {
     .reset_token_key           = {0},
     .reset_token_keylen        = 0,
     .sendmmsg_on               = 0,
-    .enable_h3_ext             = 0,
     .manually_triggered_send   = 0,
 };
 
@@ -140,7 +135,6 @@ xqc_set_config(xqc_config_t *dst, const xqc_config_t *src)
     dst->cfg_log_timestamp = src->cfg_log_timestamp;
     dst->cfg_log_level_name = src->cfg_log_level_name;
     dst->sendmmsg_on = src->sendmmsg_on;
-    dst->enable_h3_ext = src->enable_h3_ext;
 
     return XQC_OK;
 }
