@@ -1,4 +1,8 @@
-### hq demo client/server ###
+find_package(LibEvent)
+if(NOT LIBEVENT_FOUND)
+    message(FATAL_ERROR "libevent with required version not found")
+endif()
+
 set(
     HQ_SOURCES
     "xqc_hq_ctx.c"
@@ -20,6 +24,10 @@ set(
 
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
+    set(GETOPT_SOURCES
+        getopt.c
+    )
+
     set(DEMO_SERVER_SOURCES
         ${DEMO_SERVER_SOURCES}
         ${GETOPT_SOURCES}
@@ -38,6 +46,26 @@ include_directories(
     ${CUNIT_INCLUDE_DIRS}
     ${LIBEVENT_INCLUDE_DIR}
 )
+
+# link libraries
+if(CMAKE_SYSTEM_NAME MATCHES "Windows")
+    set(APP_DEPEND_LIBS
+        xquic
+        ${SSL_LIB_PATH}
+        ${LIBEVENT_LIBRARY}
+        -lm
+    )
+else()
+    set(APP_DEPEND_LIBS
+        xquic
+        ${SSL_LIB_PATH}
+        ${LIBEVENT_LIBRARY}
+        m
+        dl
+        stdc++
+        pthread
+    )
+endif()
 
 add_executable(demo_server ${DEMO_SERVER_SOURCES})
 add_executable(demo_client ${DEMO_CLIENT_SOURCES})

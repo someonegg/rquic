@@ -6,7 +6,6 @@
 
 #include <xquic/xquic.h>
 #include <xquic/xquic_typedef.h>
-#include <xquic/xqc_http3.h>
 #include <stdio.h>
 #include <memory.h>
 #include <errno.h>
@@ -19,7 +18,7 @@
 #include <event2/event.h>
 #include "common.h"
 #include "xqc_hq.h"
-#include "../tests/platform.h"
+#include "platform.h"
 
 #ifdef XQC_SYS_WINDOWS
 #pragma comment(lib,"ws2_32.lib")
@@ -27,7 +26,7 @@
 #pragma comment(lib, "Iphlpapi.lib")
 #pragma comment(lib, "Bcrypt.lib")
 #pragma comment(lib, "crypt32")
-#include "../tests/getopt.h"
+#include "getopt.h"
 #else
 #include <sys/socket.h>
 #include <sys/ioctl.h>
@@ -45,7 +44,6 @@
 
 typedef enum xqc_demo_cli_alpn_type_s {
     ALPN_HQ,
-    ALPN_H3,
 } xqc_demo_cli_alpn_type_t;
 
 
@@ -71,11 +69,6 @@ typedef struct xqc_demo_cli_user_stream_s {
     char                       *send_buf;
     size_t                      send_len;
     size_t                      send_offset;
-
-    /* h3 request content */
-    xqc_h3_request_t           *h3_request;
-    xqc_http_headers_t          h3_hdrs;
-    uint8_t                     hdr_sent;
 } xqc_demo_cli_user_stream_t;
 
 
@@ -260,7 +253,6 @@ typedef struct xqc_demo_cli_request_s {
     REQUEST_METHOD  method;
     char            auth[AUTHORITY_LEN];
     char            url[URL_LEN];               /* original url */
-    // char            headers[MAX_HEADER][256];   /* field line of h3 */
 } xqc_demo_cli_request_t;
 
 
@@ -536,12 +528,7 @@ xqc_demo_cli_on_stream_fin(xqc_demo_cli_user_stream_t *user_stream)
     {
         ctx->schedule.schedule_info[task_idx].fin_flag = 1;
         /* close xquic conn */
-        if (conn_ctx->args->quic_cfg.alpn_type == ALPN_H3) {
-            xqc_h3_conn_close(conn_ctx->engine, &user_conn->cid);
-
-        } else {
-            xqc_hq_conn_close(conn_ctx->engine, user_conn->hqc_handle, &user_conn->cid);
-        }
+        xqc_hq_conn_close(conn_ctx->engine, user_conn->hqc_handle, &user_conn->cid);
     }
     printf("task[%d], fin_cnt: %d, fin_flag: %d\n", task_idx, 
         ctx->schedule.schedule_info[task_idx].req_fin_cnt,
@@ -1156,200 +1143,6 @@ xqc_demo_cli_hq_req_close_notify(xqc_hq_request_t *hqr, void *req_user_data)
     return 0;
 }
 
-
-/******************************************************************************
- *                     start of http/3 callback functions                     *
- ******************************************************************************/
-
-ssize_t
-xqc_demo_cli_h3_request_send(xqc_demo_cli_user_stream_t *user_stream)
-{
-    ssize_t ret = 0;
-    if (!user_stream->hdr_sent)
-    {
-        if (user_stream->start_time == 0) {
-            user_stream->start_time = xqc_now();
-        }
-
-        ret = xqc_h3_request_send_headers(user_stream->h3_request, &user_stream->h3_hdrs, 1);
-        if (ret < 0) {
-            printf("xqc_demo_cli_h3_request_send error %zd\n", ret);
-        } else {
-            printf("xqc_demo_cli_h3_request_send success size=%zd\n", ret);
-            user_stream->hdr_sent = 1;
-        }
-    }
-
-    return ret;
-}
-
-int
-xqc_demo_cli_h3_request_write_notify(xqc_h3_request_t *h3_request, void *user_data)
-{
-    DEBUG;
-    ssize_t ret = 0;
-    xqc_demo_cli_user_stream_t *user_stream = (xqc_demo_cli_user_stream_t *) user_data;
-    // printf("xqc_demo_cli_h3_request_write_notify, h3_request: %p, user_stream: %p\n", h3_request, user_stream);
-    ret = xqc_demo_cli_h3_request_send(user_stream);
-
-    return 0;
-}
-
-
-int
-xqc_demo_cli_h3_request_read_notify(xqc_h3_request_t *h3_request, xqc_request_notify_flag_t flag,
-    void *user_data)
-{
-    DEBUG;
-    unsigned char fin = 0;
-    xqc_demo_cli_user_stream_t *user_stream = (xqc_demo_cli_user_stream_t *) user_data;
-    xqc_demo_cli_task_ctx_t *ctx = &user_stream->user_conn->ctx->task_ctx;
-    xqc_demo_cli_user_conn_t *user_conn = user_stream->user_conn;
-    uint32_t task_idx = user_conn->task->task_idx;
-
-    xqc_demo_path_status_trigger(user_conn);
-
-    // printf("xqc_demo_cli_h3_request_read_notify, h3_request: %p, user_stream: %p\n", h3_request, user_stream);
-    if (flag & XQC_REQ_NOTIFY_READ_HEADER) {
-        xqc_http_headers_t *headers;
-        headers = xqc_h3_request_recv_headers(h3_request, &fin);
-        if (headers == NULL) {
-            printf("xqc_h3_request_recv_headers error\n");
-            return -1;
-        }
-
-        for (int i = 0; i < headers->count; i++) {
-            printf("%s = %s\n", (char *)headers->headers[i].name.iov_base,
-                (char *)headers->headers[i].value.iov_base);
-        }
-
-        if (fin) {
-            /* only header in request */
-            user_stream->recv_fin = 1;
-            return 0;
-        }
-    }
-
-    /* continue to recv body */
-    if (flag & XQC_REQ_NOTIFY_READ_BODY) {
-
-        char buff[4096] = {0};
-        size_t buff_size = 4096;
-
-        ssize_t read = 0;
-        ssize_t read_sum = 0;
-        do {
-            read = xqc_h3_request_recv_body(h3_request, buff, buff_size, &fin);
-            if (read == -XQC_EAGAIN) {
-                break;
-
-            } else if (read < 0) {
-                printf("xqc_h3_request_recv_body error %zd\n", read);
-                return 0;
-            }
-
-            if (user_stream->recv_body_fp) {
-                if (fwrite(buff, 1, read, user_stream->recv_body_fp) != read) {
-                    printf("fwrite error\n");
-                    return -1;
-                }
-                fflush(user_stream->recv_body_fp);
-            }
-
-            read_sum += read;
-            user_stream->recv_body_len += read;
-        } while (read > 0 && !fin);
-
-        if (read > 0) {
-            printf("xqc_h3_request_recv_body size %zd, fin:%d\n", read, fin);
-        }
-    }
-
-    if (flag & XQC_REQ_NOTIFY_READ_EMPTY_FIN) {
-        printf("empty fin received!\n");
-        fin = 1;
-    }
-
-    if (fin) {
-        user_stream->recv_fin = 1;
-        xqc_request_stats_t stats;
-        stats = xqc_h3_request_get_stats(h3_request);
-        xqc_msec_t now_us = xqc_now();
-        printf("\033[33m>>>>>>>> request time cost:%"PRIu64" us, speed:%"PRIu64" K/s \n"
-               ">>>>>>>> send_body_size:%zu, recv_body_size:%zu \033[0m\n"
-               "stream_info:%s\n",
-               now_us - user_stream->start_time,
-               (stats.send_body_size + stats.recv_body_size) * 1000 / (now_us - user_stream->start_time),
-               stats.send_body_size, stats.recv_body_size, stats.stream_info);
-        
-        if (user_stream->recv_body_fp) {
-            fclose(user_stream->recv_body_fp);
-            user_stream->recv_body_fp = NULL;
-        }
-        // xqc_demo_cli_on_stream_fin(user_stream);
-        task_idx = user_stream->user_conn->task->task_idx;
-        if (ctx->schedule.schedule_info[task_idx].req_create_cnt
-            < ctx->tasks[task_idx].user_conn->task->req_cnt
-            && user_conn->ctx->args->req_cfg.serial)
-        {
-            if (user_conn->ctx->args->req_cfg.idle_gap) {
-
-                user_conn->ev_idle_restart = event_new(user_conn->ctx->eb, -1, 0, 
-                                                       xqc_demo_cli_delayed_idle_restart, 
-                                                       user_conn);
-                struct timeval tv = {
-                    .tv_sec = user_conn->ctx->args->req_cfg.idle_gap / 1000,
-                    .tv_usec = (user_conn->ctx->args->req_cfg.idle_gap % 1000) * 1000,
-                };
-                event_add(user_conn->ev_idle_restart, &tv);  
-
-            } else {
-                xqc_demo_cli_continue_send_reqs(ctx->tasks[task_idx].user_conn);
-            }
-            
-        }
-    }
-
-    return 0;
-}
-
-int
-xqc_demo_cli_h3_request_create_notify(xqc_h3_request_t *h3_request, void *user_data)
-{
-    DEBUG;
-    //"xqc_demo_cli_h3_request_create_notify, h3_request: %p, user_data: %p\n", h3_request, user_data);
-
-    return 0;
-}
-
-int
-xqc_demo_cli_h3_request_close_notify(xqc_h3_request_t *h3_request, void *user_data)
-{
-    DEBUG;
-    xqc_demo_cli_user_stream_t *user_stream = (xqc_demo_cli_user_stream_t *)user_data;
-    xqc_demo_cli_user_conn_t *user_conn = user_stream->user_conn;
-
-    /* task schedule */
-    xqc_demo_cli_on_stream_fin(user_stream);
-
-    xqc_request_stats_t stats;
-    stats = xqc_h3_request_get_stats(h3_request);
-    printf("send_body_size:%zu, recv_body_size:%zu, send_header_size:%zu, recv_header_size:%zu, "
-           "recv_fin:%d, err:%d, rate_limit:%"PRIu64", mp_state:%d, early_data:%d, avail_send_weight:%.3lf, avail_recv_weight:%.3lf, cwnd_blk:%"PRIu64"\n", 
-           stats.send_body_size, stats.recv_body_size, stats.send_header_size, stats.recv_header_size, 
-           user_stream->recv_fin, stats.stream_err, stats.rate_limit, stats.mp_state, stats.early_data_state,
-           stats.mp_default_path_send_weight, stats.mp_default_path_recv_weight, stats.cwnd_blocked_ms);
-    
-    printf("\033[33m[H3-req] send_bytes:%zu, recv_bytes:%zu, path_info:%s\n\033[0m", 
-           stats.send_body_size + stats.send_header_size, 
-           stats.recv_body_size + stats.recv_header_size,
-           stats.stream_info);
-
-    free(user_stream);
-    return 0;
-}
-
-
 /******************************************************************************
  *                     start of socket callback functions                     *
  ******************************************************************************/
@@ -1476,12 +1269,7 @@ xqc_demo_cli_idle_callback(int fd, short what, void *arg)
         /* if there is only one path, we close the connection */
         if (user_conn->active_path_cnt <= 1 || rc == -XQC_EMP_NO_ACTIVE_PATH)
         {
-            if (user_conn->ctx->args->quic_cfg.alpn_type == ALPN_H3) {
-                rc = xqc_h3_conn_close(user_conn->ctx->engine, &user_conn->cid);
-
-            } else {
-                rc = xqc_hq_conn_close(user_conn->ctx->engine, user_conn->hqc_handle, &user_conn->cid);
-            }
+            rc = xqc_hq_conn_close(user_conn->ctx->engine, user_conn->hqc_handle, &user_conn->cid);
 
             if (user_conn->ev_delay_req) {
                 event_del(user_conn->ev_delay_req);
@@ -1583,8 +1371,6 @@ xqc_demo_cli_rebind_path0(int fd, short what, void *arg)
         //stop read from the old socket
         event_del(user_conn->paths[0].ev_socket);
         user_conn->paths[0].ev_socket = NULL;
-
-        xqc_h3_conn_send_ping(user_conn->ctx->engine, &user_conn->cid, NULL);
     }
 }
 
@@ -1600,8 +1386,6 @@ xqc_demo_cli_rebind_path1(int fd, short what, void *arg)
 
         event_del(user_conn->paths[1].ev_socket);
         user_conn->paths[1].ev_socket = NULL;
-
-        xqc_h3_conn_send_ping(user_conn->ctx->engine, &user_conn->cid, NULL);
     }
 }
 
@@ -1698,10 +1482,6 @@ xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
     } if (strncmp(args->quic_cfg.mp_sched, "backup", strlen("backup")) == 0) {
         sched = xqc_backup_scheduler_cb;
 
-    } else {
-#ifdef XQC_ENABLE_MP_INTEROP
-        sched = xqc_interop_scheduler_cb;
-#endif
     }
 
     memset(settings, 0, sizeof(xqc_conn_settings_t));
@@ -1892,7 +1672,7 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -t    Connection timeout. Default 3 seconds.\n"
         "   -S    cipher suites\n"
         "   -0    use 0-RTT\n"
-        "   -A    alpn selection: h3/h3-29/hq\n"
+        "   -A    alpn selection: hq\n"
         "   -D    save request body directory\n"
         "   -l    Log level. e:error d:debug.\n"
         "   -L    xquic log directory.\n"
@@ -2021,17 +1801,9 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         /* alpn */
         case 'A':
             printf("option set ALPN[%s]\n", optarg);
-            if (strcmp(optarg, "h3") == 0) {
-                args->quic_cfg.alpn_type = ALPN_H3;
-                strncpy(args->quic_cfg.alpn, "h3", 3);
-
-            } else if (strcmp(optarg, "hq") == 0) {
+            if (strcmp(optarg, "hq") == 0) {
                 args->quic_cfg.alpn_type = ALPN_HQ;
                 strncpy(args->quic_cfg.alpn, "hq-interop", 11);
-            } else if (strcmp(optarg, "h3-29") == 0) {
-                args->quic_cfg.alpn_type = ALPN_H3;
-                args->quic_cfg.quic_version = XQC_IDRAFT_VER_29;
-                strncpy(args->quic_cfg.alpn, "h3-29", 6);
             }
 
             break;
@@ -2270,84 +2042,6 @@ xqc_demo_cli_send_hq_req(xqc_demo_cli_user_conn_t *user_conn,
     return 0;
 }
 
-
-int
-xqc_demo_cli_format_h3_req(xqc_http_header_t *headers, size_t sz, xqc_demo_cli_request_t* req)
-{
-    /* response header buf list */
-    xqc_http_header_t req_hdr[] = {
-        {
-            .name = {.iov_base = ":method", .iov_len = 7},
-            .value = {.iov_base = method_s[req->method], .iov_len = strlen(method_s[req->method])},
-            .flags = 0,
-        },
-        {
-            .name = {.iov_base = ":scheme", .iov_len = 7},
-            .value = {.iov_base = req->scheme, .iov_len = strlen(req->scheme)},
-            .flags = 0,
-        },
-        {
-            .name = {.iov_base = ":path", .iov_len = 5},
-            .value = {.iov_base = req->path, .iov_len = strlen(req->path)},
-            .flags = 0,
-        },
-        {
-            .name = {.iov_base = ":authority", .iov_len = 10},
-            .value = {.iov_base = req->auth, .iov_len = strlen(req->auth)},
-            .flags = 0,
-        }
-    };
-
-    size_t req_sz = sizeof(req_hdr) / sizeof(req_hdr[0]);
-    if (sz < req_sz) {
-        return -1;
-    }
-
-    for (size_t i = 0; i < req_sz; i++) {
-        headers[i] = req_hdr[i];
-    }
-
-    return req_sz;
-}
-
-int
-xqc_demo_cli_send_h3_req(xqc_demo_cli_user_conn_t *user_conn,
-    xqc_demo_cli_user_stream_t *user_stream, xqc_demo_cli_request_t *req)
-{
-    xqc_stream_settings_t settings = { .recv_rate_bytes_per_sec = 0 };
-    int task_idx = user_conn->task->task_idx;
-    int req_create_cnt = user_conn->ctx->task_ctx.schedule.schedule_info[task_idx].req_create_cnt;
-    if (user_conn->ctx->args->req_cfg.throttled_req != -1) {
-        if (req_create_cnt == user_conn->ctx->args->req_cfg.throttled_req) {
-            settings.recv_rate_bytes_per_sec = user_conn->ctx->args->quic_cfg.recv_rate;
-        }
-        
-        if (req_create_cnt != 0
-            && user_conn->ctx->args->req_cfg.throttled_req != 0 
-            && (req_create_cnt % user_conn->ctx->args->req_cfg.throttled_req) == 0)
-        {
-            settings.recv_rate_bytes_per_sec = user_conn->ctx->args->quic_cfg.recv_rate;
-        }
-    }
-
-    user_stream->h3_request = xqc_h3_request_create(user_conn->ctx->engine, &user_conn->cid,
-        &settings, user_stream);
-    if (user_stream->h3_request == NULL) {
-        printf("xqc_h3_request_create error\n");
-        return -1;
-    }
-
-    // char req_buf[MAX_REQ_BUF_LEN] = {0};
-    xqc_http_header_t header[H3_HDR_CNT];
-    int hdr_cnt = xqc_demo_cli_format_h3_req(header, H3_HDR_CNT, req);
-    if (hdr_cnt > 0) {
-        user_stream->h3_hdrs.headers = header;
-        user_stream->h3_hdrs.count = hdr_cnt;
-        xqc_demo_cli_h3_request_send(user_stream);
-    }
-    return 0;
-}
-
 void
 xqc_demo_cli_open_file(xqc_demo_cli_user_stream_t *user_stream, const char *save_path,
     const char *req_path)
@@ -2364,8 +2058,9 @@ xqc_demo_cli_open_file(xqc_demo_cli_user_stream_t *user_stream, const char *save
     user_stream->recv_body_fp = fopen(file_path, "wb");
     if (NULL == user_stream->recv_body_fp) {
         printf("open file[%s] error\n", file_path);
+    } else {
+        printf("open file[%s] suc\n", file_path);
     }
-    printf("open file[%s] suc\n", file_path);
 }
 
 void
@@ -2398,13 +2093,6 @@ xqc_demo_cli_send_requests(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_cli
                 return;
             }
 
-        } else if (args->quic_cfg.alpn_type == ALPN_H3) {
-            if (xqc_demo_cli_send_h3_req(user_conn, user_stream, reqs + i) < 0) {
-                printf("send h3 req blocked, will try later, total sent_cnt: %d\n", 
-                    user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_create_cnt);
-                free(user_stream);
-                return;
-            }
         }
 
         xqc_demo_cli_on_task_req_sent(user_conn->ctx, user_conn->task->task_idx);
@@ -2443,68 +2131,6 @@ xqc_demo_cli_continue_send_reqs(xqc_demo_cli_user_conn_t *user_conn)
 void on_max_streams(xqc_connection_t *conn, void *user_data, uint64_t max_streams, int type)
 {
     printf("--- on_max_streams: %Zu, type: %d, continue to send\n", max_streams, type);
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)user_data;
-    xqc_demo_cli_continue_send_reqs(user_conn);
-}
-#endif
-
-/******************************************************************************
- *                     start of http/3 callback functions                     *
- ******************************************************************************/
-
-int
-xqc_demo_cli_h3_conn_create_notify(xqc_h3_conn_t *h3_conn, const xqc_cid_t *cid, void *user_data)
-{
-    DEBUG;
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *) user_data;
-    // printf("xqc_h3_conn_is_ready_to_send_early_data:%d\n", xqc_h3_conn_is_ready_to_send_early_data(h3_conn));
-    return 0;
-}
-
-int
-xqc_demo_cli_h3_conn_close_notify(xqc_h3_conn_t *h3_conn, const xqc_cid_t *cid, void *user_data)
-{
-    DEBUG;
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)user_data;
-    xqc_conn_stats_t stats = xqc_conn_get_stats(user_conn->ctx->engine, cid);
-    printf("send_count:%u, lost_count:%u, tlp_count:%u, recv_count:%u, srtt:%"PRIu64" "
-           "standby_bytes:%"PRIu64", total_bytes:%"PRIu64" "
-           "early_data_flag:%d, conn_err:%d, acked_max_mtu %u, ack_info:%s, conn_info:%s\n", 
-           stats.send_count, stats.lost_count,
-           stats.tlp_count, stats.recv_count, stats.srtt, 
-           stats.standby_path_app_bytes, stats.total_app_bytes,
-           stats.early_data_flag, stats.conn_err, stats.max_acked_mtu,
-           stats.ack_info, stats.conn_info);
-
-    xqc_demo_cli_on_task_finish(user_conn->ctx, user_conn->task);
-    free(user_conn);
-    return 0;
-}
-
-void
-xqc_demo_cli_h3_conn_handshake_finished(xqc_h3_conn_t *h3_conn, void *user_data)
-{
-    DEBUG;
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *) user_data;
-    xqc_conn_stats_t stats = xqc_conn_get_stats(user_conn->ctx->engine, &user_conn->cid);
-    printf("0rtt_flag:%d\n", stats.early_data_flag);
-
-}
-
-void
-xqc_demo_cli_h3_conn_ping_acked_notify(xqc_h3_conn_t *h3_conn, const xqc_cid_t *cid,
-    void *ping_user_data, void *user_data)
-{
-    if (ping_user_data) {
-        // printf("ping_id:%d\n", *(int *) ping_user_data);
-    }
-}
-
-#if 0
-void
-client_h3_conn_max_streams(xqc_h3_conn_t *conn, void *user_data, uint64_t max_streams, int type)
-{
-    DEBUG;
     xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)user_data;
     xqc_demo_cli_continue_send_reqs(user_conn);
 }
@@ -2562,27 +2188,6 @@ xqc_demo_cli_init_alpn_ctx(xqc_demo_cli_ctx_t *ctx)
     ret = xqc_hq_ctx_init(ctx->engine, &hq_cbs);
     if (ret != XQC_OK) {
         printf("init hq context error, ret: %d\n", ret);
-        return ret;
-    }
-
-    xqc_h3_callbacks_t h3_cbs = {
-        .h3c_cbs = {
-            .h3_conn_create_notify = xqc_demo_cli_h3_conn_create_notify,
-            .h3_conn_close_notify = xqc_demo_cli_h3_conn_close_notify,
-            .h3_conn_handshake_finished = xqc_demo_cli_h3_conn_handshake_finished,
-        },
-        .h3r_cbs = {
-            .h3_request_create_notify = xqc_demo_cli_h3_request_create_notify,
-            .h3_request_close_notify = xqc_demo_cli_h3_request_close_notify,
-            .h3_request_read_notify = xqc_demo_cli_h3_request_read_notify,
-            .h3_request_write_notify = xqc_demo_cli_h3_request_write_notify,
-        }
-    };
-
-    /* init http3 context */
-    ret = xqc_h3_ctx_init(ctx->engine, &h3_cbs);
-    if (ret != XQC_OK) {
-        printf("init h3 context error, ret: %d\n", ret);
         return ret;
     }
 
@@ -2655,17 +2260,7 @@ xqc_demo_cli_init_xquic_connection(xqc_demo_cli_user_conn_t *user_conn,
     xqc_conn_ssl_config_t conn_ssl_config;
     xqc_demo_cli_init_conn_ssl_config(&conn_ssl_config, args);
 
-    if (args->quic_cfg.alpn_type == ALPN_H3) {
-        const xqc_cid_t *cid = xqc_h3_connect(user_conn->ctx->engine, &conn_settings,
-            args->quic_cfg.token, args->quic_cfg.token_len, args->net_cfg.host, args->quic_cfg.no_encryption, &conn_ssl_config, 
-            (struct sockaddr*)&args->net_cfg.addr, args->net_cfg.addr_len, user_conn);
-        if (cid == NULL) {
-            return -1;
-        }
-
-        memcpy(&user_conn->cid, cid, sizeof(xqc_cid_t));
-
-    } else {
+    if (1) {
         const xqc_cid_t *cid = xqc_hq_connect(user_conn->ctx->engine, &conn_settings,
             args->quic_cfg.token, args->quic_cfg.token_len, args->net_cfg.host, args->quic_cfg.no_encryption, &conn_ssl_config, 
             (struct sockaddr*)&args->net_cfg.addr, args->net_cfg.addr_len, user_conn);

@@ -2,11 +2,10 @@
  * @copyright Copyright (c) 2022, Alibaba Group Holding Limited
  */
 
-#ifndef _XQC_H3_H_
-#define _XQC_H3_H_
+#ifndef _XQC_VAR_BUF_H_
+#define _XQC_VAR_BUF_H_
 
 #include "src/common/xqc_common_inc.h"
-#include "src/http3/xqc_h3_defs.h"
 
 
 typedef struct xqc_var_buf_s {

@@ -3,8 +3,6 @@
  */
 
 #include <xquic/xquic.h>
-#include "src/http3/xqc_h3_stream.h"
-#include "src/http3/xqc_h3_conn.h"
 #include "src/transport/xqc_engine.h"
 #include "src/transport/xqc_client.h"
 #include "src/transport/xqc_cid.h"

@@ -89,36 +89,4 @@ void xqc_log_REC_LOSS_TIMER_UPDATED_callback(xqc_log_t *log, const char *func,
 void xqc_log_REC_PACKET_LOST_callback(xqc_log_t *log, const char *func, xqc_packet_out_t *packet_out, 
     xqc_packet_number_t lost_pn, xqc_usec_t lost_send_time, xqc_usec_t loss_delay);
 
-void xqc_log_HTTP_PARAMETERS_SET_callback(xqc_log_t *log, const char *func, xqc_h3_conn_t *h3_conn,
-    xqc_int_t local);
-
-void xqc_log_HTTP_PARAMETERS_RESTORED_callback(xqc_log_t *log, const char *func,
-    xqc_h3_conn_t *h3_conn);
-
-void xqc_log_HTTP_STREAM_TYPE_SET_callback(xqc_log_t *log, const char *func,
-    xqc_h3_stream_t *h3_stream, xqc_int_t local);
-
-void xqc_log_HTTP_FRAME_CREATED_callback(xqc_log_t *log, const char *func, ...);
-
-void xqc_log_HTTP_FRAME_PARSED_callback(xqc_log_t *log, const char *func,
-    xqc_h3_stream_t *h3_stream);
-
-void
-xqc_log_HTTP_PRIORITY_UPDATED_callback(xqc_log_t *log, const char *func, xqc_h3_priority_t *prio, xqc_h3_stream_t *h3s);
-
-void xqc_log_QPACK_STATE_UPDATED_callback(xqc_log_t *log, const char *func, ...);
-
-void xqc_log_QPACK_STREAM_STATE_UPDATED_callback(xqc_log_t *log, const char *func,
-    xqc_h3_stream_t *h3_stream);
-
-void xqc_log_QPACK_DYNAMIC_TABLE_UPDATED_callback(xqc_log_t *log, const char *func, ...);
-
-void xqc_log_QPACK_HEADERS_ENCODED_callback(xqc_log_t *log, const char *func, ...);
-
-void xqc_log_QPACK_HEADERS_DECODED_callback(xqc_log_t *log, const char *func, ...);
-
-void xqc_log_QPACK_INSTRUCTION_CREATED_callback(xqc_log_t *log, const char *func, ...);
-
-void xqc_log_QPACK_INSTRUCTION_PARSED_callback(xqc_log_t *log, const char *func, ...);
-
 #endif /* XQUIC_XQC_LOG_EVENT_CALLBACK_H */

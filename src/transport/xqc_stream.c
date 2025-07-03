@@ -891,7 +891,7 @@ xqc_stream_close(xqc_stream_t *stream)
     }
 
     xqc_send_queue_drop_stream_frame_packets(conn, stream->stream_id);
-    ret = xqc_write_reset_stream_to_packet(conn, stream, H3_REQUEST_CANCELLED, stream->stream_send_offset);
+    ret = xqc_write_reset_stream_to_packet(conn, stream, REQUEST_CANCELLED, stream->stream_send_offset);
     if (ret < 0) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_reset_stream_to_packet error|%d|", ret);
         XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
@@ -902,7 +902,7 @@ xqc_stream_close(xqc_stream_t *stream)
     if (stream->stream_state_recv == XQC_RECV_STREAM_ST_RECV
         || stream->stream_state_recv == XQC_RECV_STREAM_ST_SIZE_KNOWN)
     {
-        ret = xqc_write_stop_sending_to_packet(conn, stream, H3_REQUEST_CANCELLED);
+        ret = xqc_write_stop_sending_to_packet(conn, stream, REQUEST_CANCELLED);
         if (ret < 0) {
             xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_stop_sending_to_packet error|%d|", ret);
             XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
@@ -1608,9 +1608,7 @@ do_buff:
     stream->stream_stats.max_pto_backoff = xqc_max(stream->stream_stats.max_pto_backoff, xqc_conn_get_max_pto_backoff(conn, 1));
 
     /* application layer call the main logic */
-    if (!(stream->stream_flag & XQC_STREAM_FLAG_HAS_H3)) {
-        xqc_engine_conn_logic(conn->engine, conn);
-    }
+    xqc_engine_conn_logic(conn->engine, conn);
 
     if (offset == 0 && !fin_only_done) {
         if (ret == -XQC_EAGAIN) {
