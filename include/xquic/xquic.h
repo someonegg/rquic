@@ -1424,11 +1424,6 @@ typedef struct xqc_conn_settings_s {
      */
     uint32_t                    init_recv_window;
 
-    /**
-     * initial flow control value
-     */
-    xqc_bool_t                  is_interop_mode;
-
 #ifdef XQC_PROTECT_POOL_MEM
     uint8_t                     protect_pool_mem;
 #endif
