@@ -117,19 +117,12 @@ typedef struct xqc_send_ctl_s {
     unsigned                    ctl_lost_count;
     unsigned                    ctl_tlp_count;
     unsigned                    ctl_spurious_loss_count;
-    unsigned                    ctl_lost_dgram_cnt;
 
     /* record time for last three cwnd limitation and rtt mutation*/
     xqc_msec_t                  ctl_recent_cwnd_limitation_time[3];
     uint8_t                     ctl_cwndlim_update_idx;
     
     unsigned                    ctl_recv_count;
-
-    /* for QUIC datagrams */
-    uint32_t                    ctl_dgram_send_count;
-    uint32_t                    ctl_dgram_recv_count;
-    uint32_t                    ctl_reinj_dgram_send_count;
-    uint32_t                    ctl_reinj_dgram_recv_count;
 
     uint32_t                    ctl_max_bytes_in_flight;
     uint8_t                     ctl_is_cwnd_limited;
@@ -141,7 +134,7 @@ typedef struct xqc_send_ctl_s {
     uint64_t                    ctl_bytes_send;
     uint64_t                    ctl_bytes_recv;
 
-    /* only accounts for stream and datagram packets */
+    /* only accounts for stream packets */
     uint64_t                    ctl_app_bytes_send;
     uint64_t                    ctl_app_bytes_recv;
 
@@ -182,10 +175,6 @@ xqc_send_ctl_calc_pto(xqc_send_ctl_t *send_ctl)
         + send_ctl->ctl_conn->local_settings.max_ack_delay * 1000;
 }
 
-
-void xqc_send_ctl_on_dgram_dropped(xqc_connection_t *conn, xqc_packet_out_t *po);
-
-int xqc_send_ctl_may_remove_unacked_dgram(xqc_connection_t *conn, xqc_packet_out_t *po);
 
 int xqc_send_ctl_indirectly_ack_or_drop_po(xqc_connection_t *conn, xqc_packet_out_t *po);
 

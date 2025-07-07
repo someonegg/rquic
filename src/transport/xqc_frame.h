@@ -45,7 +45,6 @@ typedef enum {
     XQC_FRAME_MP_RETIRE_CONNECTION_ID,
     XQC_FRAME_MAX_PATH_ID,
     XQC_FRAME_PATH_FROZEN,
-    XQC_FRAME_DATAGRAM,
     XQC_FRAME_Extension,
     XQC_FRAME_SID,
     XQC_FRAME_REPAIR_SYMBOL,
@@ -82,7 +81,6 @@ typedef enum {
     XQC_FRAME_BIT_MP_RETIRE_CONNECTION_ID = 1ULL << XQC_FRAME_MP_RETIRE_CONNECTION_ID,
     XQC_FRAME_BIT_MAX_PATH_ID           = 1ULL << XQC_FRAME_MAX_PATH_ID,
     XQC_FRAME_BIT_PATH_FROZEN           = 1ULL << XQC_FRAME_PATH_FROZEN,
-    XQC_FRAME_BIT_DATAGRAM              = 1ULL << XQC_FRAME_DATAGRAM,
     XQC_FRAME_BIT_Extension             = 1ULL << XQC_FRAME_Extension,
     XQC_FRAME_BIT_SID                   = 1ULL << XQC_FRAME_SID,
     XQC_FRAME_BIT_REPAIR_SYMBOL         = 1ULL << XQC_FRAME_REPAIR_SYMBOL,
@@ -117,7 +115,7 @@ typedef enum {
  * PING and PADDING frames contain no information, so lost PING or
  *     PADDING frames do not require repair
  */
-#define XQC_NEED_REPAIR(types) ((types) & ~(XQC_FRAME_BIT_ACK| XQC_FRAME_BIT_PADDING | XQC_FRAME_BIT_PING | XQC_FRAME_BIT_CONNECTION_CLOSE | XQC_FRAME_BIT_DATAGRAM | XQC_FRAME_BIT_SID | XQC_FRAME_BIT_REPAIR_SYMBOL))
+#define XQC_NEED_REPAIR(types) ((types) & ~(XQC_FRAME_BIT_ACK| XQC_FRAME_BIT_PADDING | XQC_FRAME_BIT_PING | XQC_FRAME_BIT_CONNECTION_CLOSE | XQC_FRAME_BIT_SID | XQC_FRAME_BIT_REPAIR_SYMBOL))
 
 
 const char *xqc_frame_type_2_str(xqc_engine_t *engine, xqc_frame_type_bit_t type_bit);
@@ -178,8 +176,6 @@ xqc_int_t xqc_process_ack_mp_frame(xqc_connection_t *conn, xqc_packet_in_t *pack
 xqc_int_t xqc_process_path_abandon_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_path_status_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_datagram_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_sid_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 

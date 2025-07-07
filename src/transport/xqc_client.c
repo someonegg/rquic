@@ -12,7 +12,6 @@
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_defs.h"
 #include "src/tls/xqc_tls.h"
-#include "src/transport/xqc_datagram.h"
 
 xqc_connection_t *
 xqc_client_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
@@ -255,8 +254,6 @@ xqc_client_create_connection(xqc_engine_t *engine, xqc_cid_t dcid, xqc_cid_t sci
                                         conn_ssl_config->transport_parameter_data_len, &tp);
         if (ret == XQC_OK) {
             xqc_conn_set_early_remote_transport_params(xc, &tp);
-            xqc_log(xc->log, XQC_LOG_DEBUG, "|0RTT_transport_params|max_datagram_frame_size:%ud|",
-                    xc->remote_settings.max_datagram_frame_size);
         }
     }
 
@@ -264,8 +261,6 @@ xqc_client_create_connection(xqc_engine_t *engine, xqc_cid_t dcid, xqc_cid_t sci
         goto fail;
     }
 
-    xqc_datagram_record_mss(xc);
-    
     return xc;
 
 fail:

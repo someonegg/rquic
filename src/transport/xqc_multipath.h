@@ -175,10 +175,6 @@ typedef struct {
     uint32_t            tlp_cnt;
     uint32_t            pkt_send_cnt;
     uint32_t            pkt_recv_cnt;
-    uint32_t            dgram_send_cnt;
-    uint32_t            dgram_recv_cnt;
-    uint32_t            red_dgram_send_cnt;
-    uint32_t            red_dgram_recv_cnt;
 
     uint32_t            standby_probe_count;
     uint32_t            app_path_status_changed_count;    

@@ -39,14 +39,13 @@ typedef enum {
     XQC_POF_IN_UNACK_LIST       = 1 << 12, /* FIXED: reset when copy */
     XQC_POF_NOT_SCHEDULE        = 1 << 13,
     XQC_POF_NOT_REINJECT        = 1 << 14,
-    XQC_POF_DROPPED_DGRAM       = 1 << 15,
-    XQC_POF_REINJECT_DIFF_PATH  = 1 << 16,
-    XQC_POF_PMTUD_PROBING       = 1 << 17,
-    XQC_POF_QOS_HIGH            = 1 << 18,
-    XQC_POF_QOS_PROBING         = 1 << 19,
-    XQC_POF_SPURIOUS_LOSS       = 1 << 20,
-    XQC_POF_USE_FEC             = 1 << 21,
-    XQC_POF_STREAM_NO_LEN       = 1 << 22,  /* for stream without LEN bit, shouldn't attach different frame to it */
+    XQC_POF_REINJECT_DIFF_PATH  = 1 << 15,
+    XQC_POF_PMTUD_PROBING       = 1 << 16,
+    XQC_POF_QOS_HIGH            = 1 << 17,
+    XQC_POF_QOS_PROBING         = 1 << 18,
+    XQC_POF_SPURIOUS_LOSS       = 1 << 19,
+    XQC_POF_USE_FEC             = 1 << 20,
+    XQC_POF_STREAM_NO_LEN       = 1 << 21,  /* for stream without LEN bit, shouldn't attach different frame to it */
 } xqc_packet_out_flag_t;
 
 typedef struct xqc_po_stream_frame_s {
@@ -99,10 +98,7 @@ typedef struct xqc_packet_out_s {
     /* the inflight bytes when the packet is sent (including itself) */
     uint64_t                po_tx_in_flight; 
     /* how many packets have been lost when the packet is sent */
-    uint32_t                po_lost; 
-
-    /* only meaningful if it contains a DATAGRAM frame */
-    uint64_t                po_dgram_id;
+    uint32_t                po_lost;
 
     /* Multipath */
     uint8_t                 po_path_flag;
@@ -193,10 +189,6 @@ int xqc_write_new_token_to_packet(xqc_connection_t *conn);
 
 int xqc_write_stream_frame_to_packet(xqc_connection_t *conn, xqc_stream_t *stream, xqc_pkt_type_t pkt_type,
     uint8_t fin, const unsigned char *payload, size_t payload_size, size_t *send_data_written);
-
-int xqc_write_datagram_frame_to_packet(xqc_connection_t *conn, xqc_pkt_type_t pkt_type, 
-    const unsigned char *data, size_t data_len, uint64_t *dgram_id, xqc_bool_t use_supplied_dgram_id,
-    xqc_data_qos_level_t qos_level);
 
 int xqc_write_handshake_done_frame_to_packet(xqc_connection_t *conn);
 
