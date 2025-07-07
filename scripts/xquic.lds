@@ -62,12 +62,6 @@ XQUIC_VERS_1.0 {
         xqc_path_get_local_addr;
         xqc_default_reinj_ctl_cb;
         xqc_deadline_reinj_ctl_cb;
-        xqc_dgram_reinj_ctl_cb;
-        xqc_datagram_get_mss;
-        xqc_datagram_send;
-        xqc_datagram_send_multiple;
-        xqc_datagram_set_user_data;
-        xqc_datagram_get_user_data;
         xqc_conn_should_clear_0rtt_ticket;
         xqc_unlimited_cc_cb;
         xqc_copa_cb;

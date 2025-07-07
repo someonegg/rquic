@@ -12,7 +12,6 @@
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_frame_parser.h"
-#include "src/transport/xqc_datagram.h"
 #include "src/transport/xqc_recv_timestamps_info.h"
 
 #include "src/common/xqc_common.h"
@@ -232,11 +231,9 @@ xqc_path_move_unack_packets_from_conn(xqc_path_ctx_t *path, xqc_connection_t *co
     xqc_list_head_t *pos, *next;
     xqc_packet_out_t *po = NULL;
     uint64_t closing_path_id = path->path_id;
-    xqc_int_t repair_dgram = 0;
 
     xqc_list_for_each_safe(pos, next, &conn->conn_send_queue->sndq_unacked_packets[XQC_PNS_APP_DATA]) {
         po = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        repair_dgram = 0;
 
         if (xqc_send_ctl_indirectly_ack_or_drop_po(conn, po)) {
             continue;
@@ -245,32 +242,16 @@ xqc_path_move_unack_packets_from_conn(xqc_path_ctx_t *path, xqc_connection_t *co
         if (po->po_path_id == closing_path_id) {
             if (po->po_flag & XQC_POF_IN_FLIGHT) {
                 xqc_send_ctl_decrease_inflight(conn, po);
-
-                if (po->po_frame_types & XQC_FRAME_BIT_DATAGRAM) {
-                    path->path_send_ctl->ctl_lost_dgram_cnt++;
-                    repair_dgram = xqc_datagram_notify_loss(conn, po);
-                    if (conn->conn_settings.datagram_force_retrans_on) {
-                        repair_dgram = XQC_DGRAM_RETX_ASKED_BY_APP;
-                    }
-                }
                 
                 if (XQC_NEED_REPAIR(po->po_frame_types) 
-                    || (po->po_flag & XQC_POF_NOTIFY)
-                    || repair_dgram == XQC_DGRAM_RETX_ASKED_BY_APP) 
+                    || (po->po_flag & XQC_POF_NOTIFY))
                 {
                     xqc_send_queue_copy_to_lost(po, conn->conn_send_queue, XQC_FALSE);
 
                 } else {
-                    /* for datagram, we should remove all copies in the unacked list */
-                    if (po->po_frame_types & XQC_FRAME_BIT_DATAGRAM) {
-                        xqc_send_ctl_on_dgram_dropped(conn, po);
-                        xqc_send_queue_maybe_remove_unacked(po, conn->conn_send_queue, NULL);
-
-                    } else {
-                        /* if a packet needs no retransmission, we remove it. */
-                        xqc_send_queue_remove_unacked(po, conn->conn_send_queue);
-                        xqc_send_queue_insert_free(po, &conn->conn_send_queue->sndq_free_packets, conn->conn_send_queue);
-                    }
+                    /* if a packet needs no retransmission, we remove it. */
+                    xqc_send_queue_remove_unacked(po, conn->conn_send_queue);
+                    xqc_send_queue_insert_free(po, &conn->conn_send_queue->sndq_free_packets, conn->conn_send_queue);
                 }
             }
         }
@@ -1117,10 +1098,6 @@ xqc_path_record_info(xqc_path_ctx_t *path, xqc_path_info_t *path_info)
 
     path_info->pkt_recv_cnt = path->path_send_ctl->ctl_recv_count;
     path_info->pkt_send_cnt = path->path_send_ctl->ctl_send_count;
-    path_info->dgram_recv_cnt = path->path_send_ctl->ctl_dgram_recv_count;
-    path_info->dgram_send_cnt = path->path_send_ctl->ctl_dgram_send_count;
-    path_info->red_dgram_recv_cnt = path->path_send_ctl->ctl_reinj_dgram_recv_count;
-    path_info->red_dgram_send_cnt = path->path_send_ctl->ctl_reinj_dgram_send_count;
     path_info->srtt = path->path_send_ctl->ctl_srtt;
     path_info->loss_cnt = path->path_send_ctl->ctl_lost_count;
     path_info->tlp_cnt = path->path_send_ctl->ctl_tlp_count;

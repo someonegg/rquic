@@ -20,9 +20,7 @@
 #include "src/transport/xqc_cid.h"
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_timer.h"
-#include "src/transport/xqc_datagram.h"
 #include "src/tls/xqc_tls.h"
-#include "src/transport/xqc_datagram.h"
 #include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_packet_out.h"
 
@@ -707,15 +705,10 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
                 if (xqc_send_queue_release_enough_space(conn->conn_send_queue)) {
                     conn->conn_send_queue->sndq_full = XQC_FALSE;
                     xqc_process_write_streams(conn);
-                    xqc_datagram_notify_write(conn);
                 }
 
             } else {
                 xqc_process_write_streams(conn);
-                if (conn->conn_flag & XQC_CONN_FLAG_DGRAM_WAIT_FOR_1RTT) {
-                    xqc_datagram_notify_write(conn);
-                    conn->conn_flag &= ~XQC_CONN_FLAG_DGRAM_WAIT_FOR_1RTT;
-                }
             }
 
         } else {

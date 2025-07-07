@@ -14,8 +14,6 @@
 #include "src/transport/xqc_recv_timestamps_info.h"
 
 #define XQC_PATH_CHALLENGE_DATA_LEN  8
-#define XQC_DATAGRAM_LENGTH_FIELD_BYTES 2
-#define XQC_DATAGRAM_HEADER_BYTES (XQC_DATAGRAM_LENGTH_FIELD_BYTES + 1)
 
 #define XQC_TRANS_FRAME_TYPE_MP_ACK0                    0x15228c00
 #define XQC_TRANS_FRAME_TYPE_MP_ACK1                    0x15228c01
@@ -28,15 +26,6 @@
 #define XQC_TRANS_FRAME_TYPE_MP_FROZEN                  0x15228cff
 
 #define XQC_TRANS_FRAME_TYPE_ACK_EXT                    0xB1
-
-/**
- * generate datagram frame
- */
-xqc_int_t xqc_gen_datagram_frame(xqc_packet_out_t *packet_out, 
-    const unsigned char *payload, size_t size);
-
-xqc_int_t xqc_parse_datagram_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn,
-    unsigned char **buffer, size_t *size);
 
 /**
  * generate stream frame

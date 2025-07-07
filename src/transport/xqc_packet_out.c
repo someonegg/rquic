@@ -14,7 +14,6 @@
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_engine.h"
 #include "src/transport/xqc_multipath.h"
-#include "src/transport/xqc_datagram.h"
 #include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_cid.h"
@@ -1277,58 +1276,6 @@ xqc_write_stream_frame_to_packet(xqc_connection_t *conn,
     return XQC_OK;
 }
 
-int 
-xqc_write_datagram_frame_to_packet(xqc_connection_t *conn, xqc_pkt_type_t pkt_type, 
-    const unsigned char *data, size_t data_len, uint64_t *dgram_id, xqc_bool_t use_supplied_dgram_id,
-    xqc_data_qos_level_t qos_level)
-{
-    xqc_packet_out_t *packet_out;
-    packet_out = xqc_write_new_packet(conn, pkt_type);
-    if (packet_out == NULL) {
-        return -XQC_EWRITE_PKT;
-    }
-
-    int ret;
-    ret = xqc_gen_datagram_frame(packet_out, data, data_len);
-
-    if (ret < 0) {
-        xqc_maybe_recycle_packet_out(packet_out, conn);
-        return ret;
-    }
-
-    if (use_supplied_dgram_id) {
-        packet_out->po_dgram_id = *dgram_id;
-
-    } else {
-        packet_out->po_dgram_id = conn->next_dgram_id++;
-    }
-    
-    if (dgram_id) {
-        *dgram_id = packet_out->po_dgram_id;
-    }
-
-    if (pkt_type == XQC_PTYPE_0RTT) {
-        conn->zero_rtt_count++;
-    }
-
-    if (qos_level > XQC_DATA_QOS_HIGH) {
-        if (qos_level == XQC_DATA_QOS_PROBING) {
-            /* must reinject the packet on a different path */
-            packet_out->po_flag |= XQC_POF_REINJECT_DIFF_PATH;
-            packet_out->po_flag |= XQC_POF_QOS_PROBING;
-
-        } else {
-            packet_out->po_flag |= XQC_POF_USE_FEC;
-            packet_out->po_flag |= XQC_POF_NOT_REINJECT;
-        }
-
-    } else {
-        packet_out->po_flag |= XQC_POF_QOS_HIGH;
-    }
-
-    return XQC_OK;
-}
-
 
 /* [Transport] 12.4, HANDSHAKE_DONE only send in 1-RTT packet */
 int
@@ -1444,7 +1391,6 @@ xqc_write_retire_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t seq_nu
             xqc_log(conn->log, XQC_LOG_ERROR, "|conn have no available dcid|");		
             return ret;		
         }
-        xqc_datagram_record_mss(conn);
     }
 
     /* replace conn current_dcid */
@@ -1796,7 +1742,6 @@ xqc_write_mp_retire_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t seq
                     path_id);		
             return ret;		
         }
-        xqc_datagram_record_mss(conn);
     } 
 
 	/* select new current_dcid to replace the cid to be retired */		
@@ -1811,7 +1756,6 @@ xqc_write_mp_retire_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t seq
                         path_id);	
                 return ret;		
             }
-            xqc_datagram_record_mss(conn);	
 
         } else {
             xqc_cid_copy(&conn->dcid_set.current_dcid, &path->path_dcid);

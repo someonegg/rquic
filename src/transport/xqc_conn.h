@@ -24,8 +24,6 @@
 #include "src/tls/xqc_tls.h"
 #include "src/common/xqc_list.h"
 
-#define XQC_MAX_DATAGRAM_REDUNDANCY 2
-#define XQC_MIN_DATAGRAM_REDUNDANT_PROBE_INTERVAL 30000 /* 30ms min probing interval */
 #define XQC_FC_INIT_RTT 60000
 #define XQC_MIN_RECV_WINDOW (63000) /* ~ 1MBps when RTT = 60ms */
 #define XQC_MIN_STANDBY_RPOBE_TIMEOUT 500 /* 500ms */
@@ -128,15 +126,12 @@ typedef enum {
     XQC_CONN_FLAG_VALIDATE_REBINDING_SHIFT = 30,
     XQC_CONN_FLAG_CONN_CLOSING_NOTIFY_SHIFT = 31,
     XQC_CONN_FLAG_CONN_CLOSING_NOTIFIED_SHIFT = 32,
-    XQC_CONN_FLAG_DGRAM_WAIT_FOR_1RTT_SHIFT = 33,
-    XQC_CONN_FLAG_LOCAL_TP_UPDATED_SHIFT = 34,
-    XQC_CONN_FLAG_PMTUD_PROBING_SHIFT = 35,
-    XQC_CONN_FLAG_NO_DGRAM_NOTIFIED_SHIFT = 36,
-    XQC_CONN_FLAG_DGRAM_MSS_NOTIFY_SHIFT = 37,
-    XQC_CONN_FLAG_MP_WAIT_MP_READY_SHIFT = 38,
-    XQC_CONN_FLAG_MP_READY_NOTIFY_SHIFT = 39,
-    XQC_CONN_FLAG_HANDSHAKE_DONE_SENT_SHIFT = 40,
-    XQC_CONN_FLAG_SHIFT_NUM = 41,
+    XQC_CONN_FLAG_LOCAL_TP_UPDATED_SHIFT = 33,
+    XQC_CONN_FLAG_PMTUD_PROBING_SHIFT = 34,
+    XQC_CONN_FLAG_MP_WAIT_MP_READY_SHIFT = 35,
+    XQC_CONN_FLAG_MP_READY_NOTIFY_SHIFT = 36,
+    XQC_CONN_FLAG_HANDSHAKE_DONE_SENT_SHIFT = 37,
+    XQC_CONN_FLAG_SHIFT_NUM = 38,
 } xqc_conn_flag_shift_t;
 
 typedef enum {
@@ -173,11 +168,8 @@ typedef enum {
     XQC_CONN_FLAG_VALIDATE_REBINDING    = 1ULL << XQC_CONN_FLAG_VALIDATE_REBINDING_SHIFT,
     XQC_CONN_FLAG_CLOSING_NOTIFY        = 1ULL << XQC_CONN_FLAG_CONN_CLOSING_NOTIFY_SHIFT,
     XQC_CONN_FLAG_CLOSING_NOTIFIED      = 1ULL << XQC_CONN_FLAG_CONN_CLOSING_NOTIFIED_SHIFT,
-    XQC_CONN_FLAG_DGRAM_WAIT_FOR_1RTT   = 1ULL << XQC_CONN_FLAG_DGRAM_WAIT_FOR_1RTT_SHIFT,
     XQC_CONN_FLAG_LOCAL_TP_UPDATED      = 1ULL << XQC_CONN_FLAG_LOCAL_TP_UPDATED_SHIFT,
     XQC_CONN_FLAG_PMTUD_PROBING         = 1ULL << XQC_CONN_FLAG_PMTUD_PROBING_SHIFT,
-    XQC_CONN_FLAG_NO_DGRAM_NOTIFIED     = 1ULL << XQC_CONN_FLAG_NO_DGRAM_NOTIFIED_SHIFT,
-    XQC_CONN_FLAG_DGRAM_MSS_NOTIFY      = 1ULL << XQC_CONN_FLAG_DGRAM_MSS_NOTIFY_SHIFT,
     XQC_CONN_FLAG_MP_WAIT_MP_READY      = 1ULL << XQC_CONN_FLAG_MP_WAIT_MP_READY_SHIFT,
     XQC_CONN_FLAG_MP_READY_NOTIFY       = 1ULL << XQC_CONN_FLAG_MP_READY_NOTIFY_SHIFT,
     XQC_CONN_FLAG_HANDSHAKE_DONE_SENT   = 1ULL << XQC_CONN_FLAG_HANDSHAKE_DONE_SENT_SHIFT,
@@ -204,7 +196,6 @@ typedef struct {
     uint64_t                no_crypto;
     uint64_t                enable_multipath;
     xqc_multipath_version_t multipath_version;
-    uint16_t                max_datagram_frame_size;
     uint32_t                conn_options[XQC_CO_MAX_NUM];
     uint8_t                 conn_option_num;
 
@@ -216,8 +207,7 @@ typedef struct {
     xqc_fec_schemes_e       fec_decoder_schemes[XQC_FEC_MAX_SCHEME_NUM];
     xqc_int_t               fec_encoder_schemes_num;
     xqc_int_t               fec_decoder_schemes_num;
-    
-    xqc_dgram_red_setting_e close_dgram_redundancy;
+
     uint64_t                init_max_path_id;
 
     uint64_t                extended_ack_features;
@@ -343,8 +333,6 @@ struct xqc_connection_s {
     xqc_app_proto_callbacks_t       app_proto_cbs;
     void                           *proto_data;
 
-    void                           *dgram_data;
-
     xqc_list_head_t                 undecrypt_packet_in[XQC_ENC_LEV_MAX];  /* buffer for reordered packets */
     uint32_t                        undecrypt_count[XQC_ENC_LEV_MAX];
 
@@ -413,27 +401,11 @@ struct xqc_connection_s {
     xqc_conn_pkt_filter_callback_pt pkt_filter_cb;
     void                           *pkt_filter_cb_user_data;
 
-    /* for datagram */
-    uint64_t                        next_dgram_id;
-    xqc_list_head_t                 dgram_0rtt_buffer_list;
-    uint16_t                        dgram_mss;
-
-    struct {
-        uint32_t                    total_dgram;
-        uint32_t                    hp_dgram;
-        uint32_t                    hp_red_dgram;
-        uint32_t                    hp_red_dgram_mp;
-        uint32_t                    timer_red_dgram;
-    } dgram_stats;
-
     struct {
         uint64_t                    send_bytes;
         uint64_t                    reinjected_bytes;
         uint64_t                    recv_bytes;
-    } stream_stats;         
-
-    xqc_gp_timer_id_t               dgram_probe_timer;
-    xqc_var_buf_t                  *last_dgram;
+    } stream_stats;
 
     /* min pkt_out_size across all paths */
     size_t                          pkt_out_size;
@@ -657,11 +629,6 @@ void xqc_conn_closing(xqc_connection_t *conn);
 void xqc_conn_closing_notify(xqc_connection_t *conn);
 
 xqc_int_t xqc_conn_send_path_challenge(xqc_connection_t *conn, xqc_path_ctx_t *path);
-
-int xqc_conn_buff_0rtt_datagram(xqc_connection_t *conn, void *data, size_t data_len, uint64_t dgram_id, xqc_data_qos_level_t qos_level);
-
-void xqc_conn_destroy_0rtt_datagram_buffer_list(xqc_connection_t *conn);
-void xqc_conn_resend_0rtt_datagram(xqc_connection_t *conn);
 
 xqc_gp_timer_id_t xqc_conn_register_gp_timer(xqc_connection_t *conn, char *timer_name, xqc_gp_timer_timeout_pt cb, void *user_data);
 
