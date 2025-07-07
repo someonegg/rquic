@@ -83,7 +83,6 @@ xqc_conn_settings_t internal_default_conn_settings = {
                                     .rtt_us_thr_high = 2000000,
                                     .rtt_us_thr_low = 500000
                                   },
-    .is_interop_mode            = 0,
 #ifdef XQC_PROTECT_POOL_MEM
     .protect_pool_mem           = 0,
 #endif
@@ -247,7 +246,6 @@ xqc_server_set_conn_settings(xqc_engine_t *engine, const xqc_conn_settings_t *se
     }
 
     engine->default_conn_settings.enable_multipath = settings->enable_multipath;
-    engine->default_conn_settings.is_interop_mode = settings->is_interop_mode;
 
     if (xqc_conn_is_current_mp_version_supported(settings->multipath_version) == XQC_OK) {
         engine->default_conn_settings.multipath_version = settings->multipath_version;
@@ -484,14 +482,8 @@ xqc_conn_init_trans_settings(xqc_connection_t *conn)
     xqc_conn_set_default_settings(rs);
 
     /* set local default setting values */
-    if (conn->conn_settings.is_interop_mode) {
-        ls->max_streams_bidi = 128;
-        ls->max_streams_uni = 128;
-
-    } else {
-        ls->max_streams_bidi = 1024;
-        ls->max_streams_uni = 1024;
-    }
+    ls->max_streams_bidi = 1024;
+    ls->max_streams_uni = 1024;
     ls->max_stream_data_bidi_remote = XQC_MAX_RECV_WINDOW;
     ls->max_stream_data_uni = XQC_MAX_RECV_WINDOW;
     
@@ -502,20 +494,14 @@ xqc_conn_init_trans_settings(xqc_connection_t *conn)
         ls->max_stream_data_bidi_local = XQC_MAX_RECV_WINDOW;
     }
 
-    if (conn->conn_settings.is_interop_mode) {
-        ls->max_data = 1024 * 1024;
-        
+    if (conn->conn_settings.recv_rate_bytes_per_sec) {
+        ls->max_data = conn->conn_settings.recv_rate_bytes_per_sec * XQC_FC_INIT_RTT / 1000000;
+        ls->max_data = xqc_max(XQC_MIN_RECV_WINDOW, ls->max_data);
+        ls->max_data = xqc_min(XQC_MAX_RECV_WINDOW, ls->max_data);
     } else {
-        if (conn->conn_settings.recv_rate_bytes_per_sec) {
-            ls->max_data = conn->conn_settings.recv_rate_bytes_per_sec * XQC_FC_INIT_RTT / 1000000;
-            ls->max_data = xqc_max(XQC_MIN_RECV_WINDOW, ls->max_data);
-            ls->max_data = xqc_min(XQC_MAX_RECV_WINDOW, ls->max_data);
-
-        } else {
-            /* max_data is the sum of stream_data on all uni and bidi streams */
-            ls->max_data = ls->max_streams_bidi * ls->max_stream_data_bidi_local
-                + ls->max_streams_uni * ls->max_stream_data_uni;
-        }
+        /* max_data is the sum of stream_data on all uni and bidi streams */
+        ls->max_data = ls->max_streams_bidi * ls->max_stream_data_bidi_local
+            + ls->max_streams_uni * ls->max_stream_data_uni;
     }
 
     ls->max_idle_timeout = conn->conn_settings.idle_time_out;
