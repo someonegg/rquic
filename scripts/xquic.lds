@@ -57,7 +57,6 @@ XQUIC_VERS_1.0 {
         xqc_engine_get_alpn_ctx;
         xqc_conn_set_alp_user_data;
         xqc_conn_close_with_error;
-        xqc_lb_cid_encryption;
         xqc_path_get_peer_addr;
         xqc_path_get_local_addr;
         xqc_default_reinj_ctl_cb;
