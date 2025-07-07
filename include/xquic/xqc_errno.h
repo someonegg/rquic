@@ -114,7 +114,6 @@ typedef enum {
     XQC_EFEC_SYMBOL_ERROR               = 662,      /**< FEC - symbol value error */
     XQC_EFEC_TOLERABLE_ERROR            = 663,      /**< FEC - tolerable error */
     
-    XQC_EENCRYPT_LB_CID                 = 670,      /**< load balance connection ID encryption error */
     XQC_EENCRYPT_AES_128_ECB            = 671,      /**< aes_128_ecb algorithm error */
 
     XQC_EPMTUD_PROBING_SIZE             = 682,      /**< PMTUD - probing size error */
