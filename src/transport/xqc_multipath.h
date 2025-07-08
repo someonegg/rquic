@@ -66,11 +66,10 @@ typedef enum {
     XQC_PATH_SPECIFIED_BY_ACK       = 1 << 0,  /* ack */
     XQC_PATH_SPECIFIED_BY_PCPR      = 1 << 1,  /* path challenge & response */
     XQC_PATH_SPECIFIED_BY_PTO       = 1 << 2,  /* PTO probe */
-    XQC_PATH_SPECIFIED_BY_REINJ     = 1 << 3,  /* reinjection on a specific path */
-    XQC_PATH_SPECIFIED_BY_PTMUD     = 1 << 4,  /* PMTUD Probe */
-    XQC_PATH_SPECIFIED_BY_KAP       = 1 << 5,  /* Keepalive Probe */
-    XQC_PATH_SPECIFIED_BY_PQP       = 1 << 6,  /* Path Quality Probe */
-    XQC_PATH_SPECIFIED_BY_FEC       = 1 << 7,  /* FEC repair symbol */
+    XQC_PATH_SPECIFIED_BY_PTMUD     = 1 << 3,  /* PMTUD Probe */
+    XQC_PATH_SPECIFIED_BY_KAP       = 1 << 4,  /* Keepalive Probe */
+    XQC_PATH_SPECIFIED_BY_PQP       = 1 << 5,  /* Path Quality Probe */
+    XQC_PATH_SPECIFIED_BY_FEC       = 1 << 6,  /* FEC repair symbol */
 } xqc_path_specified_flag_t;
 
 typedef enum {
@@ -131,7 +130,6 @@ struct xqc_path_ctx_s {
     /* path send buffer, used to store packets scheduled to this path */
     xqc_list_head_t     path_schedule_buf[XQC_SEND_TYPE_N];
     uint32_t            path_schedule_bytes;
-    xqc_list_head_t     path_reinj_tmp_buf;
 
     /* related structs */
     xqc_connection_t   *parent_conn;

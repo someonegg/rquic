@@ -173,8 +173,6 @@ struct xqc_stream_s {
     } stream_stats;
 
     xqc_path_metrics_t      paths_info[XQC_MAX_PATHS_COUNT];
-    uint8_t                 stream_mp_usage_schedule;
-    uint8_t                 stream_mp_usage_reinject;
     uint8_t                 stream_fec_blk_mode;
 
     uint64_t                recv_rate_bytes_per_sec;
@@ -288,8 +286,6 @@ xqc_stream_send_state_update(xqc_stream_t *stream, xqc_send_stream_state_t state
 
 void
 xqc_stream_recv_state_update(xqc_stream_t *stream, xqc_recv_stream_state_t state);
-
-void xqc_stream_set_multipath_usage(xqc_stream_t *stream, uint8_t schedule, uint8_t reinject);
 
 void xqc_stream_closing(xqc_stream_t *stream, xqc_int_t err);
 

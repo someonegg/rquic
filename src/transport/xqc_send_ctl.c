@@ -19,7 +19,6 @@
 #include "src/congestion_control/xqc_sample.h"
 #include "src/transport/xqc_pacing.h"
 #include "src/transport/xqc_utils.h"
-#include "src/transport/xqc_reinjection.h"
 
 int
 xqc_send_ctl_indirectly_ack_or_drop_po(xqc_connection_t *conn, xqc_packet_out_t *packet_out)
@@ -454,7 +453,7 @@ xqc_send_queue_maybe_remove_unacked(xqc_packet_out_t *packet_out, xqc_send_queue
     {
         /* po_origin could be an inflight one, thus requiring decrease inflight. */
         xqc_send_ctl_decrease_inflight(send_queue->sndq_conn, packet_out->po_origin);
-        xqc_send_queue_remove_unacked(packet_out->po_origin, send_queue); /* TODO: ensure reinject packet will in path buf (not support yet) */
+        xqc_send_queue_remove_unacked(packet_out->po_origin, send_queue);
         xqc_send_queue_insert_free(packet_out->po_origin, &send_queue->sndq_free_packets, send_queue);
     }
 
@@ -1175,9 +1174,6 @@ xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue,
     /* 若 lost_pn == XQC_MAX_UINT64_VALUE, 无丢包 */
     xqc_packet_number_t lost_pn = xqc_send_ctl_get_lost_sent_pn(send_ctl, pns);
 
-    xqc_reinjection_mode_t mode = conn->conn_settings.mp_enable_reinjection & XQC_REINJ_UNACK_BEFORE_SCHED;
-    int has_reinjection = 0;
-
     xqc_list_for_each_safe(pos, next, &send_queue->sndq_unacked_packets[pns]) {
         po = xqc_list_entry(pos, xqc_packet_out_t, po_list);
 
@@ -1199,23 +1195,6 @@ xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue,
 			|| (lost_pn != XQC_MAX_UINT64_VALUE && po->po_pkt.pkt_num <= lost_pn))
 		{
             if (po->po_flag & XQC_POF_IN_FLIGHT) {
-
-                /* reinjection */
-                if (conn->enable_multipath
-                    && conn->reinj_callback
-                    && conn->reinj_callback->xqc_reinj_ctl_can_reinject
-                    && conn->reinj_callback->xqc_reinj_ctl_can_reinject(conn->reinj_ctl, po, mode))
-                {
-                    if (xqc_conn_try_reinject_packet(conn, po) == XQC_OK) {
-                        xqc_log(conn->log, XQC_LOG_DEBUG, "|MP|REINJ|reinject lost packets|"
-                                "pkt_num:%ui|size:%ud|pkt_type:%s|frame:%s|",
-                                po->po_pkt.pkt_num, po->po_used_size,
-                                xqc_pkt_type_2_str(po->po_pkt.pkt_type),
-                                xqc_frame_type_2_str(conn->engine, po->po_frame_types));
-                        has_reinjection = 1;
-                    }   
-                }
-                
                 xqc_send_ctl_decrease_inflight(conn, po);
 
                 if (XQC_NEED_REPAIR(po->po_frame_types) 
@@ -1258,15 +1237,6 @@ xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue,
             } else {
                 send_ctl->ctl_loss_time[pns] = xqc_min(send_ctl->ctl_loss_time[pns], po->po_sent_time + loss_delay);
             }
-        }
-    }
-
-    if (has_reinjection) {
-        xqc_path_ctx_t *path;
-        xqc_list_for_each_safe(pos, next, &conn->conn_paths_list) {
-            path = xqc_list_entry(pos, xqc_path_ctx_t, path_list);
-            xqc_list_splice_tail_init(&path->path_reinj_tmp_buf,
-                                      &path->path_schedule_buf[XQC_SEND_TYPE_NORMAL]);
         }
     }
 

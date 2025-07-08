@@ -7,7 +7,6 @@
 #include "src/transport/xqc_multipath.h"
 #include "src/transport/xqc_send_ctl.h"
 #include "src/transport/xqc_stream.h"
-#include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_conn.h"
 
 

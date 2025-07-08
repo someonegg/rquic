@@ -110,8 +110,6 @@ typedef struct xqc_demo_svr_quic_config_s {
     /* scheduler */
     char mp_sched[32];
 
-    uint32_t reinjection;
-
     uint64_t keyupdate_pkt_threshold;
     uint64_t least_available_cid_count;
 
@@ -883,7 +881,6 @@ xqc_demo_svr_usage(int argc, char *argv[])
             "   -M    enable MPQUIC.\n"
             "   -P    enable MPQUIC to return ACK_MPs on any paths.\n"
             "   -s    multipath scheduler (interop, minrtt, backup), default: interop\n"
-            "   -R    Reinjection (1,2,4) \n"
             "   -u    Keyupdate packet threshold\n"
             "   -F    MTU size (default: 1200)\n"
             , prog);
@@ -1024,11 +1021,6 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             strncpy(args->quic_cfg.mp_sched, optarg, 32);
             break;
 
-        case 'R':
-            printf("option reinjection: %s\n", optarg);
-            args->quic_cfg.reinjection = atoi(optarg);
-            break;
-
         case 'u': /* key update packet threshold */
             printf("key update packet threshold: %s\n", optarg);
             args->quic_cfg.keyupdate_pkt_threshold = atoi(optarg);
@@ -1162,8 +1154,6 @@ xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
         .init_max_path_id = args->quic_cfg.max_initial_paths,
         .mp_ack_on_any_path = args->quic_cfg.mp_ack_on_any_path,
         .scheduler_callback = sched,
-        .reinj_ctl_callback = xqc_deadline_reinj_ctl_cb,
-        .mp_enable_reinjection = args->quic_cfg.reinjection,
         .standby_path_probe_timeout = 1000,
         .keyupdate_pkt_threshold = args->quic_cfg.keyupdate_pkt_threshold,
         .least_available_cid_count = args->quic_cfg.least_available_cid_count,

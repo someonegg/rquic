@@ -333,26 +333,6 @@ xqc_short_packet_update_dcid(xqc_packet_out_t *packet_out, xqc_cid_t dcid)
     }
 }
 
-/* TODO: remove custom logic and disable spin bit */
-void xqc_packet_update_reserved_bits(xqc_packet_out_t *packet_out)
-{
-    if (packet_out->po_pkt.pkt_type == XQC_PTYPE_SHORT_HEADER
-        && packet_out->po_flag & XQC_POF_REINJECTED_REPLICA)
-    {
-        unsigned char *dst_buf = packet_out->po_buf;
-        /* reserved bits 10 */
-        dst_buf[0] |= (1 << 4);
-    }
-
-    if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT
-        && packet_out->po_flag & XQC_POF_REINJECTED_REPLICA)
-    {
-        /* reserved bits 10 */
-        unsigned char *dst_buf = packet_out->po_buf;
-        dst_buf[0] |= (1 << 3);
-    } 
-}
-
 ssize_t
 xqc_gen_long_packet_header (xqc_packet_out_t *packet_out,
     const unsigned char *dcid, unsigned char dcid_len,
@@ -734,10 +714,6 @@ xqc_packet_decrypt(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         reserved_bits = (header[0] & 0x0c) >> 2;
     } else if (packet_in->pi_pkt.pkt_type == XQC_PTYPE_SHORT_HEADER) {
         reserved_bits = (header[0] & 0x18) >> 3;
-    }
-
-    if (reserved_bits == 0x02 && conn->conn_settings.marking_reinjection) {
-        packet_in->pi_flag |= XQC_PIF_REINJECTED_REPLICA;
     }
 
     /* parse packet number from header */

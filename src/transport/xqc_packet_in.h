@@ -13,7 +13,6 @@
 #define XQC_MAX_PACKET_IN_LEN 1500 
 
 typedef enum {
-    XQC_PIF_REINJECTED_REPLICA  = 1 << 0,
     XQC_PIF_FEC_RECOVERED       = 1 << 1,
 } xqc_packet_in_flag_t;
 

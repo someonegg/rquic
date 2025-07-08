@@ -1886,13 +1886,6 @@ xqc_stream_get_direction(xqc_stream_t *strm)
 }
 
 void
-xqc_stream_set_multipath_usage(xqc_stream_t *stream, uint8_t schedule, uint8_t reinject)
-{
-    stream->stream_mp_usage_schedule = schedule;
-    stream->stream_mp_usage_reinject = reinject;
-}
-
-void
 xqc_stream_closing(xqc_stream_t *stream, xqc_int_t err)
 {
     if (stream->stream_if->stream_closing_notify) {

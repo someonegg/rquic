@@ -21,7 +21,6 @@
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_timer.h"
 #include "src/tls/xqc_tls.h"
-#include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_packet_out.h"
 
 
@@ -828,11 +827,6 @@ xqc_engine_conn_logic(xqc_engine_t *engine, xqc_connection_t *conn)
             xqc_conn_send_packets(conn);
         }
 
-        if (conn->conn_settings.mp_enable_reinjection & XQC_REINJ_UNACK_AFTER_SEND) {
-            xqc_conn_reinject_unack_packets(conn, XQC_REINJ_UNACK_AFTER_SEND);
-            xqc_conn_send_packets(conn);
-        }
-
         if (XQC_LIKELY(conn->conn_state != XQC_CONN_STATE_CLOSED)) {
             conn->next_tick_time = xqc_conn_next_wakeup_time(conn);
             if (XQC_LIKELY(conn->next_tick_time != 0)) {
@@ -926,11 +920,6 @@ xqc_engine_main_logic(xqc_engine_t *engine)
             } else {
                 xqc_conn_transmit_pto_probe_packets(conn);
                 xqc_conn_retransmit_lost_packets(conn);
-                xqc_conn_send_packets(conn);
-            }
-
-            if (conn->conn_settings.mp_enable_reinjection & XQC_REINJ_UNACK_AFTER_SEND) {
-                xqc_conn_reinject_unack_packets(conn, XQC_REINJ_UNACK_AFTER_SEND);
                 xqc_conn_send_packets(conn);
             }
 

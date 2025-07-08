@@ -88,13 +88,8 @@ xqc_rap_scheduler_get_path(void *scheduler,
             xqc_log(conn->log, XQC_LOG_DEBUG, "|No available paths to schedule|conn:%p|", conn);
 
         } else {
-            if (!(packet_out->po_flag & XQC_POF_REINJECT_DIFF_PATH)) {
-                best_path = original_path;
-                xqc_log(conn->log, XQC_LOG_DEBUG, "|the original path is selected|conn:%p|", conn);
-
-            } else {
-                xqc_log(conn->log, XQC_LOG_DEBUG, "|the packet must be reinjected on a different path|conn:%p|", conn);
-            }
+            best_path = original_path;
+            xqc_log(conn->log, XQC_LOG_DEBUG, "|the original path is selected|conn:%p|", conn);
         }
     
     } else {

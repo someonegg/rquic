@@ -10,7 +10,6 @@
 #include "src/transport/xqc_stream.h"
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_packet_out.h"
-#include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_frame_parser.h"
 #include "src/transport/xqc_recv_timestamps_info.h"
 
@@ -110,7 +109,6 @@ xqc_path_create(xqc_connection_t *conn, xqc_cid_t *scid, xqc_cid_t *dcid, uint64
     for (xqc_send_type_t type = 0; type < XQC_SEND_TYPE_N; type++) {
         xqc_init_list_head(&path->path_schedule_buf[type]);
     }
-    xqc_init_list_head(&path->path_reinj_tmp_buf);
 
     /* cid & path_id init */
     if (scid == NULL) {
@@ -688,7 +686,7 @@ xqc_stream_path_metrics_print(xqc_connection_t *conn, xqc_stream_t *stream, char
             }
 
             ret = snprintf(buff + cursor, buff_size - cursor, 
-                           "#%"PRIu64"-%d-%"PRIu64"-%"PRIu64"-%"PRIu32"-%"PRIu64"-%.4f-%.4f-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64,
+                           "#%"PRIu64"-%d-%"PRIu64"-%"PRIu64"-%"PRIu32"-%"PRIu64"-%.4f-%.4f-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64,
                            path->path_id, path->path_state,
                            cwnd, bw, send_ctl->ctl_bytes_in_flight,
                            xqc_send_ctl_get_srtt(send_ctl),
@@ -697,11 +695,8 @@ xqc_stream_path_metrics_print(xqc_connection_t *conn, xqc_stream_t *stream, char
                            stream->paths_info[path->path_id].path_pkt_send_count,
                            stream->paths_info[path->path_id].path_pkt_recv_count,
                            stream->paths_info[path->path_id].path_send_bytes,
-                           stream->paths_info[path->path_id].path_send_reinject_bytes,
                            stream->paths_info[path->path_id].path_recv_bytes,
-                           stream->paths_info[path->path_id].path_recv_reinject_bytes,
-                           stream->paths_info[path->path_id].path_recv_effective_bytes,
-                           stream->paths_info[path->path_id].path_recv_effective_reinject_bytes);
+                           stream->paths_info[path->path_id].path_recv_effective_bytes);
             cursor += ret;
         }
     }
@@ -720,16 +715,9 @@ xqc_stream_path_metrics_on_send(xqc_connection_t *conn, xqc_packet_out_t *po)
                 stream->paths_info[po->po_path_id].path_id = po->po_path_id;
                 stream->paths_info[po->po_path_id].path_pkt_send_count += 1;
                 stream->paths_info[po->po_path_id].path_send_bytes += po->po_stream_frames[i].ps_length;
-
-                if (po->po_flag & XQC_POF_REINJECTED_REPLICA) {
-                    stream->paths_info[po->po_path_id].path_send_reinject_bytes += po->po_stream_frames[i].ps_length;
-                }
             }
 
             conn->stream_stats.send_bytes += po->po_stream_frames[i].ps_length;
-            if (po->po_flag & XQC_POF_REINJECTED_REPLICA) {
-                conn->stream_stats.reinjected_bytes += po->po_stream_frames[i].ps_length;
-            }
         }
     }
 }

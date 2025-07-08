@@ -176,8 +176,6 @@ typedef struct xqc_demo_cli_quic_config_s {
 
     uint64_t recv_rate;
 
-    uint32_t reinjection;
-
     uint8_t mp_version;
 
     uint64_t init_max_path_id;
@@ -1494,8 +1492,6 @@ xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
     settings->mp_ack_on_any_path = args->quic_cfg.mp_ack_on_any_path;
     settings->scheduler_callback = sched;
     settings->recv_rate_bytes_per_sec = args->quic_cfg.recv_rate;
-    settings->mp_enable_reinjection = args->quic_cfg.reinjection;
-    settings->reinj_ctl_callback = xqc_deadline_reinj_ctl_cb;
     settings->standby_path_probe_timeout = 1000;
     settings->multipath_version = args->quic_cfg.mp_version;
     settings->mp_ping_on = 1;
@@ -1689,7 +1685,6 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -N    No encryption (default disabled)\n"
         "   -Q    Send requests one by one (default disabled)\n"
         "   -T    Throttle recving rate (Bps)\n"
-        "   -R    Reinjection (1,2,4) \n"
         "   -V    Multipath Version\n"
         "   -B    Set initial path standby after recvd first application data, and set initial path available after X ms\n"
         "   -I    Idle interval between requests (ms)\n"
@@ -1916,11 +1911,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         case 'T':
             printf("option recv rate limit: %s\n", optarg);
             args->quic_cfg.recv_rate = atoi(optarg);
-            break;
-
-        case 'R':
-            printf("option reinjection: %s\n", optarg);
-            args->quic_cfg.reinjection = atoi(optarg);
             break;
         
         case 'V':
