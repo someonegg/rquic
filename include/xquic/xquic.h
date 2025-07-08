@@ -934,29 +934,6 @@ XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_backup_sched
 XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_backup_fec_scheduler_cb;
 XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_rap_scheduler_cb;
 
-typedef enum {
-    XQC_REINJ_UNACK_AFTER_SCHED   = 1 << 0,
-    XQC_REINJ_UNACK_BEFORE_SCHED  = 1 << 1,
-    XQC_REINJ_UNACK_AFTER_SEND    = 1 << 2,
-} xqc_reinjection_mode_t;
-
-typedef struct xqc_reinj_ctl_callback_s {
-
-    size_t (*xqc_reinj_ctl_size)(void);
-
-    void (*xqc_reinj_ctl_init)(void *reinj_ctl, xqc_connection_t *conn);
-
-    void (*xqc_reinj_ctl_update)(void *reinj_ctl, void *qoe_info);
-
-    void (*xqc_reinj_ctl_reset)(void *reinj_ctl, void *qoe_info);
-
-    xqc_bool_t (*xqc_reinj_ctl_can_reinject)(void *reinj_ctl, xqc_packet_out_t *po, xqc_reinjection_mode_t mode);
-
-} xqc_reinj_ctl_callback_t;
-
-XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_reinj_ctl_callback_t xqc_default_reinj_ctl_cb;
-XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_reinj_ctl_callback_t xqc_deadline_reinj_ctl_cb;
-
 typedef struct xqc_fec_code_callback_s {
     void (*xqc_fec_init)(xqc_connection_t *conn);
     xqc_int_t (*xqc_fec_encode)(xqc_connection_t *conn, unsigned char *unit_data, size_t un_size, unsigned char **outputs,
@@ -1203,28 +1180,6 @@ typedef struct xqc_conn_settings_s {
     uint64_t                    least_available_cid_count;
 
     /**
-     * reinjection option:
-     * 0: default, no reinjection
-     * bit0 = 1: 
-     *    reinject unacked packets after scheduling packets to paths.
-     * bit1 = 1: 
-     *    reinject unacked packets before scheduling packets to paths.
-     * bit2 = 1
-     *    reinject unacked packets after sending packets.
-     */
-    int                         mp_enable_reinjection;
-    /**
-     * deadline = max(low_bound, min(hard_deadline, srtt * srtt_factor))
-     * default values:
-     *   low_bound = 0
-     *   hard_deadline = INF
-     *   srtt_factor = 2.0
-     */
-    double                      reinj_flexible_deadline_srtt_factor;
-    uint64_t                    reinj_hard_deadline;
-    uint64_t                    reinj_deadline_lower_bound;
-
-    /**
      * By default, XQUIC returns ACK_MPs on the path where the data 
      * is received unless the path is not avaliable anymore. 
      * 
@@ -1243,9 +1198,6 @@ typedef struct xqc_conn_settings_s {
     /** scheduler callback, default: xqc_minrtt_scheduler_cb */
     xqc_scheduler_callback_t    scheduler_callback;
     xqc_scheduler_params_t      scheduler_params;
-
-    /** reinj_ctl callback, default: xqc_default_reinj_ctl_cb */
-    xqc_reinj_ctl_callback_t    reinj_ctl_callback;
 
     /** ms */
     xqc_msec_t                  standby_path_probe_timeout;
@@ -1271,10 +1223,7 @@ typedef struct xqc_conn_settings_s {
      **/
     uint8_t                     enable_pmtud;
     /** probing interval (us), default: 500000 */
-    uint64_t                    pmtud_probing_interval; 
-
-    /** enable marking reinjected packets with reserved bits */
-    uint8_t                     marking_reinjection;
+    uint64_t                    pmtud_probing_interval;
 
     /** 
      * The limitation on conn recv rate (only applied to stream data) in bytes per second.
@@ -1369,12 +1318,8 @@ typedef struct xqc_path_metrics_s {
     uint64_t            path_pkt_send_count;
 
     uint64_t            path_send_bytes;
-    uint64_t            path_send_reinject_bytes;
-
     uint64_t            path_recv_bytes;
-    uint64_t            path_recv_reinject_bytes;
     uint64_t            path_recv_effective_bytes;
-    uint64_t            path_recv_effective_reinject_bytes;
 
     uint64_t            path_srtt;
     uint8_t             path_app_status;

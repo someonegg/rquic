@@ -33,19 +33,15 @@ typedef enum {
     XQC_POF_RETRANSED           = 1 << 6,
     XQC_POF_NOTIFY              = 1 << 7,  /* need to notify user when a packet is acked, lost, etc. */
     XQC_POF_RESEND              = 1 << 8,
-    XQC_POF_REINJECTED_ORIGIN   = 1 << 9,
-    XQC_POF_REINJECTED_REPLICA  = 1 << 10,
-    XQC_POF_IN_PATH_BUF_LIST    = 1 << 11, /* FIXED: reset when copy */
-    XQC_POF_IN_UNACK_LIST       = 1 << 12, /* FIXED: reset when copy */
-    XQC_POF_NOT_SCHEDULE        = 1 << 13,
-    XQC_POF_NOT_REINJECT        = 1 << 14,
-    XQC_POF_REINJECT_DIFF_PATH  = 1 << 15,
-    XQC_POF_PMTUD_PROBING       = 1 << 16,
-    XQC_POF_QOS_HIGH            = 1 << 17,
-    XQC_POF_QOS_PROBING         = 1 << 18,
-    XQC_POF_SPURIOUS_LOSS       = 1 << 19,
-    XQC_POF_USE_FEC             = 1 << 20,
-    XQC_POF_STREAM_NO_LEN       = 1 << 21,  /* for stream without LEN bit, shouldn't attach different frame to it */
+    XQC_POF_IN_PATH_BUF_LIST    = 1 << 9, /* FIXED: reset when copy */
+    XQC_POF_IN_UNACK_LIST       = 1 << 10, /* FIXED: reset when copy */
+    XQC_POF_NOT_SCHEDULE        = 1 << 11,
+    XQC_POF_PMTUD_PROBING       = 1 << 12,
+    XQC_POF_QOS_HIGH            = 1 << 13,
+    XQC_POF_QOS_PROBING         = 1 << 14,
+    XQC_POF_SPURIOUS_LOSS       = 1 << 15,
+    XQC_POF_USE_FEC             = 1 << 16,
+    XQC_POF_STREAM_NO_LEN       = 1 << 17,  /* for stream without LEN bit, shouldn't attach different frame to it */
 } xqc_packet_out_flag_t;
 
 typedef struct xqc_po_stream_frame_s {

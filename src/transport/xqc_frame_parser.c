@@ -13,7 +13,6 @@
 #include "src/transport/xqc_stream.h"
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_packet_parser.h"
-#include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_fec_scheme.h"
 
 static size_t xqc_write_packet_receive_timestamps_into_buf(xqc_connection_t *conn, unsigned char *dst_buf, size_t dst_buf_len,

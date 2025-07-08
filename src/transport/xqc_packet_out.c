@@ -14,7 +14,6 @@
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_engine.h"
 #include "src/transport/xqc_multipath.h"
-#include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_cid.h"
 
@@ -74,7 +73,7 @@ error:
             || ((*path)->path_state >= XQC_PATH_STATE_CLOSING)
             || (*path)->app_path_status == XQC_APP_PATH_STATUS_FROZEN) 
         {
-            po->po_path_flag &= ~(XQC_PATH_SPECIFIED_BY_ACK | XQC_PATH_SPECIFIED_BY_PTO | XQC_PATH_SPECIFIED_BY_REINJ | XQC_PATH_SPECIFIED_BY_FEC);
+            po->po_path_flag &= ~(XQC_PATH_SPECIFIED_BY_ACK | XQC_PATH_SPECIFIED_BY_PTO | XQC_PATH_SPECIFIED_BY_FEC);
 
             if (po->po_path_flag) {
                 if ((*path == NULL) 
@@ -122,7 +121,7 @@ xqc_packet_out_can_attach_ack(xqc_packet_out_t *po,
 xqc_bool_t 
 xqc_packet_out_can_pto_probe(xqc_packet_out_t *po, uint64_t path_id)
 {
-    if ((po->po_path_flag & (XQC_PATH_SPECIFIED_BY_PCPR | XQC_PATH_SPECIFIED_BY_REINJ | XQC_PATH_SPECIFIED_BY_PTMUD))
+    if ((po->po_path_flag & (XQC_PATH_SPECIFIED_BY_PCPR | XQC_PATH_SPECIFIED_BY_PTMUD))
         && path_id != po->po_path_id)
     {
         return XQC_FALSE;

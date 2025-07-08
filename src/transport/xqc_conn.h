@@ -382,10 +382,6 @@ struct xqc_connection_s {
     xqc_scheduler_callback_t       *scheduler_callback;
     void                           *scheduler;
 
-    const
-    xqc_reinj_ctl_callback_t       *reinj_callback;
-    void                           *reinj_ctl;
-
     /* xqc_hs_buffer_t data buffer for crypto data from tls */
     xqc_list_head_t                 initial_crypto_data_list;
     xqc_list_head_t                 hsk_crypto_data_list;
@@ -403,7 +399,6 @@ struct xqc_connection_s {
 
     struct {
         uint64_t                    send_bytes;
-        uint64_t                    reinjected_bytes;
         uint64_t                    recv_bytes;
     } stream_stats;
 

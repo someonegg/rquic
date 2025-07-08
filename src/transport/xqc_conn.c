@@ -24,7 +24,6 @@
 #include "src/transport/xqc_packet_parser.h"
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_multipath.h"
-#include "src/transport/xqc_reinjection.h"
 #include "src/transport/xqc_packet.h"
 #include "src/transport/xqc_fec.h"
 #include "src/transport/xqc_fec_scheme.h"
@@ -48,7 +47,6 @@ xqc_conn_settings_t internal_default_conn_settings = {
     .keyupdate_pkt_threshold    = 0,
     .max_pkt_out_size           = XQC_PACKET_OUT_SIZE,
     .probing_pkt_out_size       = XQC_MAX_PACKET_OUT_SIZE,
-    .mp_enable_reinjection      = 0,
     .mp_ack_on_any_path         = 0,
     .mp_ping_on                 = 0,
     .max_ack_delay              = XQC_DEFAULT_MAX_ACK_DELAY,
@@ -56,15 +54,10 @@ xqc_conn_settings_t internal_default_conn_settings = {
     .loss_detection_pkt_thresh  = XQC_kPacketThreshold,
     .pto_backoff_factor         = 2.0,
 
-    .reinj_flexible_deadline_srtt_factor = 1.1,
-    .reinj_hard_deadline                 = 500000, /* 500ms */
-    .reinj_deadline_lower_bound          = 20000, /* 20ms */
-
     .standby_path_probe_timeout = 0,
     .fec_conn_queue_rpr_timeout = 0,
     .enable_pmtud               = 0,
     .pmtud_probing_interval     = 500000,
-    .marking_reinjection        = 0,
 
     .recv_rate_bytes_per_sec    = 0,
     .enable_stream_rate_limit   = 0,
@@ -151,7 +144,6 @@ xqc_server_set_conn_settings(xqc_engine_t *engine, const xqc_conn_settings_t *se
     engine->default_conn_settings.linger    = settings->linger;
     engine->default_conn_settings.spurious_loss_detect_on = settings->spurious_loss_detect_on;
     engine->default_conn_settings.enable_pmtud = settings->enable_pmtud;
-    engine->default_conn_settings.marking_reinjection = settings->marking_reinjection;
     engine->default_conn_settings.mp_ack_on_any_path = settings->mp_ack_on_any_path;
     engine->default_conn_settings.mp_ping_on = settings->mp_ping_on;
     engine->default_conn_settings.recv_rate_bytes_per_sec = settings->recv_rate_bytes_per_sec;
@@ -274,8 +266,6 @@ xqc_server_set_conn_settings(xqc_engine_t *engine, const xqc_conn_settings_t *se
 #endif
 
     engine->default_conn_settings.scheduler_callback = settings->scheduler_callback;
-    engine->default_conn_settings.reinj_ctl_callback = settings->reinj_ctl_callback;
-    engine->default_conn_settings.mp_enable_reinjection = settings->mp_enable_reinjection;
 
     if ((settings->extended_ack_features & XQC_ACK_EXT_FEATURE_BIT_RECV_TS) 
         && !settings->enable_multipath)
@@ -302,18 +292,6 @@ xqc_server_set_conn_settings(xqc_engine_t *engine, const xqc_conn_settings_t *se
 
     if (settings->loss_detection_pkt_thresh > 0) {
         engine->default_conn_settings.loss_detection_pkt_thresh = settings->loss_detection_pkt_thresh;
-    }
-
-    if (settings->reinj_flexible_deadline_srtt_factor > 0) {
-        engine->default_conn_settings.reinj_flexible_deadline_srtt_factor = settings->reinj_flexible_deadline_srtt_factor;
-    }
-
-    if (settings->reinj_hard_deadline > 0) {
-        engine->default_conn_settings.reinj_hard_deadline = settings->reinj_hard_deadline;
-    }
-
-    if (settings->reinj_deadline_lower_bound > 0) {
-        engine->default_conn_settings.reinj_deadline_lower_bound = settings->reinj_deadline_lower_bound;
     }
 
     if (settings->standby_path_probe_timeout > 0) {
@@ -633,10 +611,6 @@ xqc_conn_create(xqc_engine_t *engine, xqc_cid_t *dcid, xqc_cid_t *scid,
     }
     xc->conn_settings.max_ack_delay = xqc_min(xc->conn_settings.max_ack_delay, XQC_DEFAULT_MAX_ACK_DELAY);
 
-    if (xc->conn_settings.mp_enable_reinjection & XQC_REINJ_UNACK_BEFORE_SCHED) {
-        xc->conn_settings.mp_enable_reinjection |= XQC_REINJ_UNACK_AFTER_SEND;
-    }
-
     if (xc->conn_settings.init_recv_window) {
         xc->conn_settings.init_recv_window = xqc_max(xc->conn_settings.init_recv_window, XQC_QUIC_MAX_MSS);
 
@@ -692,14 +666,6 @@ xqc_conn_create(xqc_engine_t *engine, xqc_cid_t *dcid, xqc_cid_t *scid,
 
     if (xc->conn_settings.anti_amplification_limit == 0) {
         xc->conn_settings.anti_amplification_limit = XQC_DEFAULT_ANTI_AMPLIFICATION_LIMIT;
-    }
-
-    if (xc->conn_settings.reinj_flexible_deadline_srtt_factor == 0) {
-        xc->conn_settings.reinj_flexible_deadline_srtt_factor = engine->default_conn_settings.reinj_flexible_deadline_srtt_factor;
-    }
-
-    if (xc->conn_settings.reinj_hard_deadline == 0) {
-        xc->conn_settings.reinj_hard_deadline = engine->default_conn_settings.reinj_hard_deadline;
     }
 
     if (xqc_conn_is_current_mp_version_supported(xc->conn_settings.multipath_version) != XQC_OK) {
@@ -915,20 +881,6 @@ xqc_conn_create(xqc_engine_t *engine, xqc_cid_t *dcid, xqc_cid_t *scid,
     }
     xc->scheduler_callback->xqc_scheduler_init(xc->scheduler, xc->log, &xc->conn_settings.scheduler_params);
 
-    /* set reinject control callback if reinjection enabled */
-    if (xc->conn_settings.reinj_ctl_callback.xqc_reinj_ctl_init) {
-        xc->reinj_callback = &xc->conn_settings.reinj_ctl_callback;
-        xc->reinj_ctl = xqc_pcalloc(xc->conn_pool, xc->reinj_callback->xqc_reinj_ctl_size());
-        if (xc->reinj_ctl == NULL) {
-            goto fail;
-        }
-        xc->reinj_callback->xqc_reinj_ctl_init(xc->reinj_ctl, xc);
-    }
-
-
-    /* 
-     * Init paths after the scheduler and the reinjection controller are initialized. 
-     */
     if (xqc_conn_init_paths_list(xc) != XQC_OK) {
         goto fail;
     }
@@ -2208,7 +2160,7 @@ xqc_path_send_packets(xqc_connection_t *conn, xqc_path_ctx_t *path,
         packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
 
         if (xqc_check_acked_or_dropped_pkt(conn, packet_out, send_type)) {
-            xqc_log(conn->log, XQC_LOG_DEBUG, "|path:%ui|canceled_bytes:%ud|reinj:%d|", path->path_id, packet_out->po_used_size, XQC_MP_PKT_REINJECTED(packet_out));
+            xqc_log(conn->log, XQC_LOG_DEBUG, "|path:%ui|canceled_bytes:%ud|", path->path_id, packet_out->po_used_size);
             continue;
         }
 
@@ -2342,9 +2294,6 @@ xqc_conn_enc_packet(xqc_connection_t *conn,
     xqc_write_packet_number(packet_out->po_ppktno, packet_out->po_pkt.pkt_num, XQC_PKTNO_BITS);
     xqc_long_packet_update_length(packet_out);
     xqc_short_packet_update_key_phase(packet_out, conn->key_update_ctx.cur_out_key_phase);
-    if (conn->conn_settings.marking_reinjection) {
-        xqc_packet_update_reserved_bits(packet_out);
-    }
 
     /* encrypt */
     xqc_int_t ret = xqc_packet_encrypt_buf(conn, packet_out, enc_pkt, enc_pkt_cap, enc_pkt_len);
@@ -2507,9 +2456,6 @@ xqc_enc_packet_with_pn(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_packet_
     xqc_write_packet_number(packet_out->po_ppktno, packet_out->po_pkt.pkt_num, XQC_PKTNO_BITS);
     xqc_long_packet_update_length(packet_out);
     xqc_short_packet_update_key_phase(packet_out, conn->key_update_ctx.cur_out_key_phase);
-    if (conn->conn_settings.marking_reinjection) {
-        xqc_packet_update_reserved_bits(packet_out);
-    }
 
     /* encrypt packet body */
     if (xqc_packet_encrypt(conn, packet_out) < 0) {
@@ -2619,22 +2565,12 @@ xqc_conn_schedule_packets_to_paths(xqc_connection_t *conn)
     xqc_conn_schedule_packets(conn, head, XQC_FALSE, 
                               XQC_SEND_TYPE_NORMAL_HIGH_PRI);
 
-    /* try to reinject unacked packets if paths still have cwnd */
-    if (conn->conn_settings.mp_enable_reinjection & XQC_REINJ_UNACK_BEFORE_SCHED) {
-        xqc_conn_reinject_unack_packets(conn, XQC_REINJ_UNACK_BEFORE_SCHED);
-    }
-
     head = &conn->conn_send_queue->sndq_send_packets;
     xqc_conn_schedule_packets(conn, head, XQC_TRUE, XQC_SEND_TYPE_NORMAL);
 
     /* all packets are scheduled, we need to check if there are paths not fully utilized */
     xqc_conn_check_path_utilization(conn);
     xqc_conn_schedule_end(conn);
-
-    if (conn->conn_settings.mp_enable_reinjection & XQC_REINJ_UNACK_AFTER_SCHED) {
-        xqc_conn_reinject_unack_packets(conn, XQC_REINJ_UNACK_AFTER_SCHED);
-    }
-
 }
 
 
@@ -2770,11 +2706,6 @@ int
 xqc_conn_send_probe_pkt(xqc_connection_t *c, xqc_path_ctx_t *path,
     xqc_packet_out_t *packet_out)
 {
-    xqc_reinjection_mode_t  mode;
-    int reinject = 0;
-
-    mode = c->conn_settings.mp_enable_reinjection & XQC_REINJ_UNACK_BEFORE_SCHED;
-
     xqc_log(c->log, XQC_LOG_DEBUG, "|conn:%p|path:%ui|pkt_num:%ui"
             "|size:%ud|pkt_type:%s|frame:%s|conn_state:%s|", c,
             packet_out->po_path_id, packet_out->po_pkt.pkt_num,
@@ -2782,23 +2713,6 @@ xqc_conn_send_probe_pkt(xqc_connection_t *c, xqc_path_ctx_t *path,
             xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type),
             xqc_frame_type_2_str(c->engine, packet_out->po_frame_types),
             xqc_conn_state_2_str(c->conn_state));
-
-    /* reinjection */
-    if (c->enable_multipath
-        && c->reinj_callback
-        && c->reinj_callback->xqc_reinj_ctl_can_reinject
-        && c->reinj_callback->xqc_reinj_ctl_can_reinject(
-                c->reinj_ctl, packet_out, mode))
-    {
-        if (xqc_conn_try_reinject_packet(c, packet_out) == XQC_OK) {
-            xqc_log(c->log, XQC_LOG_DEBUG, "|MP|REINJ|reinject pto packets|"
-                    "pkt_num:%ui|size:%ud|pkt_type:%s|frame:%s|",
-                    packet_out->po_pkt.pkt_num, packet_out->po_used_size,
-                    xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type),
-                    xqc_frame_type_2_str(c->engine, packet_out->po_frame_types));
-            reinject = 1;
-        }
-    }
 
     if (packet_out->po_flag & XQC_POF_IN_FLIGHT) {
         c->detected_loss_cnt++;
@@ -2809,7 +2723,7 @@ xqc_conn_send_probe_pkt(xqc_connection_t *c, xqc_path_ctx_t *path,
 
     packet_out->po_flag |= XQC_POF_TLP;
 
-    return reinject;
+    return 0;
 }
 
 void
@@ -2825,7 +2739,6 @@ xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path,
     xqc_list_head_t        *sndq;
     xqc_int_t               probe_num;
     xqc_bool_t              send_hsd;
-    int                     has_reinjection = 0;
 
     c       = path->parent_conn;
     sndq    = &c->conn_send_queue->sndq_unacked_packets[pns];
@@ -2880,7 +2793,7 @@ xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path,
                 continue;
             }
 
-            has_reinjection = has_reinjection || xqc_conn_send_probe_pkt(c, path, packet_out);
+            xqc_conn_send_probe_pkt(c, path, packet_out);
             packet_out_last_sent = packet_out;
 
             if (--probe_num == 0) {
@@ -2897,7 +2810,7 @@ xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path,
                 /* try to send the first ack-eliciting pkt do not contain
                    HSK_DONE frame */
                 if (packet_out_later_send) {
-                    has_reinjection = has_reinjection || xqc_conn_send_probe_pkt(c, path, packet_out_later_send);
+                    xqc_conn_send_probe_pkt(c, path, packet_out_later_send);
                     packet_out_last_sent = packet_out_later_send;
                     packet_out_later_send = NULL;
 
@@ -2916,7 +2829,7 @@ xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path,
             while (probe_num > 0) {
                 xqc_log(c->log, XQC_LOG_DEBUG, "|dup pkt on PTO, pkt_num:%ui|",
                         packet_out_last_sent->po_pkt.pkt_num);
-                has_reinjection = has_reinjection || xqc_conn_send_probe_pkt(c, path, packet_out_last_sent);
+                xqc_conn_send_probe_pkt(c, path, packet_out_last_sent);
                 probe_num--;
             }
 
@@ -2927,15 +2840,6 @@ xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path,
                 xqc_path_send_ping_to_probe(path, pns, XQC_PATH_SPECIFIED_BY_PTO);
                 probe_num--;
             }
-        }
-    }
-
-    if (has_reinjection) {
-        xqc_path_ctx_t *path;
-        xqc_list_for_each_safe(pos, next, &c->conn_paths_list) {
-            path = xqc_list_entry(pos, xqc_path_ctx_t, path_list);
-            xqc_list_splice_tail_init(&path->path_reinj_tmp_buf,
-                                      &path->path_schedule_buf[XQC_SEND_TYPE_NORMAL]);
         }
     }
 }
@@ -3322,20 +3226,18 @@ xqc_conn_info_print(xqc_connection_t *conn, xqc_conn_stats_t *conn_stats)
 
     /* conn info */
     ret = snprintf(buff, buff_size, "%s,%u,%u,%u,%u,%u,%u,"
-                   "%u,%u,%u,%u,%u,%u,%u,%"PRIu64",%"PRIu64",%"PRIu64",i%u,"
+                   "%u,%u,%"PRIu64",%"PRIu64",i%u,"
                    ,
                    mp_settings,
                    conn->create_path_count,
                    conn->validated_path_count,
                    conn->active_path_count,
-                   0,0,0,0,0,
                    conn->sched_cc_blocked,
                    conn->send_cc_blocked,
                    conn->snd_pkt_stats.conn_sent_pkts,
                    conn->rcv_pkt_stats.conn_rcvd_pkts,
                    conn->rcv_pkt_stats.conn_udp_pkts,
                    conn->stream_stats.send_bytes,
-                   conn->stream_stats.reinjected_bytes,
                    conn->stream_stats.recv_bytes,
                    init_cwnd
                    );
