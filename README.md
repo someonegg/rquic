@@ -22,3 +22,14 @@ cmake -DGCOV=on -DCMAKE_BUILD_TYPE=Debug -DXQC_ENABLE_TESTING=1 -DXQC_SUPPORT_SE
 
 make
 ```
+
+## Demo
+
+```bash
+cd build/demo
+keyfile=server.key
+certfile=server.crt
+openssl req -newkey rsa:2048 -x509 -nodes -keyout "$keyfile" -new -out "$certfile" -subj /CN=test.xquic.com
+./demo_server -d &
+./demo_client -d -a 127.0.0.1 -p 8443 -U 'https://test.xquic.com/123'
+```
