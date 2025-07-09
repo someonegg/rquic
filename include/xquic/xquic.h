@@ -774,18 +774,6 @@ typedef struct xqc_cc_params_s {
 } xqc_cc_params_t;
 
 /**
- * @brief multipath scheduler algorithm parameters
- */
-typedef struct xqc_scheduler_params_u {
-    uint64_t    rtt_us_thr_high;
-    uint64_t    rtt_us_thr_low;
-    uint64_t    bw_Bps_thr;
-    double      loss_percent_thr_high;
-    double      loss_percent_thr_low;
-    uint32_t    pto_cnt_thr;
-} xqc_scheduler_params_t;
-
-/**
  * @brief FEC schemes type enum
  */
 typedef enum {
@@ -898,41 +886,6 @@ XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_cong_ctrl_callback_t xqc_unlimited_cc
 #ifdef XQC_ENABLE_COPA
 XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_cong_ctrl_callback_t xqc_copa_cb;
 #endif
-
-typedef enum xqc_scheduler_path_event_e {
-    XQC_SCHED_EVENT_PATH_NOT_FULL = 0,
-} xqc_scheduler_path_event_t;
-
-typedef enum xqc_scheduler_conn_event_e {
-    XQC_SCHED_EVENT_CONN_ROUND_START = 0,
-    XQC_SCHED_EVENT_CONN_ROUND_FIN   = 1,
-} xqc_scheduler_conn_event_t;
-
-/**
- * @brief multipath scheduler callbacks
- */
-typedef struct xqc_scheduler_callback_s {
-
-    size_t (*xqc_scheduler_size)(void);
-
-    void (*xqc_scheduler_init)(void *scheduler, xqc_log_t *log, xqc_scheduler_params_t *params);
-
-    xqc_path_ctx_t * (*xqc_scheduler_get_path)(void *scheduler,
-        xqc_connection_t *conn, xqc_packet_out_t *packet_out,
-        int check_cwnd, int reinject, xqc_bool_t *cc_blocked);
-
-    void (*xqc_scheduler_handle_path_event)(void *scheduler, 
-        xqc_path_ctx_t *path, xqc_scheduler_path_event_t event, void *event_arg);
-
-    void (*xqc_scheduler_handle_conn_event)(void *scheduler, 
-        xqc_connection_t *conn, xqc_scheduler_conn_event_t event, void *event_arg);
-
-} xqc_scheduler_callback_t;
-
-XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_minrtt_scheduler_cb;
-XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_backup_scheduler_cb;
-XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_backup_fec_scheduler_cb;
-XQC_EXPORT_PUBLIC_API XQC_EXTERN const xqc_scheduler_callback_t xqc_rap_scheduler_cb;
 
 typedef struct xqc_fec_code_callback_s {
     void (*xqc_fec_init)(xqc_connection_t *conn);
@@ -1194,10 +1147,6 @@ typedef struct xqc_conn_settings_s {
      * The default value is 0.
      */
     uint8_t                     mp_ping_on;
-    
-    /** scheduler callback, default: xqc_minrtt_scheduler_cb */
-    xqc_scheduler_callback_t    scheduler_callback;
-    xqc_scheduler_params_t      scheduler_params;
 
     /** ms */
     xqc_msec_t                  standby_path_probe_timeout;

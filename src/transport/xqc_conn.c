@@ -62,14 +62,6 @@ xqc_conn_settings_t internal_default_conn_settings = {
     .recv_rate_bytes_per_sec    = 0,
     .enable_stream_rate_limit   = 0,
 
-    .scheduler_params           = {
-                                    .bw_Bps_thr = 375000, 
-                                    .loss_percent_thr_high = 30,
-                                    .loss_percent_thr_low = 10,
-                                    .pto_cnt_thr = 2,
-                                    .rtt_us_thr_high = 2000000,
-                                    .rtt_us_thr_low = 500000
-                                  },
 #ifdef XQC_PROTECT_POOL_MEM
     .protect_pool_mem           = 0,
 #endif
@@ -104,35 +96,6 @@ xqc_conn_settings_t internal_default_conn_settings = {
 
 
 void
-xqc_conn_set_default_sched_params(xqc_conn_settings_t *src_settings, xqc_conn_settings_t *settings)
-{
-    if (settings->scheduler_params.bw_Bps_thr == 0) {
-        settings->scheduler_params.bw_Bps_thr = src_settings->scheduler_params.bw_Bps_thr;
-    }
-
-    if (settings->scheduler_params.loss_percent_thr_high == 0) {
-        settings->scheduler_params.loss_percent_thr_high = src_settings->scheduler_params.loss_percent_thr_high;
-    }
-
-    if (settings->scheduler_params.loss_percent_thr_low == 0) {
-        settings->scheduler_params.loss_percent_thr_low = src_settings->scheduler_params.loss_percent_thr_low;
-    }
-
-    if (settings->scheduler_params.pto_cnt_thr == 0) {
-        settings->scheduler_params.pto_cnt_thr = src_settings->scheduler_params.pto_cnt_thr;
-    }
-
-    if (settings->scheduler_params.rtt_us_thr_high == 0) {
-        settings->scheduler_params.rtt_us_thr_high = src_settings->scheduler_params.rtt_us_thr_high;
-    }
-
-    if (settings->scheduler_params.rtt_us_thr_low == 0) {
-        settings->scheduler_params.rtt_us_thr_low = src_settings->scheduler_params.rtt_us_thr_low;
-    }
-}
-
-
-void
 xqc_server_set_conn_settings(xqc_engine_t *engine, const xqc_conn_settings_t *settings)
 {
     engine->default_conn_settings.cong_ctrl_callback = settings->cong_ctrl_callback;
@@ -156,9 +119,6 @@ xqc_server_set_conn_settings(xqc_engine_t *engine, const xqc_conn_settings_t *se
     engine->default_conn_settings.protect_pool_mem = settings->protect_pool_mem;
 #endif
     engine->default_conn_settings.adaptive_ack_frequency = settings->adaptive_ack_frequency;
-
-    engine->default_conn_settings.scheduler_params = settings->scheduler_params;
-    xqc_conn_set_default_sched_params(&internal_default_conn_settings, &engine->default_conn_settings);
 
     if (settings->max_udp_payload_size != 0) {
         engine->default_conn_settings.max_udp_payload_size = settings->max_udp_payload_size;
@@ -264,8 +224,6 @@ xqc_server_set_conn_settings(xqc_engine_t *engine, const xqc_conn_settings_t *se
     }
 
 #endif
-
-    engine->default_conn_settings.scheduler_callback = settings->scheduler_callback;
 
     if ((settings->extended_ack_features & XQC_ACK_EXT_FEATURE_BIT_RECV_TS) 
         && !settings->enable_multipath)
@@ -596,7 +554,6 @@ xqc_conn_create(xqc_engine_t *engine, xqc_cid_t *dcid, xqc_cid_t *scid,
     xc->conn_settings = *settings;
 
     xqc_memcpy(xc->conn_settings.conn_option_str, settings->conn_option_str, XQC_CO_STR_MAX_LEN);
-    xqc_conn_set_default_sched_params(&engine->default_conn_settings, &xc->conn_settings);
 
     if (xc->conn_settings.max_udp_payload_size == 0) {
         xc->conn_settings.max_udp_payload_size = engine->default_conn_settings.max_udp_payload_size;
@@ -866,20 +823,6 @@ xqc_conn_create(xqc_engine_t *engine, xqc_cid_t *dcid, xqc_cid_t *scid,
     {
         goto fail;
     }
-
-    /* set scheduler callback (default: minRTT) */
-    if (xc->conn_settings.scheduler_callback.xqc_scheduler_init) {
-        xc->scheduler_callback = &xc->conn_settings.scheduler_callback;
-
-    } else {
-        xc->scheduler_callback = &xqc_minrtt_scheduler_cb;
-    }
-
-    xc->scheduler = xqc_pcalloc(xc->conn_pool, xc->scheduler_callback->xqc_scheduler_size());
-    if (xc->scheduler == NULL) {
-        goto fail;
-    }
-    xc->scheduler_callback->xqc_scheduler_init(xc->scheduler, xc->log, &xc->conn_settings.scheduler_params);
 
     if (xqc_conn_init_paths_list(xc) != XQC_OK) {
         goto fail;
@@ -1826,35 +1769,7 @@ xqc_conn_schedule_packets(xqc_connection_t *conn,  xqc_list_head_t *head,
 
     xqc_list_for_each_safe(pos, next, head) {
         packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        /* 1. 已设置特定路径发送的包，例如：PATH_CHALLENGE PATH_RESPONSE MP_ACK(原路径ACK) */
-        if (xqc_packet_out_on_specific_path(conn, packet_out, &path)) {
-            if (path == NULL) {
-                continue;
-            }
-            xqc_log(conn->log, XQC_LOG_DEBUG, "|specify|path:%ui|state:%d|frame_type:%s|stream_id:%ui|stream_offset:%ui|",
-                    path->path_id, path->path_state, xqc_frame_type_2_str(conn->engine, packet_out->po_frame_types),
-                    packet_out->po_stream_id, packet_out->po_stream_offset);
-
-        /* 2. schedule packet multipath */
-        } else {
-            path = conn->scheduler_callback->
-                   xqc_scheduler_get_path(conn->scheduler, 
-                                          conn, packet_out, 
-                                          packets_are_limited_by_cc, 
-                                          0, &cc_blocked);
-            if (path == NULL) {
-                if (cc_blocked) {
-                    conn->sched_cc_blocked++;
-                    if (packet_out->po_sched_cwnd_blk_ts == 0) {
-                        packet_out->po_sched_cwnd_blk_ts = now;
-                    }
-                }
-                if (xqc_timer_is_set(&conn->conn_timer_manager, XQC_TIMER_QUEUE_FIN)) {
-                    reset_rpr_timer = 1;
-                }
-                break;
-            }
-        }
+        path = conn->conn_initial_path;
 
 #ifdef XQC_ENABLE_FEC
         /* FEC encode packets */
@@ -2498,60 +2413,9 @@ xqc_path_send_one_packet(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_packe
     }
 }
 
-void 
-xqc_conn_check_path_utilization(xqc_connection_t *conn)
-{
-    if (!conn->enable_multipath) {
-        return;
-    }
-    
-    xqc_list_head_t *pos, *next;
-    xqc_path_ctx_t *path;
-    xqc_list_for_each_safe(pos, next, &conn->conn_paths_list) {
-        path = xqc_list_entry(pos, xqc_path_ctx_t, path_list);
-        
-        if (path->path_state != XQC_PATH_STATE_ACTIVE) {
-            continue;
-        }
-
-        if (!xqc_path_is_full(path) 
-            && conn->scheduler_callback->xqc_scheduler_handle_path_event)
-        {
-            conn->scheduler_callback->xqc_scheduler_handle_path_event(conn->scheduler, path, XQC_SCHED_EVENT_PATH_NOT_FULL, NULL);
-        }
-
-    }
-}
-
-static void 
-xqc_conn_schedule_start(xqc_connection_t *conn)
-{
-    if (!conn->enable_multipath) {
-        return;
-    }
-
-    if (conn->scheduler_callback->xqc_scheduler_handle_conn_event) {
-        conn->scheduler_callback->xqc_scheduler_handle_conn_event(conn->scheduler, conn, XQC_SCHED_EVENT_CONN_ROUND_START, NULL);
-    }
-}
-
-static void 
-xqc_conn_schedule_end(xqc_connection_t *conn)
-{
-    if (!conn->enable_multipath) {
-        return;
-    }
-
-    if (conn->scheduler_callback->xqc_scheduler_handle_conn_event) {
-        conn->scheduler_callback->xqc_scheduler_handle_conn_event(conn->scheduler, conn, XQC_SCHED_EVENT_CONN_ROUND_FIN, NULL);
-    }
-}
-
 void
 xqc_conn_schedule_packets_to_paths(xqc_connection_t *conn)
 {
-    xqc_conn_schedule_start(conn);
-
     /* do neither CC nor Pacing */
     xqc_list_head_t *head = &conn->conn_send_queue->sndq_pto_probe_packets;
 
@@ -2567,10 +2431,6 @@ xqc_conn_schedule_packets_to_paths(xqc_connection_t *conn)
 
     head = &conn->conn_send_queue->sndq_send_packets;
     xqc_conn_schedule_packets(conn, head, XQC_TRUE, XQC_SEND_TYPE_NORMAL);
-
-    /* all packets are scheduled, we need to check if there are paths not fully utilized */
-    xqc_conn_check_path_utilization(conn);
-    xqc_conn_schedule_end(conn);
 }
 
 

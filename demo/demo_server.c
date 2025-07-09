@@ -107,9 +107,6 @@ typedef struct xqc_demo_svr_quic_config_s {
     /* ack on any path */
     int  mp_ack_on_any_path;
 
-    /* scheduler */
-    char mp_sched[32];
-
     uint64_t keyupdate_pkt_threshold;
     uint64_t least_available_cid_count;
 
@@ -880,7 +877,6 @@ xqc_demo_svr_usage(int argc, char *argv[])
             "   -d    do not read responses from files\n"
             "   -M    enable MPQUIC.\n"
             "   -P    enable MPQUIC to return ACK_MPs on any paths.\n"
-            "   -s    multipath scheduler (interop, minrtt, backup), default: interop\n"
             "   -u    Keyupdate packet threshold\n"
             "   -F    MTU size (default: 1200)\n"
             , prog);
@@ -1016,11 +1012,6 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             args->quic_cfg.mp_ack_on_any_path = 1;
             break;
 
-        case 's':
-            printf("option scheduler: %s\n", optarg);
-            strncpy(args->quic_cfg.mp_sched, optarg, 32);
-            break;
-
         case 'u': /* key update packet threshold */
             printf("key update packet threshold: %s\n", optarg);
             args->quic_cfg.keyupdate_pkt_threshold = atoi(optarg);
@@ -1130,15 +1121,6 @@ xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
         break;
     }
 
-    xqc_scheduler_callback_t sched = {0};
-    if (strncmp(args->quic_cfg.mp_sched, "minrtt", strlen("minrtt")) == 0) {
-        sched = xqc_minrtt_scheduler_cb;
-
-    } if (strncmp(args->quic_cfg.mp_sched, "backup", strlen("backup")) == 0) {
-        sched = xqc_backup_scheduler_cb;
-
-    }
-
     /* init connection settings */
     xqc_conn_settings_t conn_settings = {
         .pacing_on  =   args->net_cfg.pacing,
@@ -1153,7 +1135,6 @@ xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
         .enable_multipath = args->quic_cfg.multipath,
         .init_max_path_id = args->quic_cfg.max_initial_paths,
         .mp_ack_on_any_path = args->quic_cfg.mp_ack_on_any_path,
-        .scheduler_callback = sched,
         .standby_path_probe_timeout = 1000,
         .keyupdate_pkt_threshold = args->quic_cfg.keyupdate_pkt_threshold,
         .least_available_cid_count = args->quic_cfg.least_available_cid_count,
