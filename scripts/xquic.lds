@@ -37,11 +37,6 @@ XQUIC_VERS_1.0 {
         xqc_bbr2_cb;
         xqc_reno_cb;
         xqc_cubic_cb;
-        xqc_minrtt_scheduler_cb;
-        xqc_interop_scheduler_cb;
-        xqc_backup_scheduler_cb;
-        xqc_backup_fec_scheduler_cb;
-        xqc_rap_scheduler_cb;
         xqc_conn_is_ready_to_send_early_data;
         xqc_conn_send_ping;
         xqc_engine_conns_hash_find;

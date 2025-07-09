@@ -166,7 +166,6 @@ typedef struct xqc_demo_cli_quic_config_s {
 
     uint8_t mp_ack_on_any_path;
 
-    char mp_sched[32];
     uint8_t mp_backup;
     int backup_path_id;
 
@@ -1470,15 +1469,6 @@ xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
         break;
     }
 
-    xqc_scheduler_callback_t sched = xqc_minrtt_scheduler_cb;
-    if (strncmp(args->quic_cfg.mp_sched, "minrtt", strlen("minrtt")) == 0) {
-        sched = xqc_minrtt_scheduler_cb;
-
-    } if (strncmp(args->quic_cfg.mp_sched, "backup", strlen("backup")) == 0) {
-        sched = xqc_backup_scheduler_cb;
-
-    }
-
     memset(settings, 0, sizeof(xqc_conn_settings_t));
     settings->pacing_on = args->net_cfg.pacing;
     settings->cong_ctrl_callback = cong_ctrl;
@@ -1490,7 +1480,6 @@ xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
     settings->keyupdate_pkt_threshold = args->quic_cfg.keyupdate_pkt_threshold;
     settings->enable_multipath = args->net_cfg.multipath;
     settings->mp_ack_on_any_path = args->quic_cfg.mp_ack_on_any_path;
-    settings->scheduler_callback = sched;
     settings->recv_rate_bytes_per_sec = args->quic_cfg.recv_rate;
     settings->standby_path_probe_timeout = 1000;
     settings->multipath_version = args->quic_cfg.mp_version;
@@ -1677,7 +1666,6 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -i    interface to create a path. For instance, we can use '-i lo -i lo' to create two paths via lo.\n"
         "   -w    waiting N ms to start the first request.\n"
         "   -P    enable MPQUIC to return ACK_MPs on any paths.\n"
-        "   -s    multipath scheduler (interop, minrtt, backup), default: interop\n"
         "   -b    set the second path as a backup path\n"
         "   -Z    close one path after X ms\n"
         "   -z    path id to be closed\n"
@@ -1870,11 +1858,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         case 'P':
             printf("option ACK_MP on any path on\n");
             args->quic_cfg.mp_ack_on_any_path = 1;
-            break;
-
-        case 's':
-            printf("option scheduler: %s\n", optarg);
-            strncpy(args->quic_cfg.mp_sched, optarg, 32);
             break;
 
         case 'b':

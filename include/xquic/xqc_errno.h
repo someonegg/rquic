@@ -104,7 +104,6 @@ typedef enum {
     XQC_EMP_CREATE_PATH                 = 652,      /**< Multipath - create path error */
     XQC_EMP_PATH_NOT_FOUND              = 653,      /**< Multipath - can't find path in paths_list */
     XQC_EMP_PATH_STATE_ERROR            = 654,      /**< Multipath - abnormal path status */
-    XQC_EMP_SCHEDULE_PATH               = 655,      /**< Multipath - fail to schedule path for sending */
     XQC_EMP_NO_ACTIVE_PATH              = 656,      /**< Multipath - no another active path */
     XQC_EMP_INVALID_MP_VERTION          = 657,      /**< Multipath - the multipath version value is invalid */
     XQC_EMP_NO_AVAILABLE_CID_FOR_PATH   = 658,      /**< Multipath - there's no available unused cid for this path */

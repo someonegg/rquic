@@ -146,11 +146,6 @@ set(
     "src/transport/xqc_transport_params.c"
     "src/transport/xqc_timer.c"
     "src/transport/xqc_recv_timestamps_info.c"
-    "src/transport/scheduler/xqc_scheduler_minrtt.c"
-    "src/transport/scheduler/xqc_scheduler_common.c"
-    "src/transport/scheduler/xqc_scheduler_backup.c"
-    "src/transport/scheduler/xqc_scheduler_backup_fec.c"
-    "src/transport/scheduler/xqc_scheduler_rap.c"
 )
 
 

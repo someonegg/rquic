@@ -1291,56 +1291,6 @@ xqc_path_standby_probe(xqc_path_ctx_t *path)
     return XQC_OK;
 }
 
-xqc_path_perf_class_t 
-xqc_path_get_perf_class(xqc_path_ctx_t *path)
-{
-    xqc_connection_t *conn = path->parent_conn;
-    xqc_scheduler_params_t *param = &conn->conn_settings.scheduler_params;
-    xqc_usec_t path_srtt = xqc_send_ctl_get_srtt(path->path_send_ctl);
-    xqc_usec_t min_srtt = xqc_conn_get_min_srtt(path->parent_conn, 0);
-    uint64_t path_bw = xqc_send_ctl_get_est_bw(path->path_send_ctl);
-    double loss_rate = xqc_path_recent_loss_rate(path);
-
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|conn:%p|path_id:%ui|"
-            "path_srtt:%ui|min_srtt:%ui|path_bw:%ui|loss_rate:%.2f|"
-            "path_pto:%ud|", 
-            conn, path->path_id, path_srtt, min_srtt, path_bw, loss_rate,
-            path->path_send_ctl->ctl_pto_count);
-
-    // low 
-    if (path_srtt > param->rtt_us_thr_high
-        || path->path_send_ctl->ctl_pto_count >= param->pto_cnt_thr
-        || loss_rate > param->loss_percent_thr_high) 
-    {
-        if (path->app_path_status == XQC_APP_PATH_STATUS_AVAILABLE) {
-            return XQC_PATH_CLASS_AVAILABLE_LOW;
-
-        } else {
-            return XQC_PATH_CLASS_STANDBY_LOW;
-        }
-    }
-
-    // mid 
-    if ((path_srtt <= param->rtt_us_thr_high && (path_srtt > xqc_min(param->rtt_us_thr_low, 3 * min_srtt)))
-        || path_bw < param->bw_Bps_thr
-        || (loss_rate <= param->loss_percent_thr_high && loss_rate > param->loss_percent_thr_low))
-    {
-        if (path->app_path_status == XQC_APP_PATH_STATUS_AVAILABLE) {
-            return XQC_PATH_CLASS_AVAILABLE_MID;
-
-        } else {
-            return XQC_PATH_CLASS_STANDBY_MID;
-        }
-    }
-
-    // high
-    if (path->app_path_status == XQC_APP_PATH_STATUS_AVAILABLE) {
-        return XQC_PATH_CLASS_AVAILABLE_HIGH;
-    }
-
-    return XQC_PATH_CLASS_STANDBY_HIGH;
-}
-
 double
 xqc_conn_recent_loss_rate(xqc_connection_t *conn)
 {

@@ -72,16 +72,6 @@ typedef enum {
     XQC_PATH_SPECIFIED_BY_FEC       = 1 << 6,  /* FEC repair symbol */
 } xqc_path_specified_flag_t;
 
-typedef enum {
-    XQC_PATH_CLASS_AVAILABLE_HIGH,
-    XQC_PATH_CLASS_STANDBY_HIGH,
-    XQC_PATH_CLASS_AVAILABLE_MID,
-    XQC_PATH_CLASS_STANDBY_MID,
-    XQC_PATH_CLASS_AVAILABLE_LOW,
-    XQC_PATH_CLASS_STANDBY_LOW,
-    XQC_PATH_CLASS_PERF_CLASS_SIZE,
-} xqc_path_perf_class_t;
-
 /* path context */
 struct xqc_path_ctx_s {
 
@@ -247,8 +237,6 @@ void xqc_path_record_info(xqc_path_ctx_t *path, xqc_path_info_t *path_info);
 xqc_bool_t xqc_path_is_full(xqc_path_ctx_t *path);
 
 xqc_int_t xqc_path_standby_probe(xqc_path_ctx_t *path);
-
-xqc_path_perf_class_t xqc_path_get_perf_class(xqc_path_ctx_t *path);
 
 double xqc_path_recent_loss_rate(xqc_path_ctx_t *path);
 

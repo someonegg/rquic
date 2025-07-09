@@ -374,13 +374,8 @@ struct xqc_connection_s {
     uint64_t                        remote_max_path_id;
 
     /* for qlog */
-    uint32_t                        MTU_updated_count;    
+    uint32_t                        MTU_updated_count;
     uint32_t                        packet_dropped_count;
-    
-    
-    const
-    xqc_scheduler_callback_t       *scheduler_callback;
-    void                           *scheduler;
 
     /* xqc_hs_buffer_t data buffer for crypto data from tls */
     xqc_list_head_t                 initial_crypto_data_list;
