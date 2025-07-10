@@ -70,13 +70,6 @@ xqc_generate_sample(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl,
         sampler->delivery_rate = (uint64_t)(1e6 * sampler->delivered / sampler->interval);
     }
 
-    xqc_log(sampler->send_ctl->ctl_conn->log, XQC_LOG_DEBUG, 
-            "|sampler: send_elapse %ui, ack_elapse %ui, "
-            "delivered %ud|rate %ui|lost %ud|",
-            sampler->send_elapse, sampler->ack_elapse,
-            sampler->delivered, sampler->delivery_rate,
-            sampler->total_lost_pkts);
-            
     return XQC_RATE_SAMPLE_VALID;
 }
 
@@ -86,8 +79,6 @@ xqc_update_sample(xqc_sample_t *sampler, xqc_packet_out_t *packet,
     xqc_send_ctl_t *send_ctl, xqc_usec_t now)
 {
     if (packet->po_delivered_time == 0) {
-        xqc_log(send_ctl->ctl_conn->log, XQC_LOG_DEBUG, 
-                "|packet:%ui already acked|", packet->po_pkt.pkt_num);
         return; /* P already SACKed */
     }
 
@@ -119,21 +110,9 @@ xqc_update_sample(xqc_sample_t *sampler, xqc_packet_out_t *packet,
         send_ctl->ctl_first_sent_time = packet->po_sent_time;
         sampler->lagest_ack_time = now;
     }
-    xqc_log(send_ctl->ctl_conn->log, XQC_LOG_DEBUG, "|sampler_update|"
-            "prior_lost:%ud|tx_in_flight:%ui|"
-            "prior_delivered:%ui|prior_time:%ui|is_app_limited:%ud|"
-            "send_elapse:%ui|ack_elapse:%ui|ctl_first_sent_time:%ui|"
-            "lagest_ack_time:%ui|curr_delivered:%ui|",
-            sampler->prior_lost, sampler->tx_in_flight,
-            sampler->prior_delivered, sampler->prior_time, 
-            sampler->is_app_limited, sampler->send_elapse, sampler->ack_elapse, 
-            send_ctl->ctl_first_sent_time, sampler->lagest_ack_time,
-            send_ctl->ctl_delivered);
-    
+
     /* always keep it updated with the largest acked packet */
-    sampler->po_sent_time = packet->po_sent_time; 
-    xqc_log(send_ctl->ctl_conn->log, XQC_LOG_DEBUG, 
-            "|sampler_sent_time_update:%ui|", sampler->po_sent_time);
+    sampler->po_sent_time = packet->po_sent_time;
     /* 
      * Mark the packet as delivered once it's SACKed to
      * avoid being used again when it's cumulatively acked.
@@ -164,16 +143,6 @@ xqc_sample_check_app_limited(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl, xq
         }
     }
 
-    xqc_log(send_ctl->ctl_conn->log, XQC_LOG_DEBUG, 
-            "|check_applimit|path:%ui|inflight:%ud|"
-            "now_cwnd_limited:%d|all_path_empty:%d|"
-            "sndq:%d|lostq:%d|ptoq:%d|",
-            send_ctl->ctl_path->path_id, send_ctl->ctl_bytes_in_flight, 
-            !send_ctl->ctl_is_cwnd_limited, all_path_buffer_empty,
-            xqc_list_empty(&send_queue->sndq_send_packets),
-            xqc_list_empty(&send_queue->sndq_lost_packets),
-            xqc_list_empty(&send_queue->sndq_pto_probe_packets));
-
     if (not_cwnd_limited    /* We are not limited by CWND. */
         && xqc_list_empty(&send_queue->sndq_send_packets)  /* We have no packet to send. */
         && xqc_list_empty(&send_queue->sndq_lost_packets)  /* All lost packets have been retransmitted. */
@@ -185,9 +154,6 @@ xqc_sample_check_app_limited(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl, xq
                                     (send_ctl->ctl_delivered + 
                                     send_ctl->ctl_bytes_in_flight)
                                     : 1;
-        xqc_log(send_ctl->ctl_conn->log, XQC_LOG_DEBUG, "|path:%ui|"
-                "applimit:%ui|", send_ctl->ctl_path->path_id,
-                send_ctl->ctl_app_limited);
         if (send_ctl->ctl_app_limited > 0) {
             xqc_log_event(send_ctl->ctl_conn->log, REC_CONGESTION_STATE_UPDATED, "application_limit");
         }

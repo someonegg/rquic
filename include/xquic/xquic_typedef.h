@@ -196,8 +196,6 @@ typedef enum {
 
 #define XQC_MAX_COMMON_BUF_LEN  64
 
-#define XQC_UNKNOWN_PATH_ID ((uint64_t)-1)
-
 typedef enum xqc_conn_settings_type_e {
     XQC_CONN_SETTINGS_DEFAULT       = 0,
     XQC_CONN_SETTINGS_LOW_DELAY     = 1,
@@ -206,20 +204,6 @@ typedef enum xqc_conn_settings_type_e {
 typedef struct xqc_stream_settings_s {
     uint64_t recv_rate_bytes_per_sec;
 } xqc_stream_settings_t;
-
-/* application layer path status */
-typedef enum {
-    /* max */
-    XQC_APP_PATH_STATUS_NONE      = 0,
-    /* suggest that no traffic should be sent on that path if another path is available */
-    XQC_APP_PATH_STATUS_STANDBY   = 1,
-    /* allow the peer to use its own logic to split traffic among available paths */
-    XQC_APP_PATH_STATUS_AVAILABLE = 2,
-    /* freeze a path */
-    XQC_APP_PATH_STATUS_FROZEN    = 3,
-    /* max */
-    XQC_APP_PATH_STATUS_MAX,
-} xqc_app_path_status_t;
 
 #define XQC_STREAM_INFO_LEN 128
 

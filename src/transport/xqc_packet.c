@@ -209,8 +209,6 @@ xqc_packet_decrypt_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     ret = xqc_packet_decrypt(c, packet_in);
     if (ret == XQC_OK) {
         /* process frames */
-        xqc_log(c->log, XQC_LOG_DEBUG, "|pkt_type:%s|pkt_num:%ui|",
-                xqc_pkt_type_2_str(packet_in->pi_pkt.pkt_type), packet_in->pi_pkt.pkt_num);
         ret = xqc_process_frames(c, packet_in);
         if (ret != XQC_OK) {
             xqc_log(c->log, XQC_LOG_ERROR, "|xqc_process_frames error|%d|", ret);
@@ -219,9 +217,7 @@ xqc_packet_decrypt_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 
     } else {
         if (ret == -XQC_TLS_DATA_REJECT) {
-            xqc_log(c->log, XQC_LOG_DEBUG, "|decrypt early data reject, continue|");
             ret = -XQC_EIGNORE_PKT;
-
         } else {
             xqc_log_event(c->log, TRA_PACKET_DROPPED, "decrypt data error", ret, 
                 xqc_pkt_type_2_str(packet_in->pi_pkt.pkt_type), packet_in->pi_pkt.pkt_num);

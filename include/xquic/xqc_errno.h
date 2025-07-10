@@ -29,14 +29,6 @@ typedef enum {
 } xqc_trans_err_code_t;
 
 
-/**
- * @brief Multipath error codes
- */
-typedef enum {
-    TRA_MP_PROTOCOL_VIOLATION       = 0x1001d76d3ded42f3
-} xqc_mp_err_code_t;
-
-
 #define TRA_CRYPTO_ERROR_BASE   0x100
 
 typedef enum {
@@ -99,15 +91,7 @@ typedef enum {
     XQC_ESTATELESS_RESET                = 641,      /**< connection is reset by peer */
     XQC_EPACKET_FILETER_CALLBACK        = 642,      /**< error with packet filter callback function */
 
-    XQC_EMP_NOT_SUPPORT_MP              = 650,      /**< Multipath - don't support multipath */
-    XQC_EMP_NO_AVAIL_PATH_ID            = 651,      /**< Multipath - no available path id */
-    XQC_EMP_CREATE_PATH                 = 652,      /**< Multipath - create path error */
-    XQC_EMP_PATH_NOT_FOUND              = 653,      /**< Multipath - can't find path in paths_list */
-    XQC_EMP_PATH_STATE_ERROR            = 654,      /**< Multipath - abnormal path status */
-    XQC_EMP_NO_ACTIVE_PATH              = 656,      /**< Multipath - no another active path */
-    XQC_EMP_INVALID_MP_VERTION          = 657,      /**< Multipath - the multipath version value is invalid */
-    XQC_EMP_NO_AVAILABLE_CID_FOR_PATH   = 658,      /**< Multipath - there's no available unused cid for this path */
-    
+    XQC_EMP_CREATE_PATH                 = 652,      /**< create path error */
     XQC_EENCRYPT_AES_128_ECB            = 671,      /**< aes_128_ecb algorithm error */
 
     XQC_EPMTUD_PROBING_SIZE             = 682,      /**< PMTUD - probing size error */

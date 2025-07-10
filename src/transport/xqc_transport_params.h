@@ -23,9 +23,6 @@
 /* max buffer length of encoded transport parameter */
 #define XQC_MAX_TRANSPORT_PARAM_BUF_LEN         512
 
-/* default value for max_path_id */
-#define XQC_DEFAULT_INIT_MAX_PATH_ID            8
-
 
 /**
  * @brief transport parameter type
@@ -120,20 +117,6 @@ typedef struct {
      * NOTICE: no_crypto MIGHT be modified or removed as it is not an official parameter.
      */
     uint64_t                no_crypto;
-
-    /**
-     * enable_multipath is a self-defined experimental transport parameter by xquic, which will
-     * enable multipath quic if enable_multipath is set to be 1.
-
-     * https://datatracker.ietf.org/doc/html/draft-ietf-quic-multipath-05#section-3
-     * enable_multipath is designed to be effective only on current connection and do not apply to
-     * future connections, storing this parameter and recover on future connections is prohibited.
-     * NOTICE: enable_multipath MIGHT be modified or removed as it is not an official parameter
-     */
-    uint64_t                enable_multipath;
-    xqc_multipath_version_t multipath_version;
-
-    uint64_t                init_max_path_id;
 
     uint64_t                enable_pmtud;
 } xqc_transport_params_t;

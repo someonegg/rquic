@@ -13,16 +13,6 @@
 
 #define XQC_PATH_CHALLENGE_DATA_LEN  8
 
-#define XQC_TRANS_FRAME_TYPE_MP_ACK0                    0x15228c00
-#define XQC_TRANS_FRAME_TYPE_MP_ACK1                    0x15228c01
-#define XQC_TRANS_FRAME_TYPE_MP_ABANDON                 0x15228c05
-#define XQC_TRANS_FRAME_TYPE_MP_STANDBY                 0x15228c07
-#define XQC_TRANS_FRAME_TYPE_MP_AVAILABLE               0x15228c08
-#define XQC_TRANS_FRAME_TYPE_MP_NEW_CONN_ID             0x15228c09
-#define XQC_TRANS_FRAME_TYPE_MP_RETIRE_CONN_ID          0x15228c0a
-#define XQC_TRANS_FRAME_TYPE_MAX_PATH_ID                0x15228c0c
-#define XQC_TRANS_FRAME_TYPE_MP_FROZEN                  0x15228cff
-
 /**
  * generate stream frame
  * @param written_size output size of the payload been written
@@ -117,41 +107,5 @@ xqc_int_t xqc_parse_path_challenge_frame(xqc_packet_in_t *packet_in, unsigned ch
 ssize_t xqc_gen_path_response_frame(xqc_packet_out_t *packet_out, unsigned char *data);
 
 xqc_int_t xqc_parse_path_response_frame(xqc_packet_in_t *packet_in, unsigned char *data);
-
-ssize_t xqc_gen_ack_mp_frame(xqc_connection_t *conn, uint64_t path_id, xqc_packet_out_t *packet_out, xqc_usec_t now, 
-    int ack_delay_exponent, xqc_recv_record_t *recv_record, xqc_usec_t largest_pkt_recv_time, int *has_gap, xqc_packet_number_t *largest_ack);
-
-xqc_int_t xqc_parse_ack_mp_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn,
-    uint64_t *path_id, xqc_ack_info_t *ack_info);
-
-ssize_t xqc_gen_path_abandon_frame(xqc_connection_t *conn, 
-    xqc_packet_out_t *packet_out, uint64_t path_id, uint64_t error_code);
-
-xqc_int_t xqc_parse_path_abandon_frame(xqc_packet_in_t *packet_in,
-    uint64_t *path_id, uint64_t *error_code);
-
-ssize_t xqc_gen_path_status_frame(xqc_connection_t *conn,
-    xqc_packet_out_t *packet_out,
-    uint64_t path_id,
-    uint64_t path_status_seq_num,
-    xqc_app_path_status_t status);
-
-xqc_int_t xqc_parse_path_status_frame(xqc_packet_in_t *packet_in,
-    uint64_t *path_id,
-    uint64_t *path_status_seq_num, uint64_t *path_status);
-
-ssize_t xqc_gen_mp_new_conn_id_frame(xqc_packet_out_t *packet_out, xqc_cid_t *new_cid,
-    uint64_t retire_prior_to, const uint8_t *sr_token, uint64_t path_id);
-
-xqc_int_t xqc_parse_mp_new_conn_id_frame(xqc_packet_in_t *packet_in,
-    xqc_cid_t *new_cid, uint64_t *retire_prior_to, uint64_t *path_id, xqc_connection_t *conn);
-
-ssize_t xqc_gen_mp_retire_conn_id_frame(xqc_packet_out_t *packet_out, uint64_t seq_num, uint64_t path_id);
-
-xqc_int_t xqc_parse_mp_retire_conn_id_frame(xqc_packet_in_t *packet_in, uint64_t *seq_num, uint64_t *path_id);
-
-ssize_t xqc_gen_max_path_id_frame(xqc_packet_out_t *packet_out, uint64_t max_path_id);
-xqc_int_t xqc_parse_max_path_id_frame(xqc_packet_in_t *packet_in, uint64_t *max_path_id);
-
 
 #endif /*_XQC_FRAME_PARSER_H_INCLUDED_*/

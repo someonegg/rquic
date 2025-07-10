@@ -28,16 +28,11 @@
 #pragma comment(lib, "crypt32")
 #endif
 
-
 #include "common.h"
 #include "xqc_hq.h"
 
-
-
-
 #define XQC_PACKET_TMP_BUF_LEN 1500
 #define MAX_BUF_SIZE (100*1024*1024)
-
 
 /**
  * ============================================================================
@@ -61,15 +56,11 @@ typedef struct xqc_demo_svr_net_config_s {
     /* ipv4 or ipv6 */
     int     ipv6;
 
-    /* congestion control algorithm */
-    CC_TYPE cc;     /* congestion control algorithm */
     int     pacing; /* is pacing on */
 
     /* idle persist timeout */
     int     conn_timeout;
 } xqc_demo_svr_net_config_t;
-
-
 
 /**
  * ============================================================================
@@ -90,29 +81,13 @@ typedef struct xqc_demo_svr_quic_config_s {
     int  stk_len;                           /* session ticket len */
     char stk[SESSION_TICKET_KEY_BUF_LEN];   /* session ticket buf */
 
-    /* retry */
-    int  retry_on;
-
     /* dummy mode */
     int  dummy_mode;
 
-    /* multipath */
-    int  multipath;
-
-    /* multipath version */
-    int  multipath_version;
-    
-    int  max_initial_paths;
-
-    /* ack on any path */
-    int  mp_ack_on_any_path;
-
     uint64_t keyupdate_pkt_threshold;
-    uint64_t least_available_cid_count;
 
     size_t max_pkt_sz;
 } xqc_demo_svr_quic_config_t;
-
 
 /**
  * ============================================================================
@@ -127,8 +102,6 @@ typedef struct xqc_demo_svr_quic_config_s {
 #define SOURCE_DIR  "."
 #define PRIV_KEY_PATH "server.key"
 #define CERT_PEM_PATH "server.crt"
-
-
 
 /* environment config */
 typedef struct xqc_demo_svr_env_config_s {
@@ -148,7 +121,6 @@ typedef struct xqc_demo_svr_env_config_s {
     char    key_out_path[PATH_LEN];
 } xqc_demo_svr_env_config_t;
 
-
 typedef struct xqc_demo_svr_args_s {
     /* network args */
     xqc_demo_svr_net_config_t    net_cfg;
@@ -159,8 +131,6 @@ typedef struct xqc_demo_svr_args_s {
     /* environment args */
     xqc_demo_svr_env_config_t    env_cfg;
 } xqc_demo_svr_args_t;
-
-
 
 typedef struct xqc_demo_svr_ctx_s {
     struct event_base   *eb;
@@ -189,7 +159,6 @@ typedef struct xqc_demo_svr_ctx_s {
     xqc_demo_svr_args_t *args;
 } xqc_demo_svr_ctx_t;
 
-
 typedef struct xqc_demo_svr_user_conn_s {
     struct event           *ev_timeout;
     struct sockaddr_in6     peer_addr;
@@ -208,7 +177,6 @@ typedef struct xqc_demo_svr_resource_s {
     int         buf_offset;     /* send buf offset */
 } xqc_demo_svr_resource_t;
 
-
 #define REQ_BUF_SIZE        2048
 typedef struct xqc_demo_svr_user_stream_s {
     xqc_hq_request_t           *hq_request;
@@ -224,11 +192,8 @@ typedef struct xqc_demo_svr_user_stream_s {
     xqc_demo_svr_resource_t     res;  /* resource info */
 } xqc_demo_svr_user_stream_t;
 
-
 /* the global unique server context */
 xqc_demo_svr_ctx_t svr_ctx;
-
-
 
 /******************************************************************************
  *                   start of engine callback functions                       *
@@ -244,7 +209,6 @@ xqc_demo_svr_set_event_timer(xqc_msec_t wake_after, void *eng_user_data)
     tv.tv_usec = wake_after % 1000000;
     event_add(ctx->ev_engine, &tv);
 }
-
 
 int
 xqc_demo_svr_accept(xqc_engine_t *engine, xqc_connection_t *conn, const xqc_cid_t *cid,
@@ -362,7 +326,6 @@ xqc_demo_svr_keylog_cb(const xqc_cid_t *scid, const char *line, void *eng_user_d
     }
 }
 
-
 /******************************************************************************
  *                   start of common callback functions                       *
  ******************************************************************************/
@@ -382,7 +345,6 @@ xqc_demo_svr_tls_key_cb(char *key, void *conn_user_data)
         fclose(pkey);
     }
 }
-
 
 void
 xqc_demo_svr_conn_update_cid_notify(xqc_connection_t *conn, const xqc_cid_t *retire_cid,
@@ -411,7 +373,6 @@ xqc_demo_svr_close_user_stream_resource(xqc_demo_svr_user_stream_t * user_stream
     }
 }
 
-
 /******************************************************************************
  *                       start of hq callback functions                       *
  ******************************************************************************/
@@ -428,7 +389,7 @@ xqc_demo_svr_hq_conn_create_notify(xqc_hq_conn_t *hqc, const xqc_cid_t *cid, voi
     memcpy(&user_conn->cid, cid, sizeof(*cid));
 
     /* set addr info */
-    xqc_hq_conn_get_peer_addr(hqc, (struct sockaddr *)&user_conn->peer_addr, 
+    xqc_hq_conn_get_peer_addr(hqc, (struct sockaddr *)&user_conn->peer_addr,
                               sizeof(user_conn->peer_addr), &user_conn->peer_addrlen);
 
     return 0;
@@ -446,9 +407,9 @@ xqc_demo_svr_hq_conn_close_notify(xqc_hq_conn_t *conn, const xqc_cid_t *cid, voi
     xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t*)conn_user_data;
     xqc_conn_stats_t stats = xqc_conn_get_stats(user_conn->ctx->engine, cid);
     printf("send_count:%u, lost_count:%u, tlp_count:%u, recv_count:%u, srtt:%"PRIu64" "
-            "early_data_flag:%d, conn_err:%d, ack_info:%s, path_info:%s\n", stats.send_count,
-            stats.lost_count, stats.tlp_count, stats.recv_count, stats.srtt,
-            stats.early_data_flag, stats.conn_err, stats.ack_info, stats.conn_info);
+            "early_data_flag:%d, conn_err:%d, ack_info:%s\n",
+            stats.send_count, stats.lost_count, stats.tlp_count, stats.recv_count, stats.srtt,
+            stats.early_data_flag, stats.conn_err, stats.ack_info);
     free(user_conn);
     user_conn = NULL;
 
@@ -462,7 +423,6 @@ xqc_demo_svr_hq_conn_handshake_finished(xqc_hq_conn_t *conn, void *conn_user_dat
     // printf("xqc_demo_svr_conn_handshake_finished, user_data: %p, conn: %p\n", conn_user_data, conn);
     xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
 }
-
 
 int
 xqc_demo_svr_send_rsp_resource(xqc_demo_svr_user_stream_t *user_stream, char *data, ssize_t len,
@@ -525,7 +485,6 @@ xqc_demo_svr_hq_send_file(xqc_hq_request_t *hqr, xqc_demo_svr_user_stream_t *use
                 if (res->buf_len <= 0) {
                     return -1;
                 }
-                
             } else {
                 res->buf_len = res->total_len - res->total_offset;
                 res->buf_len = res->buf_len > res->buf_size ? res->buf_size : res->buf_len;
@@ -554,7 +513,6 @@ xqc_demo_svr_hq_send_file(xqc_hq_request_t *hqr, xqc_demo_svr_user_stream_t *use
 
     return res->total_offset == res->total_len;
 }
-
 
 void
 xqc_demo_svr_handle_hq_request(xqc_demo_svr_user_stream_t *user_stream, xqc_hq_request_t *hqr,
@@ -597,7 +555,6 @@ xqc_demo_svr_handle_hq_request(xqc_demo_svr_user_stream_t *user_stream, xqc_hq_r
     }
     user_stream->res.buf_size = READ_FILE_BUF_LEN;
 
-
     /* begin to send file */
     ret = xqc_demo_svr_hq_send_file(hqr, user_stream);
     if (ret == 0) {
@@ -607,7 +564,6 @@ xqc_demo_svr_handle_hq_request(xqc_demo_svr_user_stream_t *user_stream, xqc_hq_r
 handle_error:
     xqc_demo_svr_close_user_stream_resource(user_stream);
 }
-
 
 int
 xqc_demo_svr_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
@@ -638,7 +594,6 @@ xqc_demo_svr_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
 
     return 0;
 }
-
 
 int
 xqc_demo_svr_hq_req_write_notify(xqc_hq_request_t *hqr, void *req_user_data)
@@ -673,7 +628,7 @@ xqc_demo_svr_write_socket(const unsigned char *buf, size_t size, const struct so
         set_sys_errno(0);
         res = sendto(fd, buf, size, 0, peer_addr, peer_addrlen);
         if (res < 0) {
-            printf("xqc_demo_svr_write_socket err %zd %s, fd: %d\n", 
+            printf("xqc_demo_svr_write_socket err %zd %s, fd: %d\n",
                 res, strerror(get_sys_errno()), fd);
             if (get_sys_errno() == EAGAIN) {
                 res = XQC_SOCKET_EAGAIN;
@@ -682,13 +637,6 @@ xqc_demo_svr_write_socket(const unsigned char *buf, size_t size, const struct so
     } while ((res < 0) && (get_sys_errno() == EINTR));
 
     return res;
-}
-
-ssize_t
-xqc_demo_svr_write_socket_ex(uint64_t path_id, const unsigned char *buf, size_t size, 
-    const struct sockaddr *peer_addr,socklen_t peer_addrlen, void *conn_user_data)
-{
-    return xqc_demo_svr_write_socket(buf, size, peer_addr, peer_addrlen, conn_user_data);
 }
 
 void
@@ -738,7 +686,6 @@ finish_recv:
     xqc_engine_finish_recv(ctx->engine);
 }
 
-
 static void
 xqc_demo_svr_socket_event_callback(int fd, short what, void *arg)
 {
@@ -758,7 +705,7 @@ xqc_demo_svr_socket_event_callback(int fd, short what, void *arg)
 
 /* create socket and bind port */
 static int
-xqc_demo_svr_init_socket(int family, uint16_t port, 
+xqc_demo_svr_init_socket(int family, uint16_t port,
         struct sockaddr *local_addr, socklen_t local_addrlen)
 {
     int size;
@@ -802,7 +749,7 @@ xqc_demo_svr_init_socket(int family, uint16_t port,
 
     /* bind port */
     if (bind(fd, local_addr, local_addrlen) < 0) {
-        printf("bind socket failed, family: %d, errno: %d, %s\n", family, 
+        printf("bind socket failed, family: %d, errno: %d, %s\n", family,
             get_sys_errno(), strerror(get_sys_errno()));
         goto err;
     }
@@ -823,7 +770,7 @@ xqc_demo_svr_create_socket(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_net_config_t* c
     ctx->local_addr.sin_port = htons(cfg->port);
     ctx->local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     ctx->local_addrlen = sizeof(ctx->local_addr);
-    ctx->fd = xqc_demo_svr_init_socket(AF_INET, cfg->port, (struct sockaddr*)&ctx->local_addr, 
+    ctx->fd = xqc_demo_svr_init_socket(AF_INET, cfg->port, (struct sockaddr*)&ctx->local_addr,
         ctx->local_addrlen);
     printf("create ipv4 socket fd: %d\n", ctx->fd);
 
@@ -833,7 +780,7 @@ xqc_demo_svr_create_socket(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_net_config_t* c
     ctx->local_addr6.sin6_port = htons(cfg->port);
     ctx->local_addr6.sin6_addr = in6addr_any;
     ctx->local_addrlen6 = sizeof(ctx->local_addr6);
-    ctx->fd6 = xqc_demo_svr_init_socket(AF_INET6, cfg->port, (struct sockaddr*)&ctx->local_addr6, 
+    ctx->fd6 = xqc_demo_svr_init_socket(AF_INET6, cfg->port, (struct sockaddr*)&ctx->local_addr6,
         ctx->local_addrlen6);
     printf("create ipv6 socket fd: %d\n", ctx->fd6);
 
@@ -844,7 +791,6 @@ xqc_demo_svr_create_socket(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_net_config_t* c
     return 0;
 }
 
-
 static void
 xqc_demo_svr_engine_callback(int fd, short what, void *arg)
 {
@@ -852,36 +798,6 @@ xqc_demo_svr_engine_callback(int fd, short what, void *arg)
 
     xqc_engine_main_logic(ctx->engine);
 }
-
-
-void
-xqc_demo_svr_usage(int argc, char *argv[])
-{
-    char *prog = argv[0];
-    char *const slash = strrchr(prog, '/');
-    if (slash) {
-        prog = slash + 1;
-    }
-    printf(
-            "Usage: %s [Options]\n"
-            "\n"
-            "Options:\n"
-            "   -p    Server port.\n"
-            "   -c    Congestion Control Algorithm. r:reno b:bbr c:cubic P:copa \n"
-            "   -C    Pacing on.\n"
-            "   -l    Log level. e:error d:debug.\n"
-            "   -L    xquic log directory.\n"
-            "   -6    IPv6\n"
-            "   -k    Key output file path\n"
-            "   -r    retry\n"
-            "   -d    do not read responses from files\n"
-            "   -M    enable MPQUIC.\n"
-            "   -P    enable MPQUIC to return ACK_MPs on any paths.\n"
-            "   -u    Keyupdate packet threshold\n"
-            "   -F    MTU size (default: 1200)\n"
-            , prog);
-}
-
 
 void
 xqc_demo_svr_init_0rtt(xqc_demo_svr_args_t *args)
@@ -891,7 +807,6 @@ xqc_demo_svr_init_0rtt(xqc_demo_svr_args_t *args)
             SESSION_TICKET_KEY_BUF_LEN, SESSION_TICKET_KEY_FILE);
     args->quic_cfg.stk_len = ret > 0 ? ret : 0;
 }
-
 
 void
 xqc_demo_svr_init_args(xqc_demo_svr_args_t *args)
@@ -916,54 +831,44 @@ xqc_demo_svr_init_args(xqc_demo_svr_args_t *args)
     strncpy(args->env_cfg.cert_pem_path, CERT_PEM_PATH, PATH_LEN - 1);
 
     args->quic_cfg.keyupdate_pkt_threshold = UINT64_MAX;
-    args->quic_cfg.least_available_cid_count = 1;
     args->quic_cfg.max_pkt_sz = 1200;
+}
+
+void
+xqc_demo_svr_usage(int argc, char *argv[])
+{
+    char *prog = argv[0];
+    char *const slash = strrchr(prog, '/');
+    if (slash) {
+        prog = slash + 1;
+    }
+    printf(
+            "Usage: %s [Options]\n"
+            "\n"
+            "Options:\n"
+            "   -p    Server port.\n"
+            "   -l    Log level. e:error d:debug.\n"
+            "   -L    xquic log directory.\n"
+            "   -k    Key output file path\n"
+            "   -d    do not read responses from files\n"
+            "   -D    resource directory\n"
+            "   -u    Keyupdate packet threshold\n"
+            "   -F    MTU size (default: 1200)\n"
+            "   -C    Pacing on.\n"
+            "   -6    IPv6\n"
+            , prog);
 }
 
 void
 xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
 {
     int ch = 0;
-    while ((ch = getopt(argc, argv, "p:c:CD:l:L:6k:rdMiPs:R:u:a:F:f:")) != -1) {
+    while ((ch = getopt(argc, argv, "p:l:L:k:dD:u:F:C6")) != -1) {
         switch (ch) {
         /* listen port */
         case 'p':
             printf("option port :%s\n", optarg);
             args->net_cfg.port = atoi(optarg);
-            break;
-
-        /* congestion control */
-        case 'c':
-            printf("option cong_ctl :%s\n", optarg);
-            /* r:reno b:bbr c:cubic P:copa */
-            switch (*optarg) {
-            case 'b':
-                args->net_cfg.cc = CC_TYPE_BBR;
-                break;
-            case 'c':
-                args->net_cfg.cc = CC_TYPE_CUBIC;
-                break;
-            case 'r':
-                args->net_cfg.cc = CC_TYPE_RENO;
-                break;
-            case 'P':
-                args->net_cfg.cc = CC_TYPE_COPA;
-                break;
-            default:
-                break;
-            }
-            break;
-
-        /* pacing */
-        case 'C':
-            printf("option pacing :%s\n", "on");
-            args->net_cfg.pacing = 1;
-            break;
-
-        /* server resource dir */
-        case 'D':
-            printf("option read dir :%s\n", optarg);
-            strncpy(args->env_cfg.source_file_dir, optarg, RESOURCE_LEN - 1);
             break;
 
         /* log level */
@@ -978,12 +883,6 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             snprintf(args->env_cfg.log_path, sizeof(args->env_cfg.log_path), "%s", optarg);
             break;
 
-        /* ipv6 */
-        case '6': //IPv6
-            printf("option IPv6 :%s\n", "on");
-            args->net_cfg.ipv6 = 1;
-            break;
-
         /* key out path */
         case 'k': /* key out path */
             printf("option key output file: %s\n", optarg);
@@ -991,25 +890,15 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             strncpy(args->env_cfg.key_out_path, optarg, sizeof(args->env_cfg.key_out_path) - 1);
             break;
 
-        /* retry */
-        case 'r':
-            printf("option validate addr with retry packet\n");
-            args->quic_cfg.retry_on = 1;
-            break;
-
         case 'd':
             printf("option dummpy mode on\n");
             args->quic_cfg.dummy_mode = 1;
             break;
 
-        case 'M':
-            printf("option multipath enabled\n");
-            args->quic_cfg.multipath = 1;
-            break;
-
-        case 'P':
-            printf("option ACK_MP on any path enabled\n");
-            args->quic_cfg.mp_ack_on_any_path = 1;
+        /* server resource dir */
+        case 'D':
+            printf("option resource directory :%s\n", optarg);
+            strncpy(args->env_cfg.source_file_dir, optarg, RESOURCE_LEN - 1);
             break;
 
         case 'u': /* key update packet threshold */
@@ -1017,19 +906,21 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             args->quic_cfg.keyupdate_pkt_threshold = atoi(optarg);
             break;
 
-        case 'a': /* key update packet threshold */
-            printf("least Available cid counts: %s\n", optarg);
-            args->quic_cfg.least_available_cid_count = atoi(optarg);
-            break;
-
         case 'F':
             printf("MTU size: %s\n", optarg);
             args->quic_cfg.max_pkt_sz = atoi(optarg);
             break;
 
-        case 'f':
-            printf("option init_max_path_id: %s\n", optarg);
-            args->quic_cfg.max_initial_paths = atoi(optarg);
+        /* pacing */
+        case 'C':
+            printf("option pacing :%s\n", "on");
+            args->net_cfg.pacing = 1;
+            break;
+
+        /* ipv6 */
+        case '6':
+            printf("option IPv6 :%s\n", "on");
+            args->net_cfg.ipv6 = 1;
             break;
 
         default:
@@ -1054,11 +945,9 @@ xqc_demo_svr_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t 
         .keylog_cb = xqc_demo_svr_keylog_cb,
     };
 
-
     static xqc_transport_callbacks_t tcb = {
         .server_accept = xqc_demo_svr_accept,
         .write_socket = xqc_demo_svr_write_socket,
-        .write_socket_ex = xqc_demo_svr_write_socket_ex,
         .conn_update_cid_notify = xqc_demo_svr_conn_update_cid_notify,
     };
 
@@ -1099,32 +988,10 @@ xqc_demo_svr_init_ssl_config(xqc_engine_ssl_config_t *cfg, xqc_demo_svr_args_t *
 void
 xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
 {
-    xqc_cong_ctrl_callback_t ccc = {0};
-    switch (args->net_cfg.cc) {
-    case CC_TYPE_BBR:
-        ccc = xqc_bbr_cb;
-        break;
-    case CC_TYPE_CUBIC:
-        ccc = xqc_cubic_cb;
-        break;
-#ifdef XQC_ENABLE_COPA
-    case CC_TYPE_COPA:
-        ccc = xqc_copa_cb;
-        break;
-#endif
-#ifdef XQC_ENABLE_RENO
-    case CC_TYPE_RENO:
-        ccc = xqc_reno_cb;
-        break;
-#endif
-    default:
-        break;
-    }
-
     /* init connection settings */
     xqc_conn_settings_t conn_settings = {
         .pacing_on  =   args->net_cfg.pacing,
-        .cong_ctrl_callback = ccc,
+        .cong_ctrl_callback = xqc_bbr_cb,
         .cc_params = {
             .customize_on = 1,
             .init_cwnd = 32,
@@ -1132,19 +999,13 @@ xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
         },
         .spurious_loss_detect_on = 1,
         .init_idle_time_out = 60000,
-        .enable_multipath = args->quic_cfg.multipath,
-        .init_max_path_id = args->quic_cfg.max_initial_paths,
-        .mp_ack_on_any_path = args->quic_cfg.mp_ack_on_any_path,
-        .standby_path_probe_timeout = 1000,
         .keyupdate_pkt_threshold = args->quic_cfg.keyupdate_pkt_threshold,
-        .least_available_cid_count = args->quic_cfg.least_available_cid_count,
         .max_pkt_out_size = args->quic_cfg.max_pkt_sz,
         .adaptive_ack_frequency = 1,
     };
 
     xqc_server_set_conn_settings(engine, &conn_settings);
 }
-
 
 int
 xqc_demo_svr_init_alpn_ctx(xqc_demo_svr_ctx_t *ctx)
@@ -1173,7 +1034,6 @@ xqc_demo_svr_init_alpn_ctx(xqc_demo_svr_ctx_t *ctx)
 
     return ret;
 }
-
 
 /* init xquic server engine */
 int
@@ -1233,7 +1093,6 @@ xqc_demo_svr_init_xquic_engine(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *arg
     return 0;
 }
 
-
 #if 0
 void stop(int signo)
 {
@@ -1243,7 +1102,6 @@ void stop(int signo)
     exit(0);
 }
 #endif
-
 
 void
 xqc_demo_svr_free_ctx(xqc_demo_svr_ctx_t *ctx)
@@ -1259,7 +1117,6 @@ xqc_demo_svr_free_ctx(xqc_demo_svr_ctx_t *ctx)
     free(ctx);
 }
 
-
 void
 th3_demo_proxy_sig_hndlr(int signo)
 {
@@ -1268,7 +1125,6 @@ th3_demo_proxy_sig_hndlr(int signo)
         event_base_loopbreak(ctx->eb);
     }
 }
-
 
 int
 main(int argc, char *argv[])

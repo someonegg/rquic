@@ -17,15 +17,6 @@
 #define AUTHORITY_LEN       128
 #define URL_LEN             1024
 
-/* the congestion control types */
-typedef enum cc_type_s {
-    CC_TYPE_BBR,
-    CC_TYPE_CUBIC,
-    CC_TYPE_RENO,
-    CC_TYPE_COPA
-} CC_TYPE;
-
-
 
 /* request method */
 typedef enum request_method_e {

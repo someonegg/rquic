@@ -310,13 +310,9 @@ xqc_engine_wakeup_after(xqc_engine_t *engine)
     xqc_conns_pq_elem_t *el = xqc_conns_pq_top(engine->conns_wait_wakeup_pq);
     if (el) {
         xqc_usec_t now = xqc_monotonic_timestamp();
-        xqc_log(engine->log, XQC_LOG_DEBUG, "|wakeup:%ui|now:%ui|diff:%ui|",
-                el->time_us, now, el->time_us - now);
         return el->time_us > now ? el->time_us - now : 1;
-
     }
 
-    xqc_log(engine->log, XQC_LOG_DEBUG, "|NULL wakeup top|");
     return 0;
 }
 
@@ -342,7 +338,6 @@ xqc_engine_schedule_reset(xqc_engine_t *engine,
 
     uint32_t hash = xqc_murmur_hash2((unsigned char *)peer_addr, peer_addrlen);
     hash = hash % XQC_RESET_CNT_ARRAY_LEN;
-    xqc_log(engine->log, XQC_LOG_DEBUG, "|hash:%ud|cnt:%ud|", hash, (unsigned int)engine->reset_sent_cnt[hash]);
 
     if (engine->reset_sent_cnt[hash] < 2) {
         engine->reset_sent_cnt[hash]++;
@@ -376,8 +371,8 @@ xqc_bool_t
 xqc_engine_check_config(xqc_engine_type_t engine_type, const xqc_config_t *engine_config,
     const xqc_engine_ssl_config_t *ssl_config, const xqc_transport_callbacks_t *transport_cbs)
 {
-    /* mismatch of sendmmsg_on enable and write_mmsg & write_mmsg_ex callback function */
-    if (engine_config && engine_config->sendmmsg_on && transport_cbs->write_mmsg == NULL && transport_cbs->write_mmsg_ex == NULL) {
+    /* mismatch of sendmmsg_on enable and write_mmsg callback function */
+    if (engine_config && engine_config->sendmmsg_on && transport_cbs->write_mmsg == NULL) {
         return XQC_FALSE;
     }
 
@@ -502,10 +497,6 @@ xqc_engine_destroy(xqc_engine_t *engine)
 
     if (engine == NULL) {
         return;
-    }
-
-    if (engine->log) {
-        xqc_log(engine->log, XQC_LOG_DEBUG, "|begin|");
     }
 
     xqc_engine_free_alpn_list(engine);
@@ -652,9 +643,6 @@ xqc_engine_send_reset(xqc_engine_t *engine, xqc_cid_t *dcid,
 void
 xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
 {
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|conn:%p|state:%s|flag:%s|now:%ui|",
-            conn, xqc_conn_state_2_str(conn->conn_state), xqc_conn_flag_2_str(conn, conn->conn_flag), now);
-
     int ret;
     xqc_bool_t wait_scid, wait_dcid;
 
@@ -705,21 +693,17 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
                     conn->conn_send_queue->sndq_full = XQC_FALSE;
                     xqc_process_write_streams(conn);
                 }
-
             } else {
                 xqc_process_write_streams(conn);
             }
-
-        } else {
-            xqc_log(conn->log, XQC_LOG_DEBUG, "|xqc_send_queue_can_write false|");
         }
     }
     XQC_CHECK_IMMEDIATE_CLOSE();
 
     if (conn->ack_flag) {
-        ret = xqc_write_ack_or_mp_ack_to_packets(conn);
+        ret = xqc_write_ack_to_packets(conn);
         if (ret) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_ack_or_mp_ack_to_packets error|");
+            xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_ack_to_packets error|");
             XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
         }
     }
@@ -729,24 +713,6 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
     ret = xqc_conn_try_add_new_conn_id(conn, 0);
     if (ret) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_conn_try_add_new_conn_id error|");
-    }
-
-    if (conn->enable_multipath) {
-        if ((conn->conn_flag & XQC_CONN_FLAG_MP_WAIT_MP_READY)
-            && xqc_conn_get_available_path_id(conn, NULL) == XQC_OK) 
-        {
-            conn->conn_flag |= XQC_CONN_FLAG_MP_READY_NOTIFY;
-            conn->conn_flag &= ~XQC_CONN_FLAG_MP_WAIT_MP_READY;
-        }
-    }
-
-    /* for multi-path */
-    if (conn->conn_flag & XQC_CONN_FLAG_MP_READY_NOTIFY) {
-        if (conn->transport_cbs.ready_to_create_path_notify) {
-            conn->transport_cbs.ready_to_create_path_notify(&conn->scid_set.user_scid,
-                                                            xqc_conn_get_user_data(conn));
-        }
-        conn->conn_flag &= ~XQC_CONN_FLAG_MP_READY_NOTIFY;
     }
 
     if (XQC_UNLIKELY(conn->conn_flag & XQC_CONN_FLAG_PING)) {
@@ -801,8 +767,6 @@ void
 xqc_engine_conn_logic(xqc_engine_t *engine, xqc_connection_t *conn)
 {
     if (engine->eng_flag & XQC_ENG_FLAG_RUNNING) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, 
-                "|engine is running on conn:%s|", xqc_conn_addr_str(conn));
         return;
     }
 
@@ -854,7 +818,6 @@ finish:
     }
     
     engine->eng_flag &= ~XQC_ENG_FLAG_RUNNING;
-    xqc_log(engine->log, XQC_LOG_DEBUG, "|END|");
     return;
 }
 
@@ -866,15 +829,12 @@ void
 xqc_engine_main_logic(xqc_engine_t *engine)
 {
     if (engine->eng_flag & XQC_ENG_FLAG_RUNNING) {
-        xqc_log(engine->log, XQC_LOG_DEBUG, "|engine is running|");
         return;
     }
     engine->eng_flag |= XQC_ENG_FLAG_RUNNING;
 
     xqc_usec_t now = xqc_monotonic_timestamp();
     xqc_connection_t *conn;
-
-    xqc_log(engine->log, XQC_LOG_DEBUG, "|BEGIN|now:%ui|", now);
 
     while (!xqc_pq_empty(engine->conns_wait_wakeup_pq)) {
         xqc_conns_pq_elem_t *el = xqc_conns_pq_top(engine->conns_wait_wakeup_pq);
@@ -955,7 +915,6 @@ xqc_engine_main_logic(xqc_engine_t *engine)
 
     engine->eng_flag &= ~XQC_ENG_FLAG_RUNNING;
 
-    xqc_log(engine->log, XQC_LOG_DEBUG, "|END|now:%ui|", now);
     return;
 }
 
@@ -977,7 +936,6 @@ xqc_engine_handle_stateless_reset(xqc_engine_t *engine,
     sr_token = NULL;
     ret = xqc_packet_parse_stateless_reset(buf, buf_size, &sr_token);
     if (XQC_OK != ret) {
-        xqc_log(engine->log, XQC_LOG_DEBUG, "|not a stateless reset pkt");
         return ret;
     }
 
@@ -994,8 +952,6 @@ xqc_engine_handle_stateless_reset(xqc_engine_t *engine,
     conn = xqc_str_hash_find(engine->conns_hash_sr_token, hash, str);
     if (NULL == conn) {
         /* can't find connection with sr_token */
-        xqc_log(engine->log, XQC_LOG_DEBUG, "|can't find conn with sr|sr:%s",
-                xqc_sr_token_str(engine, sr_token));
         return -XQC_ERROR;
     }
 
@@ -1125,9 +1081,6 @@ xqc_engine_packet_process(xqc_engine_t *engine,
                 /* SR processed */
                 goto after_process;
             }
-
-            xqc_log(engine->log, XQC_LOG_DEBUG, "|not a stateless reset pkt, "
-                    "will try send stateless reset pkt");
         }
     }
 
@@ -1180,7 +1133,7 @@ process:
         && (peer_addr != NULL && peer_addrlen != 0)
         && !xqc_is_same_addr_as_any_path(conn, peer_addr))
     {
-        xqc_path_ctx_t *path = xqc_conn_find_path_by_scid(conn, &scid);
+        xqc_path_ctx_t *path = conn->the_path;
         if ((path != NULL) && (path->path_state == XQC_PATH_STATE_ACTIVE)) {
 
             if ((path->rebinding_addrlen == 0)
@@ -1230,24 +1183,6 @@ process:
         xqc_log(engine->log, XQC_LOG_ERROR, "|fail to process packets|conn:%p|ret:%d|", conn, ret);
         XQC_CONN_ERR(conn, TRA_FRAME_ENCODING_ERROR);
         goto after_process;
-    }
-
-    // 每次只会从一个fd上接收一批数据包，所以这里是ok的
-    // 需要识别五元组信息是否和前面的path一致
-    // 1个fd，所以只会有一条new_path的frame
-    if (conn->conn_type == XQC_CONN_TYPE_SERVER
-        && conn->conn_flag & XQC_CONN_FLAG_RECV_NEW_PATH)
-    {
-        conn->conn_flag &= ~XQC_CONN_FLAG_RECV_NEW_PATH;
-        ret = xqc_conn_server_init_path_addr(conn, conn->validating_path_id,
-                                             local_addr, local_addrlen,
-                                             peer_addr, peer_addrlen);
-        if (ret != XQC_OK) {
-            xqc_log(engine->log, XQC_LOG_ERROR,
-                    "|xqc_conn_update_path_addr error|conn:%p|ret:%d|path:%ui|",
-                    conn, ret, conn->validating_path_id);
-            goto after_process;
-        }
     }
 
     xqc_conn_process_packet_recved_path(conn, &scid, packet_in_size, recv_time);
@@ -1454,7 +1389,7 @@ xqc_bool_t
 xqc_engine_is_sendmmsg_on(xqc_engine_t *engine, xqc_connection_t *conn)
 {
     return engine->config->sendmmsg_on
-        && (engine->transport_cbs.write_mmsg || engine->transport_cbs.write_mmsg_ex)
+        && engine->transport_cbs.write_mmsg
         && (!conn->conn_settings.disable_send_mmsg);
 }
 
@@ -1487,7 +1422,6 @@ xqc_engine_add_wakeup_queue(xqc_engine_t *engine, xqc_connection_t *conn)
         {
             return -XQC_EMALLOC;
         }
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|next_tick_time:%ui|", conn->next_tick_time);
         conn->conn_flag |= XQC_CONN_FLAG_WAIT_WAKEUP;
     } 
     return XQC_OK;
@@ -1497,9 +1431,7 @@ xqc_int_t
 xqc_engine_remove_wakeup_queue(xqc_engine_t *engine, xqc_connection_t *conn)
 {
     if ((conn->conn_flag & XQC_CONN_FLAG_WAIT_WAKEUP)) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|next_tick_time:%ui|pq_index:%ud|", conn->next_tick_time, conn->wakeup_pq_index);
         xqc_conns_pq_remove(engine->conns_wait_wakeup_pq, conn);
-        
         conn->conn_flag &= ~XQC_CONN_FLAG_WAIT_WAKEUP;
     }
     return XQC_OK;
@@ -1513,7 +1445,6 @@ xqc_engine_add_active_queue(xqc_engine_t *engine, xqc_connection_t *conn)
         ret = xqc_conns_pq_push(engine->conns_active_pq, 
                                 conn, conn->last_ticked_time);
         if (ret == 0) {
-            xqc_log(conn->log, XQC_LOG_DEBUG, "|last_ticked_time:%ui|", conn->last_ticked_time);
             conn->conn_flag |= XQC_CONN_FLAG_TICKING;
             ret = XQC_OK;
         }
@@ -1525,7 +1456,6 @@ xqc_int_t
 xqc_engine_remove_active_queue(xqc_engine_t *engine, xqc_connection_t *conn)
 {
     if ((conn->conn_flag & XQC_CONN_FLAG_TICKING)) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|last_ticked_time:%ui|pd_index:%ud|", conn->last_ticked_time, conn->wakeup_pq_index);
         xqc_conns_pq_remove(engine->conns_active_pq, conn);
         conn->conn_flag &= ~XQC_CONN_FLAG_TICKING;
     }

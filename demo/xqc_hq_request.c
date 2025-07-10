@@ -347,41 +347,6 @@ xqc_hq_request_get_stats(xqc_hq_request_t *hqr)
     stats.send_body_size    = hqr->sent_cnt;
     stats.stream_err        = conn_err != 0 ? conn_err : hqr->stream->stream_err;
 
-    char *buff = stats.stream_info;
-    size_t buff_size = XQC_STREAM_INFO_LEN;
-    size_t cursor = 0, ret = 0;
-    int i;
-
-    for (int i = 0; i < XQC_MAX_PATHS_COUNT; ++i) {
-        if ((stream->paths_info[i].path_send_bytes > 0)
-            || (stream->paths_info[i].path_recv_bytes > 0))
-        {
-
-            ret = snprintf(buff + cursor, buff_size - cursor, 
-                            "%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64"-%"PRIu64"#",
-                            stream->paths_info[i].path_id,
-                            stream->paths_info[i].path_pkt_send_count,
-                            stream->paths_info[i].path_pkt_recv_count,
-                            stream->paths_info[i].path_send_bytes,
-                            stream->paths_info[i].path_recv_bytes);
-            cursor += ret;
-
-            if (cursor >= buff_size) {
-                goto full;
-            }
-        }
-    }
-
-full:
-    cursor = xqc_min(cursor, buff_size);
-    for (i = cursor - 1; i >= 0; i--) {
-        if (buff[i] == '-' || buff[i] == '#') {
-            buff[i] = '\0';
-            break;
-        }
-    }
-    buff[buff_size - 1] = '\0';
-
     return stats;
 }
 
