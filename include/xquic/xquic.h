@@ -1151,7 +1151,6 @@ typedef enum {
 
 #define XQC_MAX_PATHS_COUNT 8
 #define XQC_CONN_INFO_LEN 400
-#define XQC_EXTERN_CONN_INFO_LEN 128
 
 typedef struct xqc_path_metrics_s {
     uint64_t            path_id;
@@ -1210,8 +1209,6 @@ typedef struct xqc_conn_stats_s {
     char                conn_info[XQC_CONN_INFO_LEN];
 
     char                alpn[XQC_MAX_ALPN_BUF_LEN];
-
-    char                extern_conn_info[XQC_EXTERN_CONN_INFO_LEN];
 
     /** only accounts for stream packets */
     uint64_t            total_app_bytes;

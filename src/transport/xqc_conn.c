@@ -938,7 +938,7 @@ xqc_conn_destroy(xqc_connection_t *xc)
             "snd_pkt:%ud|spurious_loss:%ud|detected_loss:%ud|"
             "max_pto:%ud|finished_streams:%ud|cli_bidi_s:%ud|svr_bidi_s:%ud|"
             "max_po_size:%uz|max_probing_size:%uz|ppo_size:%uz|"
-            "ext_conn_info:%s|max_acked_po_size:%uz|enable_pmtud:%ui|"
+            "max_acked_po_size:%uz|enable_pmtud:%ui|"
             ,
             xc,
             xc->conn_flag & XQC_CONN_FLAG_HAS_0RTT ? 1:0,
@@ -960,8 +960,7 @@ xqc_conn_destroy(xqc_connection_t *xc)
             conn_stats.send_count, conn_stats.spurious_loss_count, xc->detected_loss_cnt,
             xc->max_pto_cnt, xc->finished_streams, xc->cli_bidi_streams, xc->svr_bidi_streams,
             xc->pkt_out_size, xc->max_pkt_out_size, xc->probing_pkt_out_size,
-            conn_stats.extern_conn_info, xc->max_acked_po_size, 
-            xc->local_settings.enable_pmtud & xc->remote_settings.enable_pmtud
+            xc->max_acked_po_size, xc->local_settings.enable_pmtud & xc->remote_settings.enable_pmtud
             );
     xqc_log_event(xc->log, CON_CONNECTION_CLOSED, xc);
 
