@@ -51,8 +51,6 @@ static const char * const frame_type_2_str[XQC_FRAME_NUM] = {
     [XQC_FRAME_MAX_PATH_ID]          = "MAX_PATH_ID",
     [XQC_FRAME_PATH_FROZEN]          = "PATH_FROZEN",
     [XQC_FRAME_Extension]            = "Extension",
-    [XQC_FRAME_SID]                  = "FEC_SID",
-    [XQC_FRAME_REPAIR_SYMBOL]        = "FEC_REPAIR",
 };
 
 const char *
@@ -283,9 +281,6 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         case 0x1e:
             ret = xqc_process_handshake_done_frame(conn, packet_in);
             break;
-        case XQC_TRANS_FRAME_TYPE_ACK_EXT:
-            ret = xqc_process_ack_ext_frame(conn, packet_in);
-            break;
         case XQC_TRANS_FRAME_TYPE_MP_ACK0:
         case XQC_TRANS_FRAME_TYPE_MP_ACK1:
             if (conn->conn_settings.multipath_version >= XQC_MULTIPATH_10) {
@@ -352,31 +347,6 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
             }
             break;
 
-#ifdef XQC_ENABLE_FEC
-        case 0xfec5:
-            if (conn->conn_settings.enable_decode_fec
-                && conn->conn_settings.fec_params.fec_decoder_scheme != 0)
-            {
-                ret = xqc_process_sid_frame(conn, packet_in);
-            
-            } else {
-                xqc_log(conn->log, XQC_LOG_ERROR, "|fec negotiation failed but still received fec packet.");
-                return -XQC_EIGNORE_PKT;
-            }
-            break;
-
-        case 0xfec6:
-            if (conn->conn_settings.enable_decode_fec
-                && conn->conn_settings.fec_params.fec_decoder_scheme != 0)
-            {
-                ret = xqc_process_repair_frame(conn, packet_in);
-
-            } else {
-                xqc_log(conn->log, XQC_LOG_ERROR, "|fec negotiation failed but still received fec packet.");
-                return -XQC_EIGNORE_PKT;
-            }
-            break;
-#endif
         default:
             xqc_log(conn->log, XQC_LOG_ERROR, "|unknown frame type|");
             return -XQC_EIGNORE_PKT;
@@ -479,18 +449,9 @@ xqc_process_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 
     conn->stream_stats.recv_bytes += stream_frame->data_length;
 
-    if (packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) {
-        stream->stream_stats.recov_pkt_cnt++;
-        if (stream->stream_stats.fec_blk_lack_time == 0) {
-            stream->stream_stats.fec_blk_lack_time = xqc_calc_delay(xqc_monotonic_timestamp(), packet_in->pi_fec_process_time);
-        }
-    }
-
-    if (!(packet_in->pi_flag & XQC_PIF_FEC_RECOVERED)) {
-        xqc_stream_path_metrics_on_recv(conn, stream, packet_in);
-        if (packet_in->pi_path_id < XQC_MAX_PATHS_COUNT) {
-            stream->paths_info[packet_in->pi_path_id].path_recv_bytes += stream_frame->data_length;
-        }
+    xqc_stream_path_metrics_on_recv(conn, stream, packet_in);
+    if (packet_in->pi_path_id < XQC_MAX_PATHS_COUNT) {
+        stream->paths_info[packet_in->pi_path_id].path_recv_bytes += stream_frame->data_length;
     }
 
     if (stream->stream_state_recv >= XQC_RECV_STREAM_ST_RESET_RECVD) {
@@ -593,9 +554,6 @@ xqc_process_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
             xqc_stream_recv_state_update(stream, XQC_RECV_STREAM_ST_DATA_RECVD);
         }
         xqc_log(conn->log, XQC_LOG_DEBUG, "|xqc_stream_ready_to_read all recvd|");
-        if (stream->stream_stats.recov_pkt_cnt != 0) {
-            stream->stream_stats.recv_time_with_fec = xqc_monotonic_timestamp();
-        }
         stream->stream_stats.stream_recv_time = xqc_monotonic_timestamp();
         xqc_stream_ready_to_read(stream);
     }
@@ -605,8 +563,7 @@ xqc_process_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         xqc_stream_ready_to_read(stream);
     }
 
-    if (!(packet_in->pi_flag & XQC_PIF_FEC_RECOVERED)
-        && packet_in->pi_path_id < XQC_MAX_PATHS_COUNT)
+    if (packet_in->pi_path_id < XQC_MAX_PATHS_COUNT)
     {
         stream->paths_info[packet_in->pi_path_id].path_recv_effective_bytes += stream_frame->data_length;
     }
@@ -767,9 +724,6 @@ xqc_process_ack_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_parse_ack_frame error|");
         return ret;
     }
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
-    }
 
     for (int i = 0; i < ack_info.n_ranges; i++) {
         xqc_log_event(conn->log, TRA_PACKETS_ACKED, packet_in, ack_info.ranges[i].high,
@@ -788,47 +742,6 @@ xqc_process_ack_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         return ret;
     }
 
-    return XQC_OK;
-}
-
-xqc_int_t
-xqc_process_ack_ext_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    xqc_int_t parse_ack_recv_ts_ret;
-
-    xqc_ack_info_t ack_info;
-    xqc_ack_timestamp_info_t ack_ts_info;
-    ack_ts_info.report_num = 0;
-    parse_ack_recv_ts_ret = xqc_parse_ack_ext_frame(packet_in, conn, &ack_info, &ack_ts_info);
-    if (parse_ack_recv_ts_ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_process_ack_ext_frame error|");
-        return parse_ack_recv_ts_ret;
-    }
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
-    }
-
-    for (int i = 0; i < ack_info.n_ranges; i++) {
-        xqc_log_event(conn->log, TRA_PACKETS_ACKED, packet_in, ack_info.ranges[i].high,
-            ack_info.ranges[i].low, packet_in->pi_path_id);
-    }
-
-    /* 对端还不支持MP，或还未握手确认时，使用 initial path */
-    xqc_path_ctx_t *path = conn->conn_initial_path;
-    xqc_pn_ctl_t *pn_ctl = xqc_get_pn_ctl(conn, path);
-    xqc_int_t ret = xqc_send_ctl_on_ack_received(path->path_send_ctl, pn_ctl, conn->conn_send_queue,
-                                       &ack_info, packet_in->pkt_recv_time, 
-                                       packet_in->pi_path_id == path->path_id);
-
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_send_ctl_on_ack_received error|");
-        return ret;
-    }
-    /*
-    * TODO: There will be an interface that passes receive timestamps information to sent_ctl.
-    * Temporarily, the client does not receive ack_with_timestamps_frame. So we will complete
-    * the interface after verification in moq server.
-    */
     return XQC_OK;
 }
 
@@ -1006,10 +919,6 @@ xqc_process_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet
         xqc_log(conn->log, XQC_LOG_ERROR,
                 "|xqc_parse_retire_conn_id_frame error|");
         return ret;
-    }
-    
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
     }
 
     largest_scid_seq_num = xqc_cid_set_get_largest_seq_or_rpt(&conn->scid_set, XQC_INITIAL_PATH_ID);
@@ -1528,10 +1437,6 @@ xqc_process_path_challenge_frame(xqc_connection_t *conn, xqc_packet_in_t *packet
         return ret;
     }
 
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
-    }
-
     xqc_path_ctx_t *path = NULL;
     if (conn->enable_multipath) {
         path = xqc_conn_find_path_by_path_id(conn, packet_in->pi_path_id);
@@ -1587,10 +1492,6 @@ xqc_process_path_response_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_
     if (ret != XQC_OK) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_parse_path_response_frame error|");
         return ret;
-    }
-
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
     }
 
     xqc_path_ctx_t *path = NULL;
@@ -1673,10 +1574,6 @@ xqc_process_ack_mp_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
     if (ret != XQC_OK) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_parse_ack_mp_frame error|");
         return ret;
-    }
-
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
     }
 
     if (path_id > conn->local_max_path_id) {
@@ -1984,10 +1881,6 @@ xqc_process_mp_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *pac
                 "|xqc_parse_retire_conn_id_frame error|");
         return ret;
     }
-    
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
-    }
 
     if (path_id > conn->local_max_path_id) {
         xqc_log(conn->log, XQC_LOG_ERROR,
@@ -2089,119 +1982,3 @@ xqc_process_max_path_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in
 
     return ret;
 }
-
-#ifdef XQC_ENABLE_FEC
-
-uint32_t
-xqc_parse_block_number(uint64_t payload_id)
-{
-    return payload_id >> 8;
-}
-
-uint32_t
-xqc_parse_symbol_number(uint64_t payload_id)
-{
-    return payload_id & 0xff;
-}
-
-
-xqc_int_t
-xqc_process_sid_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    uint64_t src_payload_id, symbol_idx, block_id;
-    xqc_int_t  ret, remain_frame_len, symbol_size;
-
-    ret = xqc_parse_sid_frame(conn, packet_in, &src_payload_id, &symbol_size);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|quic_fec|xqc_parse_sid_frame err|ret:%d|", ret);
-        return -XQC_EFEC_SYMBOL_ERROR;
-    }
-    // If current packet is fec recovered, should not be used in fec decoder
-    if ((packet_in->pi_flag & XQC_PIF_FEC_RECOVERED) != 0) {
-        return XQC_OK;
-    }
-    if (symbol_size > XQC_MAX_SYMBOL_SIZE) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|quic_fec|received source symbol size is too large");
-        return XQC_OK;
-    }
-
-    block_id = xqc_parse_block_number(src_payload_id);
-    symbol_idx = xqc_parse_symbol_number(src_payload_id);
-    // update buffered symbols according to received symbol.
-    ret = xqc_process_src_symbol(conn, block_id, symbol_idx, packet_in->decode_payload, symbol_size);
-    if (ret != XQC_OK) {
-        if (ret == -XQC_EFEC_TOLERABLE_ERROR) {
-            return XQC_OK;
-
-        } else {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|quic_fec|process source symbol error");
-            return ret;
-        }
-    }
-
-    conn->fec_ctl->latest_stream_id[block_id % XQC_FEC_BLOCK_NUM] = packet_in->stream_id;
-
-    xqc_try_process_fec_decode(conn, block_id);
-    return XQC_OK;
-}
-
-xqc_int_t
-xqc_process_repair_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    uint8_t lack_syb_num, fst_lack_syb_id;
-    xqc_int_t ret, block_mod, i;
-    xqc_fec_rpr_syb_t tmp_rpr_syb;
-
-    xqc_stream_t *stream = NULL;
-
-    conn->fec_ctl->fec_recv_repair_num_total++;
-    xqc_memset(&tmp_rpr_syb, 0, sizeof(xqc_fec_rpr_syb_t));
-    block_mod = conn->conn_settings.fec_params.fec_blk_log_mod;
-
-    ret = xqc_parse_repair_frame(conn, packet_in, &tmp_rpr_syb);
-    if (ret != XQC_OK) {
-        if (ret != -XQC_EFEC_TOLERABLE_ERROR) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|quic_fec|xqc_parse_repair_frame error|err:%d", ret);
-            return ret;
-        }
-        return XQC_OK;
-    }
-
-    // update buffered symbols according to received symbol.
-    ret = xqc_process_rpr_symbol(conn, &tmp_rpr_syb);
-    if (ret != XQC_OK) {
-        if (ret == -XQC_EFEC_TOLERABLE_ERROR) {
-            return XQC_OK;
-        }
-        xqc_log(conn->log, XQC_LOG_ERROR, "|quic_fec|xqc_parse_repair_frame error|err:%d", ret);
-        return ret;
-    }
-
-    // temp log logic
-    if (conn->conn_settings.fec_params.fec_log_on && tmp_rpr_syb.block_id % block_mod == 0) {
-        xqc_fec_schemes_e fec_scheme = conn->conn_settings.fec_params.fec_decoder_scheme;
-        if (fec_scheme == XQC_PACKET_MASK_CODE) {
-            lack_syb_num = fst_lack_syb_id = 0;
-            xqc_get_lack_src_syb(tmp_rpr_syb.repair_key, tmp_rpr_syb.recv_mask, tmp_rpr_syb.repair_key_size,
-                                 &fst_lack_syb_id, &lack_syb_num);
-            if (lack_syb_num > 1) {
-                xqc_log(conn->log, XQC_LOG_REPORT, "|fec_stats|PM|current block: %d|lack %d src_syb|", tmp_rpr_syb.block_id, lack_syb_num - 1);
-            }
-
-        } else {
-            xqc_int_t max_src_symbol_num = conn->remote_settings.fec_max_symbols_num;
-            xqc_int_t recv_rpr_num = xqc_cnt_rpr_symbols_num(conn->fec_ctl, tmp_rpr_syb.block_id);
-            xqc_int_t recv_src_num = xqc_cnt_src_symbols_num(conn->fec_ctl, tmp_rpr_syb.block_id);
-            if (recv_rpr_num + recv_src_num < max_src_symbol_num && recv_src_num > 0) {
-                // receive some repair symbols, but the received source symbol are too little to perform recover.
-                lack_syb_num = max_src_symbol_num - recv_src_num - recv_rpr_num;
-                xqc_log(conn->log, XQC_LOG_REPORT, "|fec_stats|XOR|current block: %d|lack %d src_syb|total_syb:%d", tmp_rpr_syb.block_id, max_src_symbol_num - recv_src_num - recv_rpr_num, max_src_symbol_num);
-            }
-        }
-    }
-
-    xqc_try_process_fec_decode(conn, tmp_rpr_syb.block_id);
-    return XQC_OK;
-}
-
-#endif

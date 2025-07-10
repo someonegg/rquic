@@ -147,9 +147,7 @@ xqc_send_queue_get_packet_out_for_stream(xqc_send_queue_t *send_queue, unsigned 
             && packet_out->po_stream_frames_idx < XQC_MAX_STREAM_FRAME_IN_PO
             && packet_out->po_stream_frames_idx > 0
             /* Avoid Head-of-Line blocking. */
-            && packet_out->po_stream_frames[packet_out->po_stream_frames_idx - 1].ps_stream_id == stream->stream_id
-            && !(packet_out->po_frame_types & XQC_FRAME_BIT_SID)
-            && !(packet_out->po_frame_types & XQC_FRAME_BIT_REPAIR_SYMBOL))
+            && packet_out->po_stream_frames[packet_out->po_stream_frames_idx - 1].ps_stream_id == stream->stream_id)
         {
             return packet_out;
         }
@@ -611,7 +609,7 @@ xqc_send_ctl_stream_frame_can_drop(xqc_packet_out_t *packet_out, xqc_stream_id_t
      * removing R may also free N via xqc_send_ctl_indirectly_ack_or_drop_po. If that
      * happens, an infinite loop that traversing the free_packets list is triggered.
      */
-    uint64_t mask = ~(XQC_FRAME_BIT_STREAM | XQC_FRAME_BIT_ACK | XQC_FRAME_BIT_ACK_MP | XQC_FRAME_BIT_SID);
+    uint64_t mask = ~(XQC_FRAME_BIT_STREAM | XQC_FRAME_BIT_ACK | XQC_FRAME_BIT_ACK_MP);
     if ((packet_out->po_frame_types & mask) == 0) {
         drop = 0;
         for (int i = 0; i < XQC_MAX_STREAM_FRAME_IN_PO; i++) {

@@ -161,19 +161,11 @@ struct xqc_stream_s {
         uint32_t            retrans_pkt_cnt;
         uint32_t            sent_pkt_cnt;
         uint8_t             max_pto_backoff;
-        uint32_t            recov_pkt_cnt;
-        xqc_usec_t          fst_rpr_time;
-        xqc_usec_t          last_rpr_time;
-        xqc_int_t           fec_blk_lack_num;       /* number of lack source symbol when receive last repair symbol */
-        xqc_usec_t          fec_blk_lack_time;      /* (first block) block finish time - last received rpr (in block) time */
-        xqc_usec_t          recv_time_with_fec;     /* stream received time with fec recovered packets */
         xqc_usec_t          final_packet_time;      /* final arrived packets of current stream */
         xqc_usec_t          stream_recv_time;       /* stream received time */
-        uint32_t            fec_send_rpr_cnt;       /* FEC repair packets sent on current stream */
     } stream_stats;
 
     xqc_path_metrics_t      paths_info[XQC_MAX_PATHS_COUNT];
-    uint8_t                 stream_fec_blk_mode;
 
     uint64_t                recv_rate_bytes_per_sec;
 
@@ -181,20 +173,6 @@ struct xqc_stream_s {
     char                    end_trans_state[XQC_STREAM_TRANSPORT_STATE_SZ];
     
     xqc_stream_priority_t   stream_priority;
-    struct {
-        xqc_flag_t          enable_fec;
-
-        /** current fec code rate */
-        float               fec_code_rate;
-        /** symbol number in current stream */
-        xqc_int_t           stream_fec_syb_num;
-
-        xqc_list_head_t    *stream_fec_head;
-        xqc_list_head_t    *stream_fec_tail;
-
-        uint16_t            is_video_frame;
-
-    } stream_fec_ctl;
 };
 
 static inline xqc_stream_type_t

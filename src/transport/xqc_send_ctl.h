@@ -269,9 +269,6 @@ xqc_packet_number_t xqc_send_ctl_get_pkt_num_gap(xqc_send_ctl_t *send_ctl, xqc_p
 uint64_t xqc_send_ctl_get_est_bw(xqc_send_ctl_t *send_ctl);
 uint64_t xqc_send_ctl_get_pacing_rate(xqc_send_ctl_t *send_ctl);
 
-xqc_int_t xqc_send_ctl_detect_optimistic_ack_attack(xqc_send_ctl_t *send_ctl, 
-    xqc_pn_ctl_t *pn_ctl, xqc_ack_info_t *const ack_info, xqc_usec_t ack_recv_time);
-
 void xqc_send_ctl_set_next_pn_for_packet(xqc_connection_t *conn, xqc_pn_ctl_t *pn_ctl,  
     xqc_packet_out_t *packet_out, xqc_usec_t current_time);
 

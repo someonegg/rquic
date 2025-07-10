@@ -27,7 +27,6 @@ static const char * const timer_type_2_str[XQC_TIMER_N] = {
     [XQC_TIMER_LINGER_CLOSE]    = "LINGER_CLOSE",
     [XQC_TIMER_KEY_UPDATE]      = "KEY_UPDATE",
     [XQC_TIMER_PMTUD_PROBING]   = "PMTUD_PROBING",
-    [XQC_TIMER_QUEUE_FIN]       = "CONN_QUEUE_FINISH"
 };
 
 const char *
@@ -229,37 +228,6 @@ xqc_timer_ping_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
 }
 
 void
-xqc_timer_fec_conn_queue_rpr_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
-{
-    uint8_t           fec_bm_mode;
-    xqc_int_t         ret;
-    xqc_usec_t        cq_fin_timeout;
-    xqc_list_head_t  *head;
-    xqc_connection_t *conn = (xqc_connection_t *)user_data;
-    xqc_fec_schemes_e encoder_scheme;
-
-#if defined(XQC_ENABLE_FEC) && defined(XQC_ENABLE_PKM)
-    encoder_scheme = conn->conn_settings.fec_params.fec_encoder_scheme;
-    head = &conn->conn_send_queue->sndq_send_packets;
-    /* if connection sendq has no fec protected packet, try to send repair packets in ahead */
-    if (conn->conn_settings.enable_encode_fec
-        && encoder_scheme == XQC_PACKET_MASK_CODE)
-    {
-        for (fec_bm_mode = 0; fec_bm_mode < XQC_BLOCK_MODE_LEN; fec_bm_mode++) {
-            if (fec_bm_mode == XQC_SLIM_SIZE_REQ) {
-                continue;
-            }
-            ret = xqc_send_repair_packets_ahead(conn, head, fec_bm_mode);
-            if (ret != XQC_OK) {
-                xqc_log(conn->log, XQC_LOG_ERROR, "|quic_fec|xqc_process_fec_protected_packet|xqc_send_repair_packets_ahead error: %d|", ret);
-            }
-        }
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|send repair packets ahead finished");
-    }
-#endif
-}
-
-void
 xqc_timer_retire_cid_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
 {
     xqc_connection_t *conn = (xqc_connection_t *)user_data;
@@ -413,9 +381,6 @@ xqc_timer_init(xqc_timer_manager_t *manager, xqc_log_t *log, void *user_data)
             
         } else if (type == XQC_TIMER_PMTUD_PROBING) {
             timer->timeout_cb = xqc_timer_pmtud_probing_timeout;
-            timer->user_data = user_data;
-        } else if (type == XQC_TIMER_QUEUE_FIN) {
-            timer->timeout_cb = xqc_timer_fec_conn_queue_rpr_timeout;
             timer->user_data = user_data;
         }
     }

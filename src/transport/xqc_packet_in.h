@@ -10,11 +10,7 @@
 #include "src/transport/xqc_frame.h"
 
 /* 1518 - ether_hdr - ip_hdr (20) - udp_hdr (8) = 1472 */
-#define XQC_MAX_PACKET_IN_LEN 1500 
-
-typedef enum {
-    XQC_PIF_FEC_RECOVERED       = 1 << 1,
-} xqc_packet_in_flag_t;
+#define XQC_MAX_PACKET_IN_LEN 1500
 
 struct xqc_packet_in_s {
     xqc_packet_t            pi_pkt;
@@ -30,9 +26,7 @@ struct xqc_packet_in_s {
     xqc_frame_type_bit_t    pi_frame_types;
 
     uint64_t                pi_path_id;
-    xqc_packet_in_flag_t    pi_flag;
 
-    xqc_usec_t              pi_fec_process_time;
     xqc_stream_id_t         stream_id;
 };
 

@@ -6,12 +6,10 @@
 #define _XQC_FRAME_PARSER_H_INCLUDED_
 
 #include <xquic/xquic_typedef.h>
-#include "src/transport/xqc_fec.h"
 #include "src/transport/xqc_frame.h"
 #include "src/transport/xqc_packet_in.h"
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_recv_record.h"
-#include "src/transport/xqc_recv_timestamps_info.h"
 
 #define XQC_PATH_CHALLENGE_DATA_LEN  8
 
@@ -24,8 +22,6 @@
 #define XQC_TRANS_FRAME_TYPE_MP_RETIRE_CONN_ID          0x15228c0a
 #define XQC_TRANS_FRAME_TYPE_MAX_PATH_ID                0x15228c0c
 #define XQC_TRANS_FRAME_TYPE_MP_FROZEN                  0x15228cff
-
-#define XQC_TRANS_FRAME_TYPE_ACK_EXT                    0xB1
 
 /**
  * generate stream frame
@@ -45,9 +41,6 @@ ssize_t xqc_gen_crypto_frame(xqc_packet_out_t *packet_out, uint64_t offset,
 xqc_int_t xqc_parse_crypto_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn, xqc_stream_frame_t * frame);
 
 void xqc_gen_padding_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
-
-xqc_int_t xqc_gen_padding_frame_with_len(xqc_connection_t *conn, xqc_packet_out_t *packet_out,
-    size_t padding_len, size_t limit);
 
 xqc_int_t xqc_parse_padding_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn);
 
@@ -145,17 +138,7 @@ ssize_t xqc_gen_path_status_frame(xqc_connection_t *conn,
 
 xqc_int_t xqc_parse_path_status_frame(xqc_packet_in_t *packet_in,
     uint64_t *path_id,
-    uint64_t *path_status_seq_num, uint64_t *path_status); 
-
-ssize_t xqc_gen_sid_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
-
-xqc_int_t xqc_parse_sid_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in, uint64_t *src_payload_id, xqc_int_t *symbol_size);
-
-xqc_int_t xqc_gen_repair_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_int_t fss_esi,
-    xqc_int_t repair_idx, uint8_t bm_idx);
-
-xqc_int_t xqc_parse_repair_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in,
-    xqc_fec_rpr_syb_t *rpr_symbol);
+    uint64_t *path_status_seq_num, uint64_t *path_status);
 
 ssize_t xqc_gen_mp_new_conn_id_frame(xqc_packet_out_t *packet_out, xqc_cid_t *new_cid,
     uint64_t retire_prior_to, const uint8_t *sr_token, uint64_t path_id);
@@ -170,17 +153,5 @@ xqc_int_t xqc_parse_mp_retire_conn_id_frame(xqc_packet_in_t *packet_in, uint64_t
 ssize_t xqc_gen_max_path_id_frame(xqc_packet_out_t *packet_out, uint64_t max_path_id);
 xqc_int_t xqc_parse_max_path_id_frame(xqc_packet_in_t *packet_in, uint64_t *max_path_id);
 
-void xqc_try_process_fec_decode(xqc_connection_t *conn, xqc_int_t block_id);
-
-
-void xqc_get_lack_src_syb(unsigned char* pm, unsigned char* recv_mask, xqc_int_t m_size,
-    uint8_t *syb_idx, uint8_t *syb_num);
-
-ssize_t xqc_gen_ack_ext_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_usec_t now,
-    int ack_delay_exponent, xqc_recv_record_t *recv_record, xqc_usec_t largest_pkt_recv_time, int *has_gap, 
-    xqc_packet_number_t *largest_ack, xqc_recv_timestamps_info_t *recv_ts_info);
-
-xqc_int_t xqc_parse_ack_ext_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn,
-    xqc_ack_info_t *ack_info, xqc_ack_timestamp_info_t *ack_ts_info);
 
 #endif /*_XQC_FRAME_PARSER_H_INCLUDED_*/

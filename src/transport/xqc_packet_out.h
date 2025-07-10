@@ -40,8 +40,7 @@ typedef enum {
     XQC_POF_QOS_HIGH            = 1 << 13,
     XQC_POF_QOS_PROBING         = 1 << 14,
     XQC_POF_SPURIOUS_LOSS       = 1 << 15,
-    XQC_POF_USE_FEC             = 1 << 16,
-    XQC_POF_STREAM_NO_LEN       = 1 << 17,  /* for stream without LEN bit, shouldn't attach different frame to it */
+    XQC_POF_STREAM_NO_LEN       = 1 << 16,  /* for stream without LEN bit, shouldn't attach different frame to it */
 } xqc_packet_out_flag_t;
 
 typedef struct xqc_po_stream_frame_s {
@@ -81,7 +80,6 @@ typedef struct xqc_packet_out_s {
     /* the stream related to stream frame */
     xqc_po_stream_frame_t   po_stream_frames[XQC_MAX_STREAM_FRAME_IN_PO];
     unsigned int            po_stream_frames_idx;
-    uint8_t                  po_stream_fec_blk_mode;
 
     uint32_t                po_origin_ref_cnt;  /* reference count of original packet */
     uint32_t                po_acked;
@@ -121,9 +119,6 @@ typedef struct xqc_packet_out_s {
     uint32_t                po_new_cid_path;
 } xqc_packet_out_t;
 
-xqc_bool_t xqc_packet_out_on_specific_path(xqc_connection_t *conn, 
-    xqc_packet_out_t *po, xqc_path_ctx_t **path);
-
 xqc_bool_t xqc_packet_out_can_attach_ack(xqc_packet_out_t *po, 
     xqc_path_ctx_t *path, xqc_pkt_type_t pkt_type);
 
@@ -152,10 +147,10 @@ xqc_packet_out_t *xqc_write_packet_for_stream(xqc_connection_t *conn, xqc_pkt_ty
 
 int xqc_write_packet_header(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
 
-xqc_int_t xqc_write_ack_or_mp_ack_or_ext_ack_to_packets(xqc_connection_t *conn);
+xqc_int_t xqc_write_ack_or_mp_ack_to_packets(xqc_connection_t *conn);
 
-xqc_int_t xqc_write_ack_or_mp_ack_or_ext_ack_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out, 
-    xqc_pkt_num_space_t pns, xqc_path_ctx_t *path, xqc_bool_t is_mp_ack, xqc_bool_t is_ext_ack, xqc_bool_t is_new_pkt);
+xqc_int_t xqc_write_ack_or_mp_ack_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out, 
+    xqc_pkt_num_space_t pns, xqc_path_ctx_t *path, xqc_bool_t is_mp_ack, xqc_bool_t is_new_pkt);
 
 int xqc_write_ack_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_pkt_num_space_t pns);
 
@@ -230,7 +225,5 @@ int xqc_write_max_path_id_to_packet(xqc_connection_t *conn, uint64_t max_path_id
  */
 size_t xqc_get_po_remained_size(xqc_packet_out_t *po);
 size_t xqc_get_po_remained_size_with_ack_spc(xqc_packet_out_t *po);
-
-int xqc_write_ack_ext_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_pkt_num_space_t pns, xqc_bool_t is_new_pkt);
 
 #endif /* _XQC_PACKET_OUT_H_INCLUDED_ */

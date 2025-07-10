@@ -10,7 +10,6 @@
 #include "src/tls/xqc_tls_defs.h"
 
 #define XQC_ACK_SPACE                       16
-#define XQC_FEC_SPACE                       12
 #define XQC_HEADER_SPACE                    28
 #define XQC_QUIC_MIN_MSS                    1200
 /* 1500 - 40 (IPv6) - 8 (UDP) - 16 (ACK) - 16 (AEAD) */
