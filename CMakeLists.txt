@@ -168,9 +168,6 @@ set(
     "src/common/utils/vint/xqc_discrete_int_parser.c"
     "src/common/utils/vint/xqc_variable_len_int.c"
     "src/common/utils/ringarray/xqc_ring_array.c"
-    "src/common/utils/ringmem/xqc_ring_mem.c"
-    "src/common/utils/2d_hash/xqc_2d_hash_table.c"
-    "src/common/utils/var_buf/xqc_var_buf.c"
 )
 
 # congestion control
