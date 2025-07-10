@@ -189,8 +189,6 @@ typedef struct xqc_demo_cli_quic_config_s {
 
     size_t max_pkt_sz;
 
-    char co_str[XQC_CO_STR_MAX_LEN];
-
     int recreate_path;
     int close_path_id;
 
@@ -1492,7 +1490,6 @@ xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
         settings->enable_stream_rate_limit = 1;
         settings->recv_rate_bytes_per_sec = 0;
     }
-    strncpy(settings->conn_option_str, args->quic_cfg.co_str, XQC_CO_STR_MAX_LEN);
 }
 
 /* set client args to default values */
@@ -1680,7 +1677,6 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -e    NAT rebinding on path 0\n"
         "   -E    NAT rebinding on path 1\n"
         "   -F    MTU size (default: 1200)\n"
-        "   -G    Google connection options (e.g. CBBR,TBBR)\n"
         "   -x    Extend the number of requests to X\n"
         "   -r    Send X requests per batch\n"
         "   -y    cid rotation after x ms\n"
@@ -1930,11 +1926,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         case 'F':
             printf("MTU size: %s\n", optarg);
             args->quic_cfg.max_pkt_sz = atoi(optarg);
-            break;
-        
-        case 'G':
-            printf("Google connection options: %s\n", optarg);
-            strncpy(args->quic_cfg.co_str, optarg, XQC_CO_STR_MAX_LEN);
             break;
 
         case 'r':

@@ -27,7 +27,6 @@
 #define XQC_DEFAULT_INIT_MAX_PATH_ID            8
 
 
-
 /**
  * @brief transport parameter type
  */
@@ -69,22 +68,8 @@ typedef enum {
     /* multipath quic attributes */
     XQC_TRANSPORT_PARAM_INIT_MAX_PATH_ID_V10                = 0x0f739bbc1b666d09,
 
-    /* google connection options */
-    XQC_TRANSPORT_PARAM_GOOGLE_CO                           = 0x3128,
-
     /* PTMUD negotiation */
     XQC_TRANSPORT_PARAM_PMTUD_OPTIONS                       = 0x0e08a234ff112300,
-#ifdef XQC_ENABLE_FEC
-    /* fec attributes */
-    XQC_TRANSPORT_PARAM_FEC_VERSION                         = 0xfec001,
-    XQC_TRANSPORT_PARAM_FEC_VERSION_02                      = 0xfec002,
-    XQC_TRANSPORT_PARAM_FEC_ENCODER_SCHEMES                 = 0xfece01,
-    XQC_TRANSPORT_PARAM_FEC_DECODER_SCHEMES                 = 0xfecd02,
-    XQC_TRANSPORT_PARAM_FEC_MAX_SYMBOL_NUM                  = 0xfecb02,
-#endif
-    XQC_TRANSPORT_PARAM_EXTENDED_ACK_FEATURES               = 0xff0a004,
-    XQC_TRANSPORT_PARAM_MAX_RECEIVE_TIMESTAMPS_PER_ACK      = 0xff0a002,
-    XQC_TRANSPORT_PARAM_RECEIVE_TIMESTAMPS_EXPONENT         = 0xff0a003,
 } xqc_transport_param_id_t;
 
 
@@ -150,33 +135,7 @@ typedef struct {
 
     uint64_t                init_max_path_id;
 
-    uint32_t                conn_options[XQC_CO_MAX_NUM];
-    uint8_t                 conn_option_num;
-
-    xqc_fec_version_t       fec_version;
-    uint64_t                enable_encode_fec;
-    uint64_t                enable_decode_fec;
-    uint64_t                fec_max_symbols_num;
-    xqc_fec_schemes_e       fec_encoder_schemes[XQC_FEC_MAX_SCHEME_NUM];
-    xqc_fec_schemes_e       fec_decoder_schemes[XQC_FEC_MAX_SCHEME_NUM];
-    xqc_int_t               fec_encoder_schemes_num;
-    xqc_int_t               fec_decoder_schemes_num;
-
     uint64_t                enable_pmtud;
-    
-    /* 
-     * draft-smith-quic-receive-ts-01: QUIC Extended Acknowledgement for Reporting Packet Receive Timestamps
-     * extended_ack_features: a bit-wise value indicates which optional fields are included.
-     *       Bit 0 indicates whether ECN count fields are included in the frame.
-     *       Bit 1 indicates whether Receive Timestamps are included in the frame.
-     *
-     * max_receive_timestamps_per_ack: max number of timestamps in a extended ack frame. 
-     * ack_receive_timestamps: all time delta values are decoded by mulitplying the 
-     *     value in the field by 2 to the power of the receive_timestamps_exponent.
-    */
-    uint64_t                 extended_ack_features;
-    uint64_t                 max_receive_timestamps_per_ack;
-    uint64_t                 receive_timestamps_exponent;
 } xqc_transport_params_t;
 
 /**

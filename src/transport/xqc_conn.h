@@ -19,8 +19,6 @@
 #include "src/transport/xqc_transport_params.h"
 #include "src/transport/xqc_timer.h"
 #include "src/transport/xqc_multipath.h"
-#include "src/transport/xqc_fec.h"
-#include "src/transport/xqc_fec_scheme.h"
 #include "src/tls/xqc_tls.h"
 #include "src/common/xqc_list.h"
 
@@ -196,24 +194,9 @@ typedef struct {
     uint64_t                no_crypto;
     uint64_t                enable_multipath;
     xqc_multipath_version_t multipath_version;
-    uint32_t                conn_options[XQC_CO_MAX_NUM];
-    uint8_t                 conn_option_num;
-
-    xqc_fec_version_t       fec_version;
-    uint64_t                enable_encode_fec;
-    uint64_t                enable_decode_fec;
-    uint64_t                fec_max_symbols_num;
-    xqc_fec_schemes_e       fec_encoder_schemes[XQC_FEC_MAX_SCHEME_NUM];
-    xqc_fec_schemes_e       fec_decoder_schemes[XQC_FEC_MAX_SCHEME_NUM];
-    xqc_int_t               fec_encoder_schemes_num;
-    xqc_int_t               fec_decoder_schemes_num;
 
     uint64_t                init_max_path_id;
 
-    uint64_t                extended_ack_features;
-    /* Currently, max_receive_timestamps_per_ack must be less than or equal to 63. */
-    uint64_t                max_receive_timestamps_per_ack;
-    uint64_t                receive_timestamps_exponent;
     uint64_t                enable_pmtud;
 } xqc_trans_settings_t;
  
@@ -420,11 +403,6 @@ struct xqc_connection_s {
     uint32_t                        cli_bidi_streams;
     uint32_t                        svr_bidi_streams;
 
-    /* for fec */
-    xqc_fec_ctl_t                  *fec_ctl;
-    uint32_t                        fec_neg_fail_reason;
-
-
     /* receved pkts stats */
     struct {
         xqc_pkt_type_t              pkt_types[3];
@@ -450,11 +428,6 @@ struct xqc_connection_s {
     } snd_pkt_stats;
 
     uint8_t                         enable_pmtud;
-    uint32_t                        burst_loss_cnt;
-    xqc_usec_t                      conn_avg_close_delay;
-    xqc_usec_t                      conn_avg_recv_delay;
-    xqc_usec_t                      conn_latest_close_delay;
-    uint32_t                        conn_video_frames;
 };
 
 const char *xqc_conn_flag_2_str(xqc_connection_t *conn, xqc_conn_flag_t conn_flag);
@@ -665,7 +638,6 @@ void xqc_path_send_packets(xqc_connection_t *conn, xqc_path_ctx_t *path,
 
 xqc_int_t xqc_conn_try_to_enable_multipath(xqc_connection_t *conn);
 xqc_int_t xqc_conn_add_path_cid_sets(xqc_connection_t *conn, uint32_t start, uint32_t end);
-xqc_msec_t xqc_conn_get_queue_fin_timeout(xqc_connection_t *conn);
 void xqc_conn_try_to_enable_pmtud(xqc_connection_t *conn);
 
 #endif /* _XQC_CONN_H_INCLUDED_ */

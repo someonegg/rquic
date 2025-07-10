@@ -606,7 +606,6 @@ xqc_demo_svr_handle_hq_request(xqc_demo_svr_user_stream_t *user_stream, xqc_hq_r
 
 handle_error:
     xqc_demo_svr_close_user_stream_resource(user_stream);
-    xqc_hq_request_close(user_stream->hq_request);
 }
 
 

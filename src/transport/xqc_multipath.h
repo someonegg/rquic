@@ -69,7 +69,6 @@ typedef enum {
     XQC_PATH_SPECIFIED_BY_PTMUD     = 1 << 3,  /* PMTUD Probe */
     XQC_PATH_SPECIFIED_BY_KAP       = 1 << 4,  /* Keepalive Probe */
     XQC_PATH_SPECIFIED_BY_PQP       = 1 << 5,  /* Path Quality Probe */
-    XQC_PATH_SPECIFIED_BY_FEC       = 1 << 6,  /* FEC repair symbol */
 } xqc_path_specified_flag_t;
 
 /* path context */
@@ -137,12 +136,6 @@ struct xqc_path_ctx_s {
     /* PTMUD */
     size_t              curr_pkt_out_size;
     size_t              path_max_pkt_out_size;
-
-    /* 
-     * Record pkt receive timestamp info. Null if local 
-     * conn_setting.extended_ack_features & XQC_ACK_EXT_FEATURE_BIT_RECV_TS == 0
-     */
-    xqc_recv_timestamps_info_t *recv_ts_info;
 };
 
 /* 埋点路径信息 */

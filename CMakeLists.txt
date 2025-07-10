@@ -12,10 +12,6 @@ option (XQC_ENABLE_COPA "enable copa" OFF)
 option (XQC_ENABLE_RENO "enable reno" OFF)
 option (XQC_ENABLE_UNLIMITED "enable unlimited cc" OFF)
 option (XQC_PROTECT_POOL_MEM "enable write protection for pool memory (for debug)" OFF)
-option (XQC_ENABLE_FEC "enable fec" OFF)
-option (XQC_ENABLE_XOR "enable fec scheme xor" OFF)
-option (XQC_ENABLE_RSC "enable fec scheme reed-solomon code" OFF)
-option (XQC_ENABLE_PKM "enable fec scheme packet mask" OFF)
 option (XQC_ENABLE_TESTING "Enable Testing" OFF)
 option (GCOV "Test Coverage" OFF)
 
@@ -145,49 +141,8 @@ set(
     "src/transport/xqc_defs.c"
     "src/transport/xqc_transport_params.c"
     "src/transport/xqc_timer.c"
-    "src/transport/xqc_recv_timestamps_info.c"
 )
 
-
-# fec framework
-set(
-    FEC_FRAMEWORK_SOURCE
-    "src/transport/xqc_fec.c"
-    "src/transport/xqc_fec_scheme.c"
-    "src/transport/fec_schemes/xqc_galois_calculation.c"
-)
-
-if(XQC_ENABLE_XOR)
-    set(
-        FEC_FRAMEWORK_SOURCE
-        ${FEC_FRAMEWORK_SOURCE}
-        "src/transport/fec_schemes/xqc_xor.c"
-    )
-endif()
-
-if(XQC_ENABLE_RSC)
-    set(
-        FEC_FRAMEWORK_SOURCE
-        ${FEC_FRAMEWORK_SOURCE}
-        "src/transport/fec_schemes/xqc_reed_solomon.c"
-    )
-endif()
-
-if(XQC_ENABLE_PKM)
-    set(
-        FEC_FRAMEWORK_SOURCE
-        ${FEC_FRAMEWORK_SOURCE}
-        "src/transport/fec_schemes/xqc_packet_mask.c"
-    )
-endif()
-
-if(XQC_ENABLE_FEC)
-    set(
-        TRANSPORT_SOURCES
-        ${TRANSPORT_SOURCES}
-        ${FEC_FRAMEWORK_SOURCE}
-    )
-endif()
 
 # TLS source
 set (
