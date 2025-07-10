@@ -156,15 +156,6 @@ xqc_transport_params_calc_length(const xqc_transport_params_t *params,
                xqc_put_varint_len(params->no_crypto);
     }
 
-    if (params->enable_multipath) {
-        if (params->multipath_version == XQC_MULTIPATH_10) {
-            len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INIT_MAX_PATH_ID_V10) +
-                    xqc_put_varint_len(xqc_put_varint_len(params->init_max_path_id)) +
-                    xqc_put_varint_len(params->init_max_path_id);
-
-        }
-    }
-
     if (params->enable_pmtud > 0) {
         len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_PMTUD_OPTIONS) +
                xqc_put_varint_len(xqc_put_varint_len(params->enable_pmtud)) +
@@ -328,13 +319,6 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
     if (params->no_crypto) {
         p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_NO_CRYPTO,
                                  params->no_crypto);
-    }
-
-    if (params->enable_multipath) {
-        if (params->multipath_version == XQC_MULTIPATH_10) {
-            p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_INIT_MAX_PATH_ID_V10, params->init_max_path_id);
-
-        }
     }
 
     if (params->enable_pmtud) {
@@ -578,19 +562,6 @@ xqc_decode_no_crypto(xqc_transport_params_t *params, xqc_transport_params_type_t
 }
 
 static xqc_int_t
-xqc_decode_enable_multipath(xqc_transport_params_t *params, xqc_transport_params_type_t exttype,
-    const uint8_t *p, const uint8_t *end, uint64_t param_type, uint64_t param_len)
-{
-    if (param_type == XQC_TRANSPORT_PARAM_INIT_MAX_PATH_ID_V10) {
-        params->enable_multipath = 1;
-        params->multipath_version = XQC_MULTIPATH_10;
-        XQC_DECODE_VINT_VALUE(&params->init_max_path_id, p, end);
-        return XQC_OK;
-    }
-    return XQC_OK;
-}
-
-static xqc_int_t
 xqc_decode_enable_pmtud(xqc_transport_params_t *params, xqc_transport_params_type_t exttype,
     const uint8_t *p, const uint8_t *end, uint64_t param_type, uint64_t param_len)
 {
@@ -615,7 +586,6 @@ typedef enum {
     XQC_TP_DECODER_ACTIVE_CONNECTION_ID_LIMIT          ,
     XQC_TP_DECODER_INITIAL_SOURCE_CONNECTION_ID        ,
     XQC_TP_DECODER_RETRY_SOURCE_CONNECTION_ID          ,
-    XQC_TP_DECODER_ENABLE_MULTIPATH                    ,
     XQC_TP_DECODER_NO_CRYPTO                           ,
     XQC_TP_DECODER_PMTUD_OPTIONS                       ,
     XQC_TP_DECODER_UNKNOWN                             
@@ -644,7 +614,6 @@ xqc_trans_param_decode_func xqc_trans_param_decode_func_list[] = {
     xqc_decode_active_cid_limit,
     xqc_decode_initial_scid,
     xqc_decode_retry_scid,
-    xqc_decode_enable_multipath,
     xqc_decode_no_crypto,
     xqc_decode_enable_pmtud,
 };
@@ -674,9 +643,6 @@ xqc_trans_param_get_index(uint64_t param_type)
     case XQC_TRANSPORT_PARAM_INITIAL_SOURCE_CONNECTION_ID:
     case XQC_TRANSPORT_PARAM_RETRY_SOURCE_CONNECTION_ID:
         return (xqc_tp_decoder_index_t)param_type;
-    
-    case XQC_TRANSPORT_PARAM_INIT_MAX_PATH_ID_V10:
-        return XQC_TP_DECODER_ENABLE_MULTIPATH;
 
     case XQC_TRANSPORT_PARAM_NO_CRYPTO:
         return XQC_TP_DECODER_NO_CRYPTO;
@@ -772,10 +738,6 @@ xqc_decode_transport_params(xqc_transport_params_t *params,
     params->retry_source_connection_id.cid_len = 0;
 
     params->no_crypto = 0;
-
-    params->enable_multipath = 0;
-    params->multipath_version = XQC_ERR_MULTIPATH_VERSION;
-    params->init_max_path_id = 0;
 
     params->enable_pmtud = 0;
 

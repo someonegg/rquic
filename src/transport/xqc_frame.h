@@ -28,15 +28,6 @@ typedef enum {
     XQC_FRAME_PATH_RESPONSE,
     XQC_FRAME_CONNECTION_CLOSE,
     XQC_FRAME_HANDSHAKE_DONE,
-    XQC_FRAME_ACK_MP,
-    XQC_FRAME_PATH_ABANDON,
-    XQC_FRAME_PATH_STATUS,
-    XQC_FRAME_PATH_STANDBY,
-    XQC_FRAME_PATH_AVAILABLE,
-    XQC_FRAME_MP_NEW_CONNECTION_ID,
-    XQC_FRAME_MP_RETIRE_CONNECTION_ID,
-    XQC_FRAME_MAX_PATH_ID,
-    XQC_FRAME_PATH_FROZEN,
     XQC_FRAME_Extension,
     XQC_FRAME_NUM,
 } xqc_frame_type_t;
@@ -62,15 +53,6 @@ typedef enum {
     XQC_FRAME_BIT_PATH_RESPONSE         = 1ULL << XQC_FRAME_PATH_RESPONSE,
     XQC_FRAME_BIT_CONNECTION_CLOSE      = 1ULL << XQC_FRAME_CONNECTION_CLOSE,
     XQC_FRAME_BIT_HANDSHAKE_DONE        = 1ULL << XQC_FRAME_HANDSHAKE_DONE,
-    XQC_FRAME_BIT_ACK_MP                = 1ULL << XQC_FRAME_ACK_MP,
-    XQC_FRAME_BIT_PATH_ABANDON          = 1ULL << XQC_FRAME_PATH_ABANDON,
-    XQC_FRAME_BIT_PATH_STATUS           = 1ULL << XQC_FRAME_PATH_STATUS,
-    XQC_FRAME_BIT_PATH_STANDBY          = 1ULL << XQC_FRAME_PATH_STANDBY,
-    XQC_FRAME_BIT_PATH_AVAILABLE        = 1ULL << XQC_FRAME_PATH_AVAILABLE,
-    XQC_FRAME_BIT_MP_NEW_CONNECTION_ID  = 1ULL << XQC_FRAME_MP_NEW_CONNECTION_ID,
-    XQC_FRAME_BIT_MP_RETIRE_CONNECTION_ID = 1ULL << XQC_FRAME_MP_RETIRE_CONNECTION_ID,
-    XQC_FRAME_BIT_MAX_PATH_ID           = 1ULL << XQC_FRAME_MAX_PATH_ID,
-    XQC_FRAME_BIT_PATH_FROZEN           = 1ULL << XQC_FRAME_PATH_FROZEN,
     XQC_FRAME_BIT_Extension             = 1ULL << XQC_FRAME_Extension,
     XQC_FRAME_BIT_NUM                   = 1ULL << XQC_FRAME_NUM,
 } xqc_frame_type_bit_t;
@@ -85,7 +67,7 @@ typedef enum {
       CONNECTION_CLOSE frames, are not sent again when packet loss is
       detected, but as described in Section 10.
  */
-#define XQC_IS_ACK_ELICITING(types) ((types) & ~(XQC_FRAME_BIT_ACK | XQC_FRAME_BIT_ACK_MP| XQC_FRAME_BIT_PADDING | XQC_FRAME_BIT_CONNECTION_CLOSE))
+#define XQC_IS_ACK_ELICITING(types) ((types) & ~(XQC_FRAME_BIT_ACK | XQC_FRAME_BIT_PADDING | XQC_FRAME_BIT_CONNECTION_CLOSE))
 
 /*
  * https://tools.ietf.org/html/draft-ietf-quic-recovery-24#section-3
@@ -96,7 +78,7 @@ typedef enum {
    PADDING frames cause packets to contribute toward bytes in flight
       without directly causing an acknowledgment to be sent.
  */
-#define XQC_CAN_IN_FLIGHT(types) ((types) & ~(XQC_FRAME_BIT_ACK | XQC_FRAME_BIT_ACK_MP | XQC_FRAME_BIT_CONNECTION_CLOSE))
+#define XQC_CAN_IN_FLIGHT(types) ((types) & ~(XQC_FRAME_BIT_ACK | XQC_FRAME_BIT_CONNECTION_CLOSE))
 
 
 /*
@@ -155,17 +137,5 @@ xqc_int_t xqc_process_handshake_done_frame(xqc_connection_t *conn, xqc_packet_in
 xqc_int_t xqc_process_path_challenge_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_path_response_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_ack_mp_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_path_abandon_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_path_status_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_mp_new_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_mp_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_max_path_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 #endif /* _XQC_FRAME_H_INCLUDED_ */

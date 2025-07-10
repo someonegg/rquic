@@ -11,7 +11,6 @@
 #include "src/transport/xqc_packet.h"
 
 #define XQC_UNDEFINE_STREAM_ID XQC_MAX_UINT64_VALUE
-#define XQC_STREAM_TRANSPORT_STATE_SZ 128
 
 #define XQC_STREAM_CLOSE_MSG(stream, msg) do {      \
     if ((stream)->stream_close_msg == NULL) {       \
@@ -165,12 +164,7 @@ struct xqc_stream_s {
         xqc_usec_t          stream_recv_time;       /* stream received time */
     } stream_stats;
 
-    xqc_path_metrics_t      paths_info[XQC_MAX_PATHS_COUNT];
-
     uint64_t                recv_rate_bytes_per_sec;
-
-    char                    begin_trans_state[XQC_STREAM_TRANSPORT_STATE_SZ];
-    char                    end_trans_state[XQC_STREAM_TRANSPORT_STATE_SZ];
     
     xqc_stream_priority_t   stream_priority;
 };
@@ -197,8 +191,6 @@ void xqc_stream_set_priority(xqc_stream_t *stream, xqc_stream_priority_t priorit
 
 xqc_stream_t *xqc_create_stream_with_conn (xqc_connection_t *conn, xqc_stream_id_t stream_id,
     xqc_stream_type_t stream_type, xqc_stream_settings_t *settings, void *user_data);
-
-void xqc_stream_record_trans_state(xqc_stream_t *stream, xqc_bool_t begin);
 
 void xqc_destroy_stream(xqc_stream_t *stream);
 

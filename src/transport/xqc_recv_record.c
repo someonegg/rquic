@@ -9,21 +9,6 @@
 #include "src/common/xqc_log.h"
 
 void
-xqc_recv_record_log(xqc_connection_t *conn, xqc_recv_record_t *recv_record)
-{
-    if (conn->log->log_level < XQC_LOG_DEBUG) {
-        return;
-    }
-    xqc_list_head_t *pos, *next;
-    xqc_pktno_range_node_t *pnode;
-    xqc_list_for_each_safe(pos, next, &recv_record->list_head) {
-        pnode = xqc_list_entry(pos, xqc_pktno_range_node_t, list);
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|low:%ui|high:%ui|",
-                pnode->pktno_range.low, pnode->pktno_range.high);
-    }
-}
-
-void
 xqc_recv_record_print(xqc_connection_t *conn, xqc_recv_record_t *recv_record, char *buff, unsigned buff_size)
 {
     xqc_list_head_t *pos, *next;
@@ -262,19 +247,16 @@ xqc_maybe_should_ack(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_pn_ctl_t 
      * Generating Acknowledgements
      */
 
-    if (path->path_flag & (XQC_PATH_FLAG_SHOULD_ACK_INIT << pns)) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|already yes|");
+    if (path->path_flag & (XQC_PATH_FLAG_SHOULD_ACK << pns)) {
         return;
     }
 
     if (pns == XQC_PNS_HSK
         && (xqc_tls_is_key_ready(conn->tls, XQC_ENC_LEV_HSK, XQC_KEY_TYPE_TX_WRITE) == XQC_FALSE))
     {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|delay|handshake ack should send after tx key ready|");
         return;
 
     } else if (pns == XQC_PNS_APP_DATA && !(conn->conn_flag & XQC_CONN_FLAG_CAN_SEND_1RTT)) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|delay|01RTT ack should send after handshake complete|");
         return;
     }
 
@@ -285,29 +267,14 @@ xqc_maybe_should_ack(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_pn_ctl_t 
         || (pns <= XQC_PNS_HSK && send_ctl->ctl_ack_eliciting_pkt[pns] >= 1)
         || (out_of_order && send_ctl->ctl_ack_eliciting_pkt[pns] >= 1))
     {
-        path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK_INIT << pns;
+        path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK << pns;
         conn->ack_flag |= (1 << (pns + path->path_id * XQC_PNS_N));
-        
         xqc_timer_unset(&send_ctl->path_timer_manager, XQC_TIMER_ACK_INIT + pns);
-
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|yes|path:%ui|out_of_order:%d|ack_eliciting_pkt:%ud|"
-                "pns:%d|flag:%s|ack_freq:%ud|", 
-                path->path_id, out_of_order, 
-                send_ctl->ctl_ack_eliciting_pkt[pns],
-                pns, xqc_conn_flag_2_str(conn, conn->conn_flag),
-                ack_frequency);
-
     } else if (send_ctl->ctl_ack_eliciting_pkt[pns] > 0
                && !xqc_timer_is_set(&send_ctl->path_timer_manager, XQC_TIMER_ACK_INIT + pns))
     {
         xqc_timer_set(&send_ctl->path_timer_manager, XQC_TIMER_ACK_INIT + pns,
                       now, conn->local_settings.max_ack_delay * 1000);
-
-        xqc_log(conn->log, XQC_LOG_DEBUG,
-                "|path:%ui|set ack timer|ack_eliciting_pkt:%ud|pns:%d|flag:%s|now:%ui|max_ack_delay:%ui|",
-                path->path_id,
-                send_ctl->ctl_ack_eliciting_pkt[pns], pns, xqc_conn_flag_2_str(conn, conn->conn_flag),
-                now, conn->local_settings.max_ack_delay * 1000);
     }
 }
 

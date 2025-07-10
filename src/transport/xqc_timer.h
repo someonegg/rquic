@@ -34,8 +34,6 @@ typedef enum xqc_timer_type {
     XQC_TIMER_LOSS_DETECTION,
     XQC_TIMER_PACING,
     XQC_TIMER_NAT_REBINDING,
-    XQC_TIMER_PATH_IDLE,
-    XQC_TIMER_PATH_DRAINING,
 
     /* connection level (conn->conn_timer_manager->timer[XQC_TIMER_N]) */
     XQC_TIMER_CONN_IDLE,
@@ -115,8 +113,6 @@ xqc_timer_gp_timer_set(xqc_timer_manager_t *manager, xqc_gp_timer_id_t gp_timer_
         if (gp_timer->id == gp_timer_id) {
             gp_timer->expire_time = expire_time;
             gp_timer->timer_is_set = XQC_TRUE;
-            xqc_log(manager->log, XQC_LOG_DEBUG, "|gp_timer_set|id:%d|name:%s|expire_time:%ui|", 
-                    gp_timer->id, gp_timer->name, gp_timer->expire_time);
             return XQC_OK;
         }
     }
@@ -138,8 +134,6 @@ xqc_timer_gp_timer_unset(xqc_timer_manager_t *manager, xqc_gp_timer_id_t gp_time
         if (gp_timer->id == gp_timer_id) {
             gp_timer->expire_time = 0;
             gp_timer->timer_is_set = XQC_FALSE;
-            xqc_log(manager->log, XQC_LOG_DEBUG, "|gp_timer_unset|id:%d|name:%s|expire_time:%ui|", 
-                    gp_timer->id, gp_timer->name, gp_timer->expire_time);
             return XQC_OK;
         }
     }
@@ -161,8 +155,6 @@ xqc_timer_gp_timer_get_info(xqc_timer_manager_t *manager, xqc_gp_timer_id_t gp_t
         if (gp_timer->id == gp_timer_id) {
             *is_set = gp_timer->timer_is_set;
             *expire_time = gp_timer->expire_time;
-            xqc_log(manager->log, XQC_LOG_DEBUG, "|gp_timer_get_info|id:%d|name:%s|is_set:%d|expire_time:%ui|", 
-                    gp_timer->id, gp_timer->name, gp_timer->timer_is_set, gp_timer->expire_time);
             return XQC_OK;
         }
     }
@@ -184,8 +176,6 @@ xqc_timer_set(xqc_timer_manager_t *manager, xqc_timer_type_t type, xqc_usec_t no
 {
     manager->timer[type].timer_is_set = 1;
     manager->timer[type].expire_time = now + inter_time;
-    xqc_log(manager->log, XQC_LOG_DEBUG, "|type:%s|expire:%ui|now:%ui|interv:%ui|",
-            xqc_timer_type_2_str(type), manager->timer[type].expire_time, now, inter_time);
     xqc_log_event(manager->log, REC_LOSS_TIMER_UPDATED, manager, inter_time, (xqc_int_t) type, (xqc_int_t) XQC_LOG_TIMER_SET);
 }
 
@@ -194,8 +184,6 @@ xqc_timer_unset(xqc_timer_manager_t *manager, xqc_timer_type_t type)
 {
     manager->timer[type].timer_is_set = 0;
     manager->timer[type].expire_time = 0;
-    xqc_log(manager->log, XQC_LOG_DEBUG, "|type:%s|",
-            xqc_timer_type_2_str(type));
     xqc_log_event(manager->log, REC_LOSS_TIMER_UPDATED, manager, 0, (xqc_int_t) type, (xqc_int_t) XQC_LOG_TIMER_CANCEL);
 }
 
@@ -212,9 +200,6 @@ xqc_timer_update(xqc_timer_manager_t *manager, xqc_timer_type_t type, xqc_usec_t
     if (was_set) {
         /* update */
         manager->timer[type].expire_time = new_expire;
-        xqc_log(manager->log, XQC_LOG_DEBUG, "|type:%s|new_expire:%ui|now:%ui|",
-                xqc_timer_type_2_str(type), new_expire, xqc_monotonic_timestamp());
-
     } else {
         xqc_timer_set(manager, type, now, inter_time);
     }
@@ -228,26 +213,12 @@ xqc_timer_expire(xqc_timer_manager_t *manager, xqc_usec_t now)
     for (xqc_timer_type_t type = 0; type < XQC_TIMER_N; ++type) {
         timer = &manager->timer[type];
         if (timer->timer_is_set && timer->expire_time <= now) {
-            if (type == XQC_TIMER_CONN_IDLE) {
-                xqc_log(manager->log, XQC_LOG_DEBUG,
-                    "|conn:%p|timer expired|type:%s|expire_time:%ui|now:%ui|",
-                    (xqc_connection_t *)timer->user_data, xqc_timer_type_2_str(type), timer->expire_time, now);
-
-            } else {
-                xqc_log(manager->log, XQC_LOG_DEBUG,
-                    "|timer expired|type:%s|expire_time:%ui|now:%ui|",
-                    xqc_timer_type_2_str(type), timer->expire_time, now);
-            }
-
             xqc_log_event(manager->log, REC_LOSS_TIMER_UPDATED, manager, 0, (xqc_int_t) type, (xqc_int_t) XQC_LOG_TIMER_EXPIRE);
 
             timer->timeout_cb(type, now, timer->user_data);
 
             /* unset timer if it is not updated in timeout_cb */
             if (timer->expire_time <= now) {
-                xqc_log(manager->log, XQC_LOG_DEBUG,
-                        "|unset|type:%s|expire_time:%ui|now:%ui|",
-                        xqc_timer_type_2_str(type), timer->expire_time, now);
                 xqc_timer_unset(manager, type);
             }
         }
@@ -260,8 +231,6 @@ xqc_timer_expire(xqc_timer_manager_t *manager, xqc_usec_t now)
     xqc_list_for_each_safe(pos, next, &manager->gp_timer_list) {
         gp_timer = xqc_list_entry(pos, xqc_gp_timer_t, list);
         if (gp_timer->timer_is_set && gp_timer->expire_time <= now) {
-            xqc_log(manager->log, XQC_LOG_DEBUG, "|gp_timer_expire|id:%d|name:%s|expire_time:%ui|now:%ui|", 
-                    gp_timer->id, gp_timer->name, gp_timer->expire_time, now);
             gp_timer->timeout_cb(gp_timer->id, now, gp_timer->user_data);
             if (gp_timer->expire_time <= now) {
                 xqc_timer_gp_timer_unset(manager, gp_timer->id);

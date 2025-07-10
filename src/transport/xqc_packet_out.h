@@ -70,6 +70,7 @@ typedef struct xqc_packet_out_s {
     unsigned int            po_buf_size;        /* size of po_buf can be used */
     unsigned int            po_used_size;
     unsigned int            po_enc_size;        /* size of po after being encrypted */
+    unsigned int            po_cc_size;         /* TODO: check cc size != send size */
     unsigned int            po_ack_offset;
     xqc_packet_out_flag_t   po_flag;
     /* Largest Acknowledged in ACK frame, initiated to be 0 */
@@ -94,12 +95,6 @@ typedef struct xqc_packet_out_s {
     /* how many packets have been lost when the packet is sent */
     uint32_t                po_lost;
 
-    /* Multipath */
-    uint8_t                 po_path_flag;
-    uint64_t                po_path_id;
-    unsigned int            po_cc_size; /* TODO: check cc size != send size */
-
-    /* Reinjection */
     uint64_t                po_stream_offset;
     uint64_t                po_stream_id;
 
@@ -121,8 +116,6 @@ typedef struct xqc_packet_out_s {
 
 xqc_bool_t xqc_packet_out_can_attach_ack(xqc_packet_out_t *po, 
     xqc_path_ctx_t *path, xqc_pkt_type_t pkt_type);
-
-xqc_bool_t xqc_packet_out_can_pto_probe(xqc_packet_out_t *po, uint64_t path_id);
 
 void xqc_packet_out_remove_ack_frame(xqc_packet_out_t *po);
 
@@ -147,15 +140,14 @@ xqc_packet_out_t *xqc_write_packet_for_stream(xqc_connection_t *conn, xqc_pkt_ty
 
 int xqc_write_packet_header(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
 
-xqc_int_t xqc_write_ack_or_mp_ack_to_packets(xqc_connection_t *conn);
-
-xqc_int_t xqc_write_ack_or_mp_ack_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out, 
-    xqc_pkt_num_space_t pns, xqc_path_ctx_t *path, xqc_bool_t is_mp_ack, xqc_bool_t is_new_pkt);
+xqc_int_t xqc_write_ack_to_packets(xqc_connection_t *conn);
 
 int xqc_write_ack_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_pkt_num_space_t pns);
 
 int xqc_write_ping_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path, 
     void *po_user_data, xqc_bool_t notify, xqc_ping_record_t *pr);
+
+int xqc_write_pmtud_ping_to_packet(xqc_path_ctx_t *path, size_t probing_size, xqc_pkt_type_t pkt_type);
 
 int xqc_write_conn_close_to_packet(xqc_connection_t *conn, uint64_t err_code);
 
@@ -187,34 +179,10 @@ xqc_int_t xqc_write_new_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t
 
 xqc_int_t xqc_write_retire_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t seq_num);
 
-xqc_int_t xqc_write_path_challenge_frame_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path, 
-    xqc_bool_t attach_path_status);
+xqc_int_t xqc_write_path_challenge_frame_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path);
 
 xqc_int_t xqc_write_path_response_frame_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path,
     unsigned char *path_response_data);
-
-int xqc_write_ack_mp_to_one_packet(xqc_connection_t *conn, xqc_path_ctx_t *path,
-    xqc_packet_out_t *packet_out, xqc_pkt_num_space_t pns);
-
-xqc_int_t xqc_write_path_abandon_frame_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path);
-
-xqc_int_t xqc_write_path_status_frame_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path);
-
-xqc_int_t xqc_write_sid_frame_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
-
-xqc_int_t xqc_write_repair_packets(xqc_connection_t *conn, xqc_int_t fss_esi, xqc_list_head_t *prev, xqc_int_t repair_packet_num,
-    uint8_t bm_idx);
-
-xqc_packet_out_t *xqc_write_one_repair_packet(xqc_connection_t *conn, xqc_int_t fss_esi, xqc_int_t repair_idx,
-    uint8_t bm_idx);
-
-int xqc_write_pmtud_ping_to_packet(xqc_path_ctx_t *path, size_t probing_size, xqc_pkt_type_t pkt_type);
-
-xqc_int_t xqc_write_mp_new_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t retire_prior_to, uint64_t path_id);
-
-xqc_int_t xqc_write_mp_retire_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t seq_num, uint64_t path_id);
-
-int xqc_write_max_path_id_to_packet(xqc_connection_t *conn, uint64_t max_path_id);
 
 /**
  * @brief Get remained space size in packet out buff.

@@ -50,20 +50,17 @@ void
 xqc_log_CON_CONNECTION_CLOSED_callback(xqc_log_t *log, const char *func, xqc_connection_t *conn)
 {
     if (conn->conn_err != 0){
-        xqc_list_head_t *pos, *next;
-        xqc_path_ctx_t *path = NULL;
         unsigned char log_buf[500];
         unsigned char *p = log_buf;
         unsigned char *last = log_buf + sizeof(log_buf);
-        xqc_list_for_each_safe(pos, next, &conn->conn_paths_list) {
-            path = xqc_list_entry(pos, xqc_path_ctx_t, path_list);
+        xqc_path_ctx_t *path = conn->the_path;
+        if (path) {
             uint8_t idx = path->path_send_ctl->ctl_cwndlim_update_idx;
             p = xqc_sprintf(p, last, "<path:%ui, (%ui,%ui,%ui)>",
-            path->path_id,
-            xqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[idx], conn->conn_create_time) / 1000,
-            xqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[(idx + 1) % 3], conn->conn_create_time) / 1000,
-            xqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[(idx + 2) % 3], conn->conn_create_time) / 1000
-            );
+                path->path_id,
+                xqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[idx], conn->conn_create_time) / 1000,
+                xqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[(idx + 1) % 3], conn->conn_create_time) / 1000,
+                xqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[(idx + 2) % 3], conn->conn_create_time) / 1000);
             if (p != last) {
                 *p = '\0';
             }
@@ -210,7 +207,7 @@ xqc_log_TRA_PACKET_RECEIVED_callback(xqc_log_t *log, const char *func, xqc_packe
     xqc_qlog_implement(log, TRA_PACKET_RECEIVED, func,
                       "|pkt_pns:%d|pkt_type:%s|pkt_num:%ui|len:%uz|frame_flag:%s|path_id:%ui|",
                       packet_in->pi_pkt.pkt_pns, xqc_pkt_type_2_str(packet_in->pi_pkt.pkt_type), packet_in->pi_pkt.pkt_num,
-                      packet_in->buf_size, xqc_frame_type_2_str(log->engine, packet_in->pi_frame_types), packet_in->pi_path_id);
+                      packet_in->buf_size, xqc_frame_type_2_str(log->engine, packet_in->pi_frame_types), XQC_INITIAL_PATH_ID);
 }
 
 void
@@ -468,9 +465,6 @@ xqc_log_TRA_FRAMES_PROCESSED_callback(xqc_log_t *log, const char *func, ...)
     case XQC_FRAME_RETIRE_CONNECTION_ID:
     case XQC_FRAME_PATH_CHALLENGE:
     case XQC_FRAME_PATH_RESPONSE:
-    case XQC_FRAME_ACK_MP:
-    case XQC_FRAME_PATH_ABANDON:
-    case XQC_FRAME_PATH_STATUS:
     case XQC_FRAME_Extension:
         break;
 
@@ -601,9 +595,8 @@ xqc_log_REC_PACKET_LOST_callback(xqc_log_t *log, const char *func, xqc_packet_ou
 {
     xqc_qlog_implement(log, REC_PACKET_LOST, func,
                       "|pkt_pns:%d|pkt_type:%d|pkt_num:%d|lost_pn:%ui|po_sent_time:%ui|"
-                      "lost_send_time:%ui|loss_delay:%ui|frame:%s|repair:%d|path_id:%ui|",
+                      "lost_send_time:%ui|loss_delay:%ui|frame:%s|repair:%d|",
                       packet_out->po_pkt.pkt_pns, packet_out->po_pkt.pkt_type, packet_out->po_pkt.pkt_num,
                       lost_pn, packet_out->po_sent_time, lost_send_time, loss_delay,
-                      xqc_frame_type_2_str(log->engine, packet_out->po_frame_types), XQC_NEED_REPAIR(packet_out->po_frame_types),
-                      packet_out->po_path_id);
+                      xqc_frame_type_2_str(log->engine, packet_out->po_frame_types), XQC_NEED_REPAIR(packet_out->po_frame_types));
 }

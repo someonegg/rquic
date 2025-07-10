@@ -8,9 +8,6 @@ set (xquic_VERSION_MINOR 1)
 set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
 
 option (XQC_ENABLE_BBR2 "enable bbr2" OFF)
-option (XQC_ENABLE_COPA "enable copa" OFF)
-option (XQC_ENABLE_RENO "enable reno" OFF)
-option (XQC_ENABLE_UNLIMITED "enable unlimited cc" OFF)
 option (XQC_PROTECT_POOL_MEM "enable write protection for pool memory (for debug)" OFF)
 option (XQC_ENABLE_TESTING "Enable Testing" OFF)
 option (GCOV "Test Coverage" OFF)
@@ -173,41 +170,16 @@ set(
 # congestion control
 set(
     CONGESTION_CONTROL_SOURCES
-    "src/congestion_control/xqc_cubic.c"
     "src/congestion_control/xqc_bbr.c"
     "src/congestion_control/xqc_window_filter.c"
     "src/congestion_control/xqc_sample.c"
 )
-
-if(XQC_ENABLE_RENO)
-    set(
-        CONGESTION_CONTROL_SOURCES
-        ${CONGESTION_CONTROL_SOURCES}
-        "src/congestion_control/xqc_new_reno.c"
-    )
-endif()
 
 if(XQC_ENABLE_BBR2)
     set(
         CONGESTION_CONTROL_SOURCES
         ${CONGESTION_CONTROL_SOURCES}
         "src/congestion_control/xqc_bbr2.c"
-    )
-endif()
-
-if(XQC_ENABLE_COPA)
-    set(
-        CONGESTION_CONTROL_SOURCES
-        ${CONGESTION_CONTROL_SOURCES}
-        "src/congestion_control/xqc_copa.c"
-    )
-endif()
-
-if(XQC_ENABLE_UNLIMITED)
-    set(
-        CONGESTION_CONTROL_SOURCES
-        ${CONGESTION_CONTROL_SOURCES}
-        "src/congestion_control/xqc_unlimited_cc.c"
     )
 endif()
 

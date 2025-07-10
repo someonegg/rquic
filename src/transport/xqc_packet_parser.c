@@ -278,11 +278,6 @@ xqc_packet_parse_short_header(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         return -XQC_EILLPKT;
     }
 
-    packet_in->pi_path_id = packet_in->pi_pkt.pkt_dcid.path_id;
-    
-    xqc_log(c->log, XQC_LOG_DEBUG, "|parse short header|path:%ui|pkt_dcid:%s|spin_bit:%ud|",
-            packet_in->pi_path_id, xqc_scid_str(c->engine, &(packet->pkt_dcid)), spin_bit);
-
     /* packet number */
     packet_in->pi_pkt.length = packet_in->last - pos;
     packet_in->pi_pkt.pkt_num_offset = pos - packet_in->buf;
@@ -439,8 +434,6 @@ xqc_packet_parse_initial(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     int size = 0;
     uint64_t token_len = 0, length = 0;
 
-    xqc_log(c->log, XQC_LOG_DEBUG, "|packet parse|initial|");
-
     packet_in->pi_pkt.pkt_type = XQC_PTYPE_INIT;
     packet_in->pi_pkt.pkt_pns = XQC_PNS_INIT;
 
@@ -492,8 +485,6 @@ xqc_packet_parse_initial(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         return -XQC_EILLPKT;
     }
 
-    xqc_log(c->log, XQC_LOG_DEBUG, "|success|Length:%ui|", length);
-
     return XQC_OK;
 }
 
@@ -529,7 +520,6 @@ xqc_packet_parse_zero_rtt(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     ssize_t size = 0;
     uint64_t length = 0;
 
-    xqc_log(c->log, XQC_LOG_DEBUG, "|packet parse|0-RTT|");
     packet_in->pi_pkt.pkt_type = XQC_PTYPE_0RTT;
     packet_in->pi_pkt.pkt_pns = XQC_PNS_APP_DATA;
 
@@ -550,8 +540,6 @@ xqc_packet_parse_zero_rtt(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         xqc_log(c->log, XQC_LOG_ERROR, "|illegal pkt with wrong length");
         return -XQC_EILLPKT;
     }
-
-    xqc_log(c->log, XQC_LOG_DEBUG, "|success|Length:%ui|", length);
 
     return XQC_OK;
 }
@@ -579,14 +567,6 @@ xqc_packet_encrypt_buf(xqc_connection_t *conn, xqc_packet_out_t *packet_out,
     uint8_t *dst_pktno = dst_header + (pktno - header);
     uint8_t *dst_payload = dst_header + header_len;
     uint8_t *dst_end = dst_payload;
-    xqc_path_ctx_t *path = xqc_conn_find_path_by_path_id(conn, packet_out->po_path_id);
-
-    if (path == NULL) {
-        XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
-        xqc_log(conn->log, XQC_LOG_ERROR, "|path:%ui|does not exist|",
-                packet_out->po_path_id);
-        return XQC_EMP_PATH_NOT_FOUND;
-    }
 
     /* copy header to dest */
     xqc_memcpy(dst_header, header, header_len);
@@ -602,10 +582,8 @@ xqc_packet_encrypt_buf(xqc_connection_t *conn, xqc_packet_out_t *packet_out,
     }
 
     /* do packet protection */
-    uint32_t nonce_path_id = (conn->enable_multipath) ? 
-                             (uint32_t)path->path_id : 0;
+    uint32_t nonce_path_id = XQC_INITIAL_PATH_ID;
 
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|encryption nonce|path_id:%ui|pn:%ui|", nonce_path_id, packet_out->po_pkt.pkt_num);
     ret = xqc_tls_encrypt_payload(conn->tls, level,
                                   packet_out->po_pkt.pkt_num, nonce_path_id,
                                   dst_header, header_len, payload, payload_len,
@@ -636,7 +614,7 @@ xqc_packet_encrypt_buf(xqc_connection_t *conn, xqc_packet_out_t *packet_out,
 
         if (conn->key_update_ctx.enc_pkt_cnt > conn->conn_settings.keyupdate_pkt_threshold
             && conn->key_update_ctx.first_sent_pktno <=
-                conn->conn_initial_path->path_send_ctl->ctl_largest_acked[XQC_PNS_APP_DATA]
+                conn->the_path->path_send_ctl->ctl_largest_acked[XQC_PNS_APP_DATA]
             && xqc_monotonic_timestamp() > conn->key_update_ctx.initiate_time_guard)
         {
             ret = xqc_tls_update_1rtt_keys(conn->tls, XQC_KEY_TYPE_RX_READ);
@@ -680,7 +658,6 @@ xqc_packet_decrypt(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
     if (level == XQC_ENC_LEV_0RTT
         && xqc_tls_is_early_data_accepted(conn->tls) != XQC_TLS_EARLY_DATA_ACCEPT)
     {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|early data not decrypt|");
         return -XQC_TLS_DATA_REJECT;
     }
 
@@ -721,18 +698,13 @@ xqc_packet_decrypt(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
     xqc_packet_parse_packet_number(pktno, pktno_len, &truncated_pn);
 
     /* decode packet number */
-    xqc_packet_number_t largest_pn = 0;
-    xqc_path_ctx_t *path = xqc_conn_find_path_by_path_id(conn, packet_in->pi_path_id);
-    if (path) {
-        xqc_pn_ctl_t *pn_ctl = xqc_get_pn_ctl(conn, path);
-        xqc_pkt_num_space_t pns = packet_in->pi_pkt.pkt_pns;
-        largest_pn = xqc_recv_record_largest(&pn_ctl->ctl_recv_record[pns]);
-    }
+    xqc_path_ctx_t *path = conn->the_path;
+    xqc_pn_ctl_t *pn_ctl = xqc_get_pn_ctl(conn, path);
+    xqc_pkt_num_space_t pns = packet_in->pi_pkt.pkt_pns;
+    xqc_packet_number_t largest_pn = xqc_recv_record_largest(&pn_ctl->ctl_recv_record[pns]);
     
     packet_in->pi_pkt.pkt_num =
         xqc_packet_decode_packet_number(largest_pn, truncated_pn, pktno_len * 8);
-
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|largest_pn:%ui|", largest_pn);
 
     /* check key phase, determine weather to update read keys */
     xqc_uint_t key_phase = XQC_PACKET_SHORT_HEADER_KEY_PHASE(header);
@@ -749,10 +721,8 @@ xqc_packet_decrypt(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
     }
 
     /* decrypt packet payload */
-    uint32_t nonce_path_id = (conn->enable_multipath) ? 
-                             (uint32_t)packet_in->pi_path_id : 0;
+    uint32_t nonce_path_id = XQC_INITIAL_PATH_ID;
 
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|decryption nonce|path_id:%ui|pn:%ui|", nonce_path_id, packet_in->pi_pkt.pkt_num);
     ret = xqc_tls_decrypt_payload(conn->tls, level,
                                   packet_in->pi_pkt.pkt_num, nonce_path_id,
                                   header, header_len, payload, payload_len,
@@ -853,8 +823,6 @@ xqc_packet_parse_handshake(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         xqc_log(c->log, XQC_LOG_ERROR, "|illegal pkt with wrong length");
         return -XQC_EILLPKT;
     }
-
-    xqc_log(c->log, XQC_LOG_DEBUG, "|success|Length:%ui|", length);
 
     return XQC_OK;
 }
@@ -985,7 +953,6 @@ xqc_conn_cal_retry_integrity_tag(xqc_connection_t *conn,
 xqc_int_t
 xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 {
-    xqc_log(c->log, XQC_LOG_DEBUG, "|packet parse|retry|");
     packet_in->pi_pkt.pkt_type = XQC_PTYPE_RETRY;
 
     /* check conn type, only client can receive a Retry packet */
@@ -999,9 +966,6 @@ xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
      * that is identical to the DCID field of its Initial packet.
      */
     if (xqc_cid_is_equal(&c->original_dcid, &packet_in->pi_pkt.pkt_scid) == XQC_OK) {
-        xqc_log(c->log, XQC_LOG_DEBUG, "|discard|packet SCID error|odcid:%s|scid:%s|",
-                                       xqc_dcid_str(c->engine, &c->original_dcid),
-                                       xqc_scid_str(c->engine, &packet_in->pi_pkt.pkt_scid));
         return -XQC_EILLPKT;
     }
 
@@ -1015,8 +979,6 @@ xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         || (c->conn_flag & XQC_CONN_FLAG_INIT_RECVD))
     {
         packet_in->pos = packet_in->last;
-        xqc_log(c->log, XQC_LOG_DEBUG, "|discard|init or retry pkt recvd|flag:%s|",
-                                       xqc_conn_state_2_str(c->conn_state));
         return XQC_OK;
     }
 
@@ -1040,7 +1002,6 @@ xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     c->conn_token_len = retry_token_len;
 
     pos += retry_token_len;
-    xqc_log(c->log, XQC_LOG_DEBUG, "|retry token|length:%d|", retry_token_len);
 
     /* 
      * clients MUST discard Retry packets that have a Retry Integrity Tag
@@ -1060,7 +1021,6 @@ xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         || xqc_memcmp(retry_integrity_tag, pos, XQC_RETRY_INTEGRITY_TAG_LEN) != 0)
     {
         packet_in->pos = packet_in->last;
-        xqc_log(c->log, XQC_LOG_DEBUG, "|discard|retry integrity tag cannot be validated|");
         return XQC_OK;
     }
     pos += XQC_RETRY_INTEGRITY_TAG_LEN;
@@ -1070,8 +1030,6 @@ xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         xqc_log(c->log, XQC_LOG_ERROR, "|illegal pkt with wrong length");
         return -XQC_EILLPKT;
     }
-
-    xqc_log(c->log, XQC_LOG_DEBUG, "|packet_parse_retry|success|");
 
     return xqc_conn_on_recv_retry(c, &packet_in->pi_pkt.pkt_scid);
 }
@@ -1099,15 +1057,12 @@ xqc_packet_parse_version_negotiation(xqc_connection_t *c, xqc_packet_in_t *packe
         return -XQC_EILLPKT;
     }
 
-    xqc_log(c->log, XQC_LOG_DEBUG, "|packet parse|version negotiation|");
     unsigned char *pos = packet_in->pos;
     unsigned char *end = packet_in->last;
     packet_in->pi_pkt.pkt_type = XQC_PTYPE_VERSION_NEGOTIATION;
 
     /* at least one version is carried in the VN packet */
     if (XQC_BUFF_LEFT_SIZE(pos, end) < XQC_PACKET_VERSION_LENGTH) {
-        xqc_log(c->log, XQC_LOG_DEBUG, "|version negotiation size too small|%z|",
-                (size_t)XQC_BUFF_LEFT_SIZE(pos, end));
         return -XQC_EILLPKT;
     }
 
@@ -1221,8 +1176,6 @@ xqc_packet_parse_long_header(xqc_connection_t *c,
     xqc_packet_t  *packet = &packet_in->pi_pkt;
     xqc_int_t ret = XQC_ERROR;
 
-    packet_in->pi_path_id = XQC_INITIAL_PATH_ID;
-
     if (XQC_BUFF_LEFT_SIZE(pos, end) < XQC_PACKET_LONG_HEADER_PREFIX_LENGTH + 2) {
         return -XQC_EILLPKT;
     }
@@ -1237,7 +1190,6 @@ xqc_packet_parse_long_header(xqc_connection_t *c,
     if (version == 0) {
         /* version negotiation */
         if (c->conn_type == XQC_CONN_TYPE_SERVER) {
-            xqc_log(c->log, XQC_LOG_DEBUG, "|server receive version negotiation packet|");
             return -XQC_EILLPKT;
         }
         type = XQC_PTYPE_VERSION_NEGOTIATION;
@@ -1246,7 +1198,6 @@ xqc_packet_parse_long_header(xqc_connection_t *c,
 
     /* check fixed_bit */
     if (type != XQC_PTYPE_VERSION_NEGOTIATION && fixed_bit == 0) {
-        xqc_log(c->log, XQC_LOG_DEBUG, "|long header with 0-value fixed bit|");
         return -XQC_EILLPKT;
     }
 

@@ -15,8 +15,6 @@ static const char * const timer_type_2_str[XQC_TIMER_N] = {
     [XQC_TIMER_LOSS_DETECTION]  = "LOSS_DETECTION",
     [XQC_TIMER_PACING]          = "PACING",
     [XQC_TIMER_NAT_REBINDING]   = "NAT_REBINDING",
-    [XQC_TIMER_PATH_IDLE]       = "PATH_IDLE",
-    [XQC_TIMER_PATH_DRAINING]   = "PATH_DRAINING",
 
     /* connection level (conn->conn_timer_manager->timer[XQC_TIMER_N]) */
     [XQC_TIMER_CONN_IDLE]       = "CONN_IDLE",
@@ -43,10 +41,8 @@ xqc_timer_ack_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
 
     xqc_connection_t *conn = send_ctl->ctl_conn;
     xqc_pkt_num_space_t pns = type - XQC_TIMER_ACK_INIT;
-    send_ctl->ctl_path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK_INIT << pns;
+    send_ctl->ctl_path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK << pns;
     conn->ack_flag |= (1 << (pns + send_ctl->ctl_path->path_id * XQC_PNS_N));
-
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|pns:%d|path:%ui|", pns, send_ctl->ctl_path->path_id);
 }
 
 /**
@@ -59,16 +55,13 @@ xqc_timer_loss_detection_timeout(xqc_timer_type_t type, xqc_usec_t now, void *us
 
     xqc_path_ctx_t *path = send_ctl->ctl_path;
     xqc_connection_t *conn = send_ctl->ctl_conn;
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|path:%ui|loss_detection_timeout|", path->path_id);
 
     xqc_usec_t loss_time;
     xqc_pkt_num_space_t pns;
     loss_time = xqc_send_ctl_get_earliest_loss_time(send_ctl, &pns);
     if (loss_time != 0) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|xqc_send_ctl_detect_lost|");
         /* Time threshold loss Detection */
         xqc_send_ctl_detect_lost(send_ctl, conn->conn_send_queue, pns, now);
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|xqc_send_ctl_set_loss_detection_timer|loss|");
         xqc_send_ctl_set_loss_detection_timer(send_ctl);
         return;
     }
@@ -78,8 +71,6 @@ xqc_timer_loss_detection_timeout(xqc_timer_type_t type, xqc_usec_t now, void *us
          * PTO. Send new data if available, else retransmit old data.
          * If neither is available, send a single PING frame
          */
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|send Probe pkts|conn:%p|path:%ui|bytes_in_flight:%ud|", 
-                conn, path->path_id, send_ctl->ctl_bytes_in_flight);
         xqc_usec_t t = xqc_send_ctl_get_pto_time_and_space(send_ctl, now, &pns);
         xqc_path_send_one_or_two_ack_elicit_pkts(path, pns);
 
@@ -103,8 +94,6 @@ xqc_timer_loss_detection_timeout(xqc_timer_type_t type, xqc_usec_t now, void *us
 
     send_ctl->ctl_pto_count++;
     conn->max_pto_cnt = xqc_max(send_ctl->ctl_pto_count, conn->max_pto_cnt);
-    xqc_log(conn->log, XQC_LOG_DEBUG, "|xqc_send_ctl_set_loss_detection_timer|PTO|conn:%p|pto_count:%ud", 
-            conn, send_ctl->ctl_pto_count);
     xqc_send_ctl_set_loss_detection_timer(send_ctl);
 
 }
@@ -127,47 +116,6 @@ xqc_timer_nat_rebinding_timeout(xqc_timer_type_t type, xqc_usec_t now, void *use
     path->rebinding_addrlen = 0;
     path->rebinding_check_response = 0;
 }
-
-void
-xqc_timer_path_idle_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
-{
-    xqc_send_ctl_t *send_ctl = (xqc_send_ctl_t *)user_data;
-    xqc_connection_t *conn = send_ctl->ctl_conn;
-    xqc_path_ctx_t *path = send_ctl->ctl_path;
-
-    if (!conn->enable_multipath) {
-        return;
-    }
-
-    if (conn->active_path_count < 2 && path->path_state == XQC_PATH_STATE_ACTIVE) {
-        return;
-    }
-
-    if (path->path_state < XQC_PATH_STATE_CLOSING) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|closing path:%ui|", path->path_id);
-        xqc_path_immediate_close(path);
-    }
-
-    if (path->path_state < XQC_PATH_STATE_CLOSED) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|closed path:%ui|", path->path_id);
-        xqc_path_closed(path);
-    }
-
-}
-
-void
-xqc_timer_path_draining_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
-{
-    xqc_send_ctl_t *send_ctl = (xqc_send_ctl_t *)user_data;
-    xqc_connection_t *conn = send_ctl->ctl_conn;
-    xqc_path_ctx_t *path = send_ctl->ctl_path;
-
-    if (path->path_state < XQC_PATH_STATE_CLOSED) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|close path:%ui|", path->path_id);
-        xqc_path_closed(path);
-    }
-}
-
 
 void
 xqc_timer_conn_idle_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
@@ -198,8 +146,6 @@ xqc_timer_stream_close_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user
     xqc_list_for_each_safe(pos, next, &conn->conn_closing_streams) {
         stream = xqc_list_entry(pos, xqc_stream_t, closing_stream_list);
         if (stream->stream_close_time <= now) {
-            xqc_log(conn->log, XQC_LOG_DEBUG, "|stream_id:%ui|stream_type:%d|stream close|", 
-                    stream->stream_id, stream->stream_type);
             xqc_list_del_init(pos);
             XQC_STREAM_CLOSE_MSG(stream, "finished");
             xqc_destroy_stream(stream);
@@ -258,13 +204,6 @@ xqc_timer_retire_cid_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_d
                         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_cid_switch_to_next_state error|");
                         continue;
                     }
-
-                    xqc_log(conn->log, XQC_LOG_DEBUG, 
-                            "|retired->removed|cid:%s|seq:%ui|len:%d|", 
-                            xqc_scid_str(conn->engine, &inner_cid->cid), 
-                            inner_cid->cid.cid_seq_num,
-                            inner_cid->cid.cid_len);
-
                 } else {
                     /* record the earliest time that has not yet expired */
                     if (inner_cid->retired_ts < next_time) {
@@ -341,14 +280,6 @@ xqc_timer_init(xqc_timer_manager_t *manager, xqc_log_t *log, void *user_data)
 
         } else if (type == XQC_TIMER_NAT_REBINDING) {
             timer->timeout_cb = xqc_timer_nat_rebinding_timeout;
-            timer->user_data = user_data;
-
-        } else if (type == XQC_TIMER_PATH_IDLE) {
-            timer->timeout_cb = xqc_timer_path_idle_timeout;
-            timer->user_data = user_data;
-
-        } else if (type == XQC_TIMER_PATH_DRAINING) {
-            timer->timeout_cb = xqc_timer_path_draining_timeout;
             timer->user_data = user_data;
 
         } else if (type == XQC_TIMER_CONN_IDLE) {

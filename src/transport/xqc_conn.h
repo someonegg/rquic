@@ -24,7 +24,6 @@
 
 #define XQC_FC_INIT_RTT 60000
 #define XQC_MIN_RECV_WINDOW (63000) /* ~ 1MBps when RTT = 60ms */
-#define XQC_MIN_STANDBY_RPOBE_TIMEOUT 500 /* 500ms */
 
 #define XQC_TOKEN_EXPIRE_DELTA (7 * 24 * 60 * 60)           /* expire in N seconds */
 #define XQC_TOKEN_UPDATE_DELTA (XQC_TOKEN_EXPIRE_DELTA / 2) /* early update */
@@ -33,8 +32,6 @@
 #define XQC_MAX_PACKET_PROCESS_BATCH 100
 
 #define XQC_MAX_RECV_WINDOW (16 * 1024 * 1024)
-
-#define XQC_MP_SETTINGS_STR_LEN (30)
 
 static const uint32_t MAX_RSP_CONN_CLOSE_CNT = 3;
 
@@ -120,16 +117,13 @@ typedef enum {
     XQC_CONN_FLAG_RETRY_RECVD_SHIFT = 26,
     XQC_CONN_FLAG_TLS_CH_SHIFT = 27,
     XQC_CONN_FLAG_TLS_HSK_COMPLETED_SHIFT = 28,
-    XQC_CONN_FLAG_RECV_NEW_PATH_SHIFT = 29,
-    XQC_CONN_FLAG_VALIDATE_REBINDING_SHIFT = 30,
-    XQC_CONN_FLAG_CONN_CLOSING_NOTIFY_SHIFT = 31,
-    XQC_CONN_FLAG_CONN_CLOSING_NOTIFIED_SHIFT = 32,
-    XQC_CONN_FLAG_LOCAL_TP_UPDATED_SHIFT = 33,
-    XQC_CONN_FLAG_PMTUD_PROBING_SHIFT = 34,
-    XQC_CONN_FLAG_MP_WAIT_MP_READY_SHIFT = 35,
-    XQC_CONN_FLAG_MP_READY_NOTIFY_SHIFT = 36,
-    XQC_CONN_FLAG_HANDSHAKE_DONE_SENT_SHIFT = 37,
-    XQC_CONN_FLAG_SHIFT_NUM = 38,
+    XQC_CONN_FLAG_VALIDATE_REBINDING_SHIFT = 29,
+    XQC_CONN_FLAG_CONN_CLOSING_NOTIFY_SHIFT = 30,
+    XQC_CONN_FLAG_CONN_CLOSING_NOTIFIED_SHIFT = 31,
+    XQC_CONN_FLAG_LOCAL_TP_UPDATED_SHIFT = 32,
+    XQC_CONN_FLAG_PMTUD_PROBING_SHIFT = 33,
+    XQC_CONN_FLAG_HANDSHAKE_DONE_SENT_SHIFT = 34,
+    XQC_CONN_FLAG_SHIFT_NUM = 35,
 } xqc_conn_flag_shift_t;
 
 typedef enum {
@@ -162,14 +156,11 @@ typedef enum {
     XQC_CONN_FLAG_RETRY_RECVD           = 1ULL << XQC_CONN_FLAG_RETRY_RECVD_SHIFT,
     XQC_CONN_FLAG_TLS_CH_RECVD          = 1ULL << XQC_CONN_FLAG_TLS_CH_SHIFT,
     XQC_CONN_FLAG_TLS_HSK_COMPLETED     = 1ULL << XQC_CONN_FLAG_TLS_HSK_COMPLETED_SHIFT,
-    XQC_CONN_FLAG_RECV_NEW_PATH         = 1ULL << XQC_CONN_FLAG_RECV_NEW_PATH_SHIFT,
     XQC_CONN_FLAG_VALIDATE_REBINDING    = 1ULL << XQC_CONN_FLAG_VALIDATE_REBINDING_SHIFT,
     XQC_CONN_FLAG_CLOSING_NOTIFY        = 1ULL << XQC_CONN_FLAG_CONN_CLOSING_NOTIFY_SHIFT,
     XQC_CONN_FLAG_CLOSING_NOTIFIED      = 1ULL << XQC_CONN_FLAG_CONN_CLOSING_NOTIFIED_SHIFT,
     XQC_CONN_FLAG_LOCAL_TP_UPDATED      = 1ULL << XQC_CONN_FLAG_LOCAL_TP_UPDATED_SHIFT,
     XQC_CONN_FLAG_PMTUD_PROBING         = 1ULL << XQC_CONN_FLAG_PMTUD_PROBING_SHIFT,
-    XQC_CONN_FLAG_MP_WAIT_MP_READY      = 1ULL << XQC_CONN_FLAG_MP_WAIT_MP_READY_SHIFT,
-    XQC_CONN_FLAG_MP_READY_NOTIFY       = 1ULL << XQC_CONN_FLAG_MP_READY_NOTIFY_SHIFT,
     XQC_CONN_FLAG_HANDSHAKE_DONE_SENT   = 1ULL << XQC_CONN_FLAG_HANDSHAKE_DONE_SENT_SHIFT,
 
 } xqc_conn_flag_t;
@@ -192,10 +183,6 @@ typedef struct {
     xqc_flag_t              disable_active_migration;
     uint64_t                active_connection_id_limit;
     uint64_t                no_crypto;
-    uint64_t                enable_multipath;
-    xqc_multipath_version_t multipath_version;
-
-    uint64_t                init_max_path_id;
 
     uint64_t                enable_pmtud;
 } xqc_trans_settings_t;
@@ -343,18 +330,7 @@ struct xqc_connection_s {
     uint64_t                        conn_err;
     const char                     *conn_close_msg;
 
-    /* for multi-path */
-    xqc_multipath_mode_t            enable_multipath;
-    xqc_path_ctx_t                 *conn_initial_path;
-    xqc_list_head_t                 conn_paths_list;
-    uint64_t                        validating_path_id;
-    uint32_t                        create_path_count;
-    uint32_t                        validated_path_count;
-    uint32_t                        active_path_count;
-
-    uint64_t                        curr_max_path_id;
-    uint64_t                        local_max_path_id;
-    uint64_t                        remote_max_path_id;
+    xqc_path_ctx_t                 *the_path;
 
     /* for qlog */
     uint32_t                        MTU_updated_count;
@@ -461,7 +437,7 @@ void xqc_conn_transmit_pto_probe_packets(xqc_connection_t *conn);
 void xqc_conn_transmit_pto_probe_packets_batch(xqc_connection_t *conn);
 void xqc_conn_retransmit_lost_packets(xqc_connection_t *conn);
 void xqc_conn_retransmit_lost_packets_batch(xqc_connection_t *conn);
-xqc_int_t xqc_path_send_ping_to_probe(xqc_path_ctx_t *path, xqc_pkt_num_space_t pns, xqc_path_specified_flag_t flag);
+xqc_int_t xqc_path_send_ping_to_probe(xqc_path_ctx_t *path, xqc_pkt_num_space_t pns);
 void xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path, xqc_pkt_num_space_t pns);
 void xqc_conn_send_one_ack_eliciting_pkt(xqc_connection_t *conn, xqc_pkt_num_space_t pns);
 
@@ -533,8 +509,6 @@ void xqc_conn_process_packet_recved_path(xqc_connection_t *conn, xqc_cid_t *scid
 
 xqc_int_t xqc_conn_check_handshake_complete(xqc_connection_t *conn);
 
-
-xqc_int_t xqc_conn_get_available_path_id(xqc_connection_t *conn, uint64_t *path_id);
 xqc_int_t xqc_conn_try_add_new_conn_id(xqc_connection_t *conn, uint64_t retire_prior_to);
 xqc_int_t xqc_conn_check_dcid(xqc_connection_t *conn, xqc_cid_t *dcid);
 void xqc_conn_destroy_cids(xqc_connection_t *conn);
@@ -606,7 +580,6 @@ xqc_int_t xqc_conn_gp_timer_get_info(xqc_connection_t *conn, xqc_gp_timer_id_t g
 
 void xqc_conn_schedule_packets_to_paths(xqc_connection_t *conn);
 
-void xqc_conn_encode_transport_state(xqc_connection_t *conn, char *buf, size_t buf_sz);
 
 static inline xqc_uint_t 
 xqc_conn_get_mss(xqc_connection_t *conn) {
@@ -631,13 +604,9 @@ void xqc_conn_destroy_ping_notification_list(xqc_connection_t *conn);
 
 xqc_int_t xqc_conn_send_ping_internal(xqc_connection_t *conn, void *ping_user_data, xqc_bool_t notify);
 
-void xqc_conn_encode_mp_settings(xqc_connection_t *conn, char *buf, size_t buf_sz);
-
 void xqc_path_send_packets(xqc_connection_t *conn, xqc_path_ctx_t *path,
     xqc_list_head_t *head, int congest, xqc_send_type_t send_type);
 
-xqc_int_t xqc_conn_try_to_enable_multipath(xqc_connection_t *conn);
-xqc_int_t xqc_conn_add_path_cid_sets(xqc_connection_t *conn, uint32_t start, uint32_t end);
 void xqc_conn_try_to_enable_pmtud(xqc_connection_t *conn);
 
 #endif /* _XQC_CONN_H_INCLUDED_ */

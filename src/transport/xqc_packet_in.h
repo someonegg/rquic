@@ -25,8 +25,6 @@ struct xqc_packet_in_s {
     xqc_usec_t              pkt_recv_time;  /* microsecond */
     xqc_frame_type_bit_t    pi_frame_types;
 
-    uint64_t                pi_path_id;
-
     xqc_stream_id_t         stream_id;
 };
 
