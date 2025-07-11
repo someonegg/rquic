@@ -538,7 +538,7 @@ xqc_send_queue_drop_packets_with_type(xqc_send_ctl_t *send_ctl, xqc_send_queue_t
 
 void xqc_send_queue_drop_initial_packets(xqc_connection_t *conn)
 {
-    /* initial packets are send on conn_initial_path */
+    /* initial packets are send on initial path */
     xqc_send_ctl_t *send_ctl = conn->the_path->path_send_ctl;
     xqc_send_queue_t *send_queue = conn->conn_send_queue;
     xqc_send_queue_drop_packets_with_type(send_ctl, send_queue, XQC_PTYPE_INIT);
@@ -549,7 +549,7 @@ void xqc_send_queue_drop_initial_packets(xqc_connection_t *conn)
 
 void xqc_send_queue_drop_handshake_packets(xqc_connection_t *conn)
 {
-    /* handshake packets are send on conn_initial_path */
+    /* handshake packets are send on initial path */
     xqc_send_ctl_t *send_ctl = conn->the_path->path_send_ctl;
     xqc_send_queue_t *send_queue = conn->conn_send_queue;
     xqc_send_queue_drop_packets_with_type(send_ctl, send_queue, XQC_PTYPE_HSK);
