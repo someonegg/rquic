@@ -552,23 +552,23 @@ xqc_demo_cli_open_keylog_file(xqc_demo_cli_ctx_t *ctx)
 {
     if (ctx->args->env_cfg.key_output_flag) {
         ctx->keylog_fd = open(ctx->args->env_cfg.key_out_path, (O_WRONLY | O_APPEND | O_CREAT), 0644);
+        printf("%s %d\n", ctx->args->env_cfg.key_out_path, ctx->keylog_fd);
         if (ctx->keylog_fd <= 0) {
             return -1;
         }
     }
-
     return 0;
 }
 
-int
+void
 xqc_demo_cli_close_keylog_file(xqc_demo_cli_ctx_t *ctx)
 {
     if (ctx->keylog_fd <= 0) {
-        return -1;
+        return;
     }
     close(ctx->keylog_fd);
     ctx->keylog_fd = 0;
-    return 0;
+    return;
 }
 
 void
@@ -576,12 +576,7 @@ xqc_demo_cli_keylog_cb(const xqc_cid_t *scid, const char *line, void *engine_use
 {
     xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t*)engine_user_data;
 
-    if (ctx->args->env_cfg.key_output_flag == 0) {
-        return;
-    }
-
     if (ctx->keylog_fd <= 0) {
-        printf("write keys error!\n");
         return;
     }
 
@@ -1291,10 +1286,10 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -a    Server addr.\n"
         "   -p    Server port.\n"
         "   -l    Log level. e:error d:debug.\n"
-        "   -L    xquic log directory.\n"
-        "   -k    key out path\n"
+        "   -L    xquic log path.\n"
+        "   -k    key output file\n"
         "   -d    do not save responses to files\n"
-        "   -D    save request body directory\n"
+        "   -D    response directory\n"
         "   -U    Url. \n"
         "   -x    Extend the number of requests to X\n"
         "   -Q    Send requests one by one (default disabled)\n"
@@ -1323,32 +1318,27 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
     while ((ch = getopt(argc, argv, "a:p:l:L:k:dD:U:x:Qr:K:w:I:t:T:A:S:u:F:eCN60")) != -1) {
         switch (ch) {
         case 'a':
-            printf("option addr :%s\n", optarg);
+            printf("option server addr :%s\n", optarg);
             snprintf(args->net_cfg.server_addr, sizeof(args->net_cfg.server_addr), optarg);
             args->net_cfg.addr_specified = 1;
             break;
 
-        /* server port */
         case 'p':
-            printf("option port :%s\n", optarg);
+            printf("option server port :%s\n", optarg);
             args->net_cfg.server_port = atoi(optarg);
             args->net_cfg.port_specified = 1;
             break;
 
-        /* log level */
         case 'l':
             printf("option log level :%s\n", optarg);
-            /* e:error d:debug */
             args->env_cfg.log_level = optarg[0];
             break;
 
-        /* log directory */
         case 'L':
-            printf("option log directory :%s\n", optarg);
+            printf("option log path :%s\n", optarg);
             strncpy(args->env_cfg.log_path, optarg, sizeof(args->env_cfg.log_path) - 1);
             break;
 
-        /* key out path */
         case 'k':
             printf("key output file: %s\n", optarg);
             args->env_cfg.key_output_flag = 1;
@@ -1360,13 +1350,11 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             args->req_cfg.dummy_mode = 1;
             break;
 
-        /* out file directory */
         case 'D':
-            printf("option save body dir: %s\n", optarg);
+            printf("option response directory: %s\n", optarg);
             strncpy(args->env_cfg.out_file_dir, optarg, sizeof(args->env_cfg.out_file_dir) - 1);
             break;
 
-        /* request urls */
         case 'U': // request URL, address is parsed from the request
             printf("option url only:%s\n", optarg);
             xqc_demo_cli_parse_urls(optarg, args);
@@ -1387,7 +1375,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             args->req_cfg.batch_cnt = atoi(optarg);
             break;
 
-        /* client life time circle */
         case 'K':
             printf("client life circle time: %s\n", optarg);
             args->env_cfg.life = atoi(optarg);
@@ -1403,7 +1390,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             args->req_cfg.idle_gap = atoi(optarg);
             break;
 
-        /* idle persist timeout */
         case 't':
             printf("option connection timeout :%s\n", optarg);
             args->net_cfg.conn_timeout = atoi(optarg);
@@ -1414,19 +1400,16 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             args->quic_cfg.recv_rate = atoi(optarg);
             break;
 
-        /* alpn */
         case 'A':
             printf("option set ALPN[%s]\n", optarg);
             if (strcmp(optarg, "hq") == 0) {
                 args->quic_cfg.alpn_type = ALPN_HQ;
                 strncpy(args->quic_cfg.alpn, "hq-interop", 11);
             }
-
             break;
 
-        /* ssl cipher suites */
         case 'S':
-            printf("option cipher suites: %s\n", optarg);
+            printf("option ssl cipher suites: %s\n", optarg);
             args->quic_cfg.cipher_suites = optarg;
             break;
 
@@ -1447,7 +1430,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             }
             break;
 
-        /* key update packet threshold */
         case 'u':
             printf("key update packet threshold: %s\n", optarg);
             args->quic_cfg.keyupdate_pkt_threshold = atoi(optarg);
@@ -1463,7 +1445,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             args->net_cfg.rebind_path = 1;
             break;
 
-        /* pacing */
         case 'C':
             printf("option pacing :%s\n", "on");
             args->net_cfg.pacing = 1;
@@ -1474,13 +1455,11 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             args->quic_cfg.no_encryption = 1;
             break;
 
-        /* server ip */
         case '6':
             printf("option ipv6\n");
             args->net_cfg.ipv6 = 1;
             break;
 
-        /* 0rtt option */
         case '0':
             printf("option 0rtt\n");
             args->quic_cfg.use_0rtt = 1;
