@@ -683,6 +683,6 @@ xqc_send_queue_drop_stream_frame_packets(xqc_connection_t *conn, xqc_stream_id_t
     }
 
     if (count > 0) {
-        xqc_log(conn->log, XQC_LOG_DEBUG, "|stream_id:%ui|to_drop: %d|count:%d|", stream_id, to_drop, count);
+        xqc_log(conn->log, XQC_LOG_INFO, "|stream_id:%ui|to_drop: %d|count:%d|", stream_id, to_drop, count);
     }
 }

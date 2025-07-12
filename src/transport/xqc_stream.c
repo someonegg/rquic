@@ -835,6 +835,34 @@ xqc_stream_close(xqc_stream_t *stream)
     return XQC_OK;
 }
 
+xqc_stream_stats_t
+xqc_stream_get_stats(xqc_stream_t *stream)
+{
+    xqc_stream_stats_t stats;
+    xqc_memzero(&stats, sizeof(stats));
+    stats.stream_type          = stream->stream_type;
+    stats.stream_err           = stream->stream_err;
+    stats.send_bytes           = stream->stream_send_offset;
+    stats.recv_bytes           = stream->stream_data_in.merged_offset_end;
+    stats.read_bytes           = stream->stream_data_in.next_read_offset;
+    stats.sent_pkt_cnt         = stream->stream_stats.sent_pkt_cnt;
+    stats.retrans_pkt_cnt      = stream->stream_stats.retrans_pkt_cnt;
+    stats.create_time          = stream->stream_stats.create_time;
+    stats.close_time           = stream->stream_stats.close_time;
+    stats.first_write_time     = stream->stream_stats.first_write_time;
+    stats.first_snd_time       = stream->stream_stats.first_snd_time;
+    stats.first_rcv_time       = stream->stream_stats.first_rcv_time;
+    stats.local_fin_write_time = stream->stream_stats.local_fin_write_time;
+    stats.local_fin_snd_time   = stream->stream_stats.local_fin_snd_time;
+    stats.peer_fin_rcv_time    = stream->stream_stats.peer_fin_rcv_time;
+    stats.peer_fin_read_time   = stream->stream_stats.peer_fin_read_time;
+    stats.all_data_acked_time  = stream->stream_stats.all_data_acked_time;
+    stats.app_reset_time       = stream->stream_stats.app_reset_time;
+    stats.local_reset_time     = stream->stream_stats.local_reset_time;
+    stats.peer_reset_time      = stream->stream_stats.peer_reset_time;
+    return stats;
+}
+
 xqc_int_t
 xqc_insert_passive_stream_hash(xqc_connection_t *conn, int64_t cur_max_sid, xqc_stream_id_t stream_id)
 {

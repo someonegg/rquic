@@ -874,10 +874,10 @@ xqc_demo_cli_hq_req_close_notify(xqc_hq_request_t *hqr, void *req_user_data)
     xqc_demo_cli_user_stream_t *user_stream = (xqc_demo_cli_user_stream_t *)req_user_data;
 
     /* print stats */
-    xqc_request_stats_t stats = xqc_hq_request_get_stats(hqr);
+    xqc_stream_stats_t stats = xqc_hq_request_get_stats(hqr);
 
-    printf("\033[33m[HQ-req] send_bytes:%zu, recv_bytes:%zu, path_info:%s\n\033[0m",
-           stats.send_body_size, stats.recv_body_size, stats.stream_info);
+    printf("\033[33m[HQ-req] type:%u, err:%u, send_bytes:%zu, recv_bytes:%zu\n\033[0m",
+           (unsigned)stats.stream_type, (unsigned)stats.stream_err, (size_t)stats.send_bytes, (size_t)stats.recv_bytes);
 
     /* task schedule */
     xqc_demo_cli_continue_send_reqs(user_stream->user_conn);
@@ -1308,7 +1308,7 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -S    cipher suites\n"
         "   -u    key update packet threshold\n"
         "   -F    MTU size (default: 1200)\n"
-        "   -e    NAT rebinding on path\n"
+        "   -e    NAT rebinding after 2s\n"
         "   -C    Pacing on.\n"
         "   -N    No encryption (default disabled)\n"
         "   -6    IPv6\n"

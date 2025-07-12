@@ -390,6 +390,8 @@ xqc_conn_client_init_path_addr(xqc_connection_t *conn)
         path->local_addrlen = conn->local_addrlen;
     }
 
+    xqc_log(conn->engine->log, XQC_LOG_STATS, "|path:%ui|%s|", path->path_id, xqc_path_addr_str(path));
+
     return XQC_OK;
 }
 

@@ -18,13 +18,6 @@
     }                                               \
 } while(0)                                          \
 
-typedef enum {
-    XQC_CLI_BID = 0,
-    XQC_SVR_BID = 1,
-    XQC_CLI_UNI = 2,
-    XQC_SVR_UNI = 3,
-} xqc_stream_type_t;
-
 
 typedef enum {
     XQC_STREAM_FLAG_READY_TO_WRITE  = 1 << 0,
@@ -37,24 +30,6 @@ typedef enum {
     XQC_STREAM_FLAG_UNEXPECTED      = 1 << 8,
     XQC_STREAM_FLAG_DISCARDED       = 1 << 9,   /* stream create_notify with error, all stream data will be discarded */
 } xqc_stream_flag_t;
-
-typedef enum {
-    XQC_SEND_STREAM_ST_READY        = 0,
-    XQC_SEND_STREAM_ST_SEND         = 1,
-    XQC_SEND_STREAM_ST_DATA_SENT    = 2,
-    XQC_SEND_STREAM_ST_DATA_RECVD   = 3,
-    XQC_SEND_STREAM_ST_RESET_SENT   = 4,
-    XQC_SEND_STREAM_ST_RESET_RECVD  = 5,
-} xqc_send_stream_state_t;
-
-typedef enum {
-    XQC_RECV_STREAM_ST_RECV         = 0,
-    XQC_RECV_STREAM_ST_SIZE_KNOWN   = 1,
-    XQC_RECV_STREAM_ST_DATA_RECVD   = 2,
-    XQC_RECV_STREAM_ST_DATA_READ    = 3,
-    XQC_RECV_STREAM_ST_RESET_RECVD  = 4,
-    XQC_RECV_STREAM_ST_RESET_READ   = 5,
-} xqc_recv_stream_state_t;
 
 typedef enum {
     XQC_STREAM_PRI_DEFAULT  = 0,

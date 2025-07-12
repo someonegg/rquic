@@ -747,7 +747,7 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
         /* Make sure that we do not call BBR with a invalid sampler. */
         if (sample_type == XQC_RATE_SAMPLE_VALID) {
             if ((send_ctl->ctl_cong_callback->xqc_cong_ctl_get_bandwidth_estimate != NULL)
-                && send_ctl->ctl_conn->log->log_level >= XQC_LOG_STATS
+                && send_ctl->ctl_conn->log->log_level >= XQC_LOG_INFO
                 && (send_ctl->ctl_info.last_bw_time + send_ctl->ctl_info.record_interval <= now))
             {
                 bw_before = send_ctl->ctl_cong_callback->xqc_cong_ctl_get_bandwidth_estimate(send_ctl->ctl_cong);
@@ -765,7 +765,7 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
                 if (xqc_sub_abs(bw_after, bw_before) * 100 > (bw_before * send_ctl->ctl_info.bw_change_threshold)) {
 
                     send_ctl->ctl_info.last_bw_time = now;
-                    xqc_conn_log(conn, XQC_LOG_STATS,
+                    xqc_conn_log(conn, XQC_LOG_INFO,
                                  "|bandwidth change record|bw_before:%ui|bw_after:%ui|srtt:%ui|cwnd:%ui|",
                                  bw_before, bw_after, send_ctl->ctl_srtt, send_ctl->ctl_cong_callback->xqc_cong_ctl_get_cwnd(send_ctl->ctl_cong));
                 }
@@ -869,7 +869,7 @@ xqc_send_ctl_update_rtt(xqc_send_ctl_t *send_ctl, xqc_usec_t *latest_rtt, xqc_us
             xqc_usec_t now = xqc_monotonic_timestamp();
             if (send_ctl->ctl_info.last_rtt_time + send_ctl->ctl_info.record_interval <= now) {
                 send_ctl->ctl_info.last_rtt_time = now;
-                xqc_conn_log(send_ctl->ctl_conn, XQC_LOG_STATS, "|before update rtt|srtt:%ui|rttvar:%ui|"
+                xqc_conn_log(send_ctl->ctl_conn, XQC_LOG_INFO, "|before update rtt|srtt:%ui|rttvar:%ui|"
                             "after update rtt|srtt:%ui|rttvar:%ui|minrtt:%ui|latest_rtt:%ui|ack_delay:%ui|",
                              srtt, rttvar, send_ctl->ctl_srtt, send_ctl->ctl_rttvar, send_ctl->ctl_minrtt, *latest_rtt, ack_delay);
             }
@@ -1038,7 +1038,7 @@ xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue,
             if (send_ctl->ctl_cong_callback->xqc_cong_ctl_get_bandwidth_estimate) {
                 bw = send_ctl->ctl_cong_callback->xqc_cong_ctl_get_bandwidth_estimate(send_ctl->ctl_cong);
             }
-            xqc_conn_log(conn, XQC_LOG_STATS, "|lost interval:%ui|lost_count:%ui|send_count:%ui|pkt_num:%ui"
+            xqc_conn_log(conn, XQC_LOG_INFO, "|lost interval:%ui|lost_count:%ui|send_count:%ui|pkt_num:%ui"
                         "|po_send_time:%ui|srtt:%ui|cwnd:%ud|bw:%ui|conn_life:%ui|now:%ui|last_lost_time:%ui|",
                         lost_interval, lost_count, send_count, largest_lost->po_pkt.pkt_num, largest_lost->po_sent_time, send_ctl->ctl_srtt,
                         send_ctl->ctl_cong_callback->xqc_cong_ctl_get_cwnd(send_ctl->ctl_cong), bw, now - conn->conn_create_time);

@@ -456,7 +456,7 @@ pure_ack:
             xqc_send_queue_move_to_high_pri(&packet_out->po_list, conn->conn_send_queue);
 
 done:
-            xqc_log(conn->log, XQC_LOG_DEBUG, "|path:%ui|pns:%d|", path->path_id, pns);
+            ;
         }
     } while (0);
 
