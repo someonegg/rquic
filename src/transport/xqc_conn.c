@@ -1177,21 +1177,28 @@ void
 xqc_conn_schedule_packets(xqc_connection_t *conn,  xqc_list_head_t *head, 
     xqc_bool_t  packets_are_limited_by_cc, xqc_send_type_t send_type)
 {
-    xqc_usec_t now;
-    xqc_path_ctx_t *path;
+    xqc_usec_t now = xqc_monotonic_timestamp();
+    xqc_path_ctx_t *path = conn->the_path;
+    xqc_send_ctl_t *send_ctl = path->path_send_ctl;
+
     xqc_list_head_t *pos, *next;
     xqc_packet_out_t *packet_out;
 
-    now = xqc_monotonic_timestamp();
-
     xqc_list_for_each_safe(pos, next, head) {
         packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        path = conn->the_path;
+
+        if (packets_are_limited_by_cc &&
+            !xqc_send_packet_cwnd_allows(send_ctl, packet_out, path->path_schedule_bytes, 0))
+        {
+            conn->sched_cc_blocked++;
+            if (packet_out->po_sched_cwnd_blk_ts == 0) {
+                packet_out->po_sched_cwnd_blk_ts = now;
+            }
+            return;
+        }
 
         xqc_path_send_buffer_append(path, packet_out, &path->path_schedule_buf[send_type]);
     }
-
-    // TODOTODO
 }
 
 static inline void
