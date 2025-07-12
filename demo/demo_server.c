@@ -329,22 +329,6 @@ xqc_demo_svr_keylog_cb(const xqc_cid_t *scid, const char *line, void *eng_user_d
 /******************************************************************************
  *                   start of common callback functions                       *
  ******************************************************************************/
-void
-xqc_demo_svr_tls_key_cb(char *key, void *conn_user_data)
-{
-    xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t*)conn_user_data;
-    if (user_conn->ctx->args->env_cfg.key_output_flag
-        && strlen(user_conn->ctx->args->env_cfg.key_out_path))
-    {
-        FILE* pkey = fopen(user_conn->ctx->args->env_cfg.key_out_path, "a+");
-        if (NULL == pkey) {
-            return;
-        }
-
-        fprintf(pkey, key);
-        fclose(pkey);
-    }
-}
 
 void
 xqc_demo_svr_conn_update_cid_notify(xqc_connection_t *conn, const xqc_cid_t *retire_cid,

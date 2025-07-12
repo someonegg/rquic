@@ -660,7 +660,7 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
 
     if (XQC_UNLIKELY(conn->conn_flag & XQC_CONN_FLAG_LINGER_CLOSING)) {
         if (xqc_send_queue_out_queue_empty(conn->conn_send_queue)) {
-            xqc_conn_log(conn, XQC_LOG_DEBUG, "|out queue empty, close connection|");
+            xqc_conn_log(conn, XQC_LOG_INFO, "|out queue empty, close connection|");
             xqc_timer_unset(&conn->conn_timer_manager, XQC_TIMER_LINGER_CLOSE);
             xqc_conn_immediate_close(conn);
             conn->conn_flag &= ~XQC_CONN_FLAG_LINGER_CLOSING;

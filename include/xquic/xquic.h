@@ -1038,6 +1038,36 @@ typedef struct xqc_conn_qos_stats_s {
     uint64_t            inflight_bytes;
 } xqc_conn_qos_stats_t;
 
+/**
+ * @brief stream stats
+ */
+typedef struct xqc_stream_stats_s {
+    xqc_stream_type_t   stream_type;
+    uint64_t            stream_err;
+
+    uint64_t            send_bytes;
+    uint64_t            recv_bytes;
+    uint64_t            read_bytes;
+
+    uint32_t            sent_pkt_cnt;
+    uint32_t            retrans_pkt_cnt;
+
+    xqc_usec_t          create_time;            /* stream create time */
+    xqc_usec_t          close_time;             /* stream close time: fin/reset read */
+    xqc_usec_t          first_write_time;       /* app send data */
+    xqc_usec_t          first_snd_time;         /* socket send data */
+    xqc_usec_t          first_rcv_time;         /* recv the first udp packet */
+    xqc_usec_t          local_fin_write_time;   /* app send fin */
+    xqc_usec_t          local_fin_snd_time;     /* socket send fin */
+    xqc_usec_t          peer_fin_rcv_time;      /* quic stack rcv fin */
+    xqc_usec_t          peer_fin_read_time;     /* app read fin */
+    xqc_usec_t          all_data_acked_time;    /* all data sent & acked */
+
+    xqc_usec_t          app_reset_time;         /* app snd reset */
+    xqc_usec_t          local_reset_time;       /* socket snd reset */
+    xqc_usec_t          peer_reset_time;        /* quic stack rcv reset */
+} xqc_stream_stats_t;
+
 /*************************************************************
  *  engine layer APIs
  *************************************************************/
@@ -1461,6 +1491,12 @@ xqc_conn_stats_t xqc_conn_get_stats(xqc_engine_t *engine, const xqc_cid_t *cid);
  */
 XQC_EXPORT_PUBLIC_API
 xqc_conn_qos_stats_t xqc_conn_get_qos_stats(xqc_engine_t *engine, const xqc_cid_t *cid);
+
+/**
+ * User get xqc_stream_stats_t
+ */
+XQC_EXPORT_PUBLIC_API
+xqc_stream_stats_t xqc_stream_get_stats(xqc_stream_t *stream);
 
 
 XQC_EXPORT_PUBLIC_API

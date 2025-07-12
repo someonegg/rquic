@@ -179,7 +179,6 @@ struct iovec {
 #endif
 
 
-
 typedef enum {
     XQC_CONN_TYPE_CLIENT    = 0,
     XQC_CONN_TYPE_SERVER    = 1,
@@ -205,20 +204,30 @@ typedef struct xqc_stream_settings_s {
     uint64_t recv_rate_bytes_per_sec;
 } xqc_stream_settings_t;
 
-#define XQC_STREAM_INFO_LEN 128
 
-/**
- * @brief request statistics structure
- */
-typedef struct xqc_request_stats_s {
-    size_t      send_body_size;
-    size_t      recv_body_size;
+typedef enum {
+    XQC_CLI_BID = 0,
+    XQC_SVR_BID = 1,
+    XQC_CLI_UNI = 2,
+    XQC_SVR_UNI = 3,
+} xqc_stream_type_t;
 
-    /** QUIC layer error code, 0 for no error */
-    int         stream_err;
+typedef enum {
+    XQC_SEND_STREAM_ST_READY        = 0,
+    XQC_SEND_STREAM_ST_SEND         = 1,
+    XQC_SEND_STREAM_ST_DATA_SENT    = 2,
+    XQC_SEND_STREAM_ST_DATA_RECVD   = 3,
+    XQC_SEND_STREAM_ST_RESET_SENT   = 4,
+    XQC_SEND_STREAM_ST_RESET_RECVD  = 5,
+} xqc_send_stream_state_t;
 
-    char        stream_info[XQC_STREAM_INFO_LEN];
-    char        extern_stream_info[XQC_STREAM_INFO_LEN];
-} xqc_request_stats_t;
+typedef enum {
+    XQC_RECV_STREAM_ST_RECV         = 0,
+    XQC_RECV_STREAM_ST_SIZE_KNOWN   = 1,
+    XQC_RECV_STREAM_ST_DATA_RECVD   = 2,
+    XQC_RECV_STREAM_ST_DATA_READ    = 3,
+    XQC_RECV_STREAM_ST_RESET_RECVD  = 4,
+    XQC_RECV_STREAM_ST_RESET_READ   = 5,
+} xqc_recv_stream_state_t;
 
 #endif /*_XQUIC_TYPEDEF_H_INCLUDED_*/

@@ -334,20 +334,10 @@ xqc_hq_request_set_user_data(xqc_hq_request_t *hqr, void *user_data)
     hqr->user_data = user_data;
 }
 
-xqc_request_stats_t
+xqc_stream_stats_t
 xqc_hq_request_get_stats(xqc_hq_request_t *hqr)
 {
-    xqc_request_stats_t stats;
-    xqc_memzero(&stats, sizeof(stats));
-
-    xqc_stream_t *stream    = hqr->stream;
-    uint64_t conn_err       = hqr->stream->stream_conn->conn_err;
-
-    stats.recv_body_size    = hqr->recv_cnt;
-    stats.send_body_size    = hqr->sent_cnt;
-    stats.stream_err        = conn_err != 0 ? conn_err : hqr->stream->stream_err;
-
-    return stats;
+    return xqc_stream_get_stats(hqr->stream);
 }
 
 
