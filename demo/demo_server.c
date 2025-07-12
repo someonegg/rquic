@@ -286,24 +286,25 @@ xqc_demo_svr_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_
 int
 xqc_demo_svr_open_keylog_file(xqc_demo_svr_ctx_t *ctx)
 {
-    ctx->keylog_fd = open(ctx->args->env_cfg.key_out_path, (O_WRONLY | O_APPEND | O_CREAT), 0644);
-    printf("%s %d\n", ctx->args->env_cfg.key_out_path, ctx->keylog_fd);
-    if (ctx->keylog_fd <= 0) {
-        return -1;
+    if (ctx->args->env_cfg.key_output_flag) {
+        ctx->keylog_fd = open(ctx->args->env_cfg.key_out_path, (O_WRONLY | O_APPEND | O_CREAT), 0644);
+        printf("%s %d\n", ctx->args->env_cfg.key_out_path, ctx->keylog_fd);
+        if (ctx->keylog_fd <= 0) {
+            return -1;
+        }
     }
-
     return 0;
 }
 
-int
+void
 xqc_demo_svr_close_keylog_file(xqc_demo_svr_ctx_t *ctx)
 {
     if (ctx->keylog_fd <= 0) {
-        return -1;
+        return;
     }
     close(ctx->keylog_fd);
     ctx->keylog_fd = 0;
-    return 0;
+    return;
 }
 
 void
@@ -311,7 +312,6 @@ xqc_demo_svr_keylog_cb(const xqc_cid_t *scid, const char *line, void *eng_user_d
 {
     xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t*)eng_user_data;
     if (ctx->keylog_fd <= 0) {
-        printf("write keys error!\n");
         return;
     }
 
@@ -830,10 +830,10 @@ xqc_demo_svr_usage(int argc, char *argv[])
             "Usage: %s [Options]\n"
             "\n"
             "Options:\n"
-            "   -p    Server port.\n"
+            "   -p    Listen port.\n"
             "   -l    Log level. e:error d:debug.\n"
-            "   -L    xquic log directory.\n"
-            "   -k    Key output file path\n"
+            "   -L    xquic log path.\n"
+            "   -k    key output file\n"
             "   -d    do not read responses from files\n"
             "   -D    resource directory\n"
             "   -u    Keyupdate packet threshold\n"
@@ -849,26 +849,22 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
     int ch = 0;
     while ((ch = getopt(argc, argv, "p:l:L:k:dD:u:F:C6")) != -1) {
         switch (ch) {
-        /* listen port */
         case 'p':
-            printf("option port :%s\n", optarg);
+            printf("option listen port :%s\n", optarg);
             args->net_cfg.port = atoi(optarg);
             break;
 
-        /* log level */
         case 'l':
             printf("option log level :%s\n", optarg);
             args->env_cfg.log_level = optarg[0];
             break;
 
-        /* log path */
-        case 'L': /* log directory */
-            printf("option log directory :%s\n", optarg);
+        case 'L':
+            printf("option log path :%s\n", optarg);
             snprintf(args->env_cfg.log_path, sizeof(args->env_cfg.log_path), "%s", optarg);
             break;
 
-        /* key out path */
-        case 'k': /* key out path */
+        case 'k':
             printf("option key output file: %s\n", optarg);
             args->env_cfg.key_output_flag = 1;
             strncpy(args->env_cfg.key_out_path, optarg, sizeof(args->env_cfg.key_out_path) - 1);
@@ -879,13 +875,12 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             args->quic_cfg.dummy_mode = 1;
             break;
 
-        /* server resource dir */
         case 'D':
             printf("option resource directory :%s\n", optarg);
             strncpy(args->env_cfg.source_file_dir, optarg, RESOURCE_LEN - 1);
             break;
 
-        case 'u': /* key update packet threshold */
+        case 'u':
             printf("key update packet threshold: %s\n", optarg);
             args->quic_cfg.keyupdate_pkt_threshold = atoi(optarg);
             break;
@@ -895,13 +890,11 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             args->quic_cfg.max_pkt_sz = atoi(optarg);
             break;
 
-        /* pacing */
         case 'C':
             printf("option pacing :%s\n", "on");
             args->net_cfg.pacing = 1;
             break;
 
-        /* ipv6 */
         case '6':
             printf("option IPv6 :%s\n", "on");
             args->net_cfg.ipv6 = 1;
