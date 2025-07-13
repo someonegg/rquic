@@ -444,7 +444,6 @@ void xqc_conn_send_one_ack_eliciting_pkt(xqc_connection_t *conn, xqc_pkt_num_spa
 xqc_int_t xqc_conn_check_handshake_completed(xqc_connection_t *conn);
 xqc_int_t xqc_conn_is_handshake_confirmed(xqc_connection_t *conn);
 xqc_int_t xqc_conn_immediate_close(xqc_connection_t *conn);
-xqc_int_t xqc_conn_send_retry(xqc_connection_t *conn, unsigned char *token, unsigned token_len);
 xqc_int_t xqc_conn_version_check(xqc_connection_t *c, uint32_t version);
 xqc_int_t xqc_conn_send_version_negotiation(xqc_connection_t *c);
 xqc_int_t xqc_conn_check_token(xqc_connection_t *conn, const unsigned char *token, unsigned token_len);

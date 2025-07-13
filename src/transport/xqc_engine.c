@@ -27,7 +27,7 @@
 xqc_config_t default_client_config = {
     .cfg_log_level             = XQC_LOG_WARN,
     .cfg_log_event             = 1,
-    .cfg_qlog_importance       = EVENT_IMPORTANCE_EXTRA,
+    .cfg_qlog_importance       = EVENT_IMPORTANCE_SELECTED,
     .cfg_log_timestamp         = 1,
     .cfg_log_level_name        = 1,
     .conn_pool_size            = 4096,
@@ -50,7 +50,7 @@ xqc_config_t default_client_config = {
 xqc_config_t default_server_config = {
     .cfg_log_level             = XQC_LOG_WARN,
     .cfg_log_event             = 1,
-    .cfg_qlog_importance       = EVENT_IMPORTANCE_EXTRA,
+    .cfg_qlog_importance       = EVENT_IMPORTANCE_SELECTED,
     .cfg_log_timestamp         = 1,
     .cfg_log_level_name        = 1,
     .conn_pool_size            = 4096,
@@ -1112,9 +1112,6 @@ xqc_engine_packet_process(xqc_engine_t *engine,
     }
 
 process:
-    xqc_log(engine->log, XQC_LOG_INFO, "|==>|conn:%p|size:%uz|state:%s|recv_time:%ui|",
-            conn, packet_in_size, xqc_conn_state_2_str(conn->conn_state), recv_time);
-
     if (XQC_UNLIKELY(conn->local_addrlen == 0)) {
         ret = xqc_memcpy_with_cap(conn->local_addr, sizeof(conn->local_addr), 
                                   local_addr, local_addrlen);
