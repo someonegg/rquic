@@ -136,17 +136,18 @@ typedef struct xqc_demo_cli_quic_config_s {
     char alpn[16];
     int quic_version;
 
+    int  token_len;                     /* token len */
+    char token[XQC_MAX_TOKEN_LEN];      /* token buf */
+
     /* 0-rtt config */
+    uint8_t use_0rtt;                   /* 0-rtt switch, default turned off */
     int  st_len;                        /* session ticket len */
     char st[MAX_SESSION_TICKET_LEN];    /* session ticket buf */
     int  tp_len;                        /* transport params len */
     char tp[MAX_TRANSPORT_PARAMS_LEN];  /* transport params buf */
-    int  token_len;                     /* token len */
-    char token[XQC_MAX_TOKEN_LEN];      /* token buf */
 
     char *cipher_suites;                /* cipher suites */
 
-    uint8_t use_0rtt;                   /* 0-rtt switch, default turned off */
     uint64_t keyupdate_pkt_threshold;   /* packet limit of a single 1-rtt key, 0 for unlimited */
 
     uint8_t no_encryption;
@@ -1075,8 +1076,17 @@ xqc_demo_cli_rebind_path(int fd, short what, void *arg)
 void
 xqc_demo_cli_init_0rtt(xqc_demo_cli_client_args_t *args)
 {
+    /* read token */
+    int ret = xqc_demo_cli_read_token(
+        args->quic_cfg.token, XQC_MAX_TOKEN_LEN);
+    args->quic_cfg.token_len = ret > 0 ? ret : 0;
+
+    if (!args->quic_cfg.use_0rtt) {
+        return;
+    }
+
     /* read session ticket */
-    int ret = xqc_demo_read_file_data(args->quic_cfg.st,
+    ret = xqc_demo_read_file_data(args->quic_cfg.st,
         MAX_SESSION_TICKET_LEN, SESSION_TICKET_FILE);
     args->quic_cfg.st_len = ret > 0 ? ret : 0;
 
@@ -1084,11 +1094,6 @@ xqc_demo_cli_init_0rtt(xqc_demo_cli_client_args_t *args)
     ret = xqc_demo_read_file_data(args->quic_cfg.tp,
         MAX_TRANSPORT_PARAMS_LEN, TRANSPORT_PARAMS_FILE);
     args->quic_cfg.tp_len = ret > 0 ? ret : 0;
-
-    /* read token */
-    ret = xqc_demo_cli_read_token(
-        args->quic_cfg.token, XQC_MAX_TOKEN_LEN);
-    args->quic_cfg.token_len = ret > 0 ? ret : 0;
 }
 
 void
