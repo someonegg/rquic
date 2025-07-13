@@ -633,6 +633,9 @@ xqc_create_stream_with_conn(xqc_connection_t *conn, xqc_stream_id_t stream_id,
         }
     }
 
+    xqc_log(conn->log, XQC_LOG_INFO, "|success|flag:%d|stream_id:%ui|conn:%p",
+            stream->stream_flag, stream->stream_id, stream->stream_conn);
+
     return stream;
 
 error:
@@ -1112,11 +1115,6 @@ xqc_crypto_stream_send(xqc_stream_t *stream,
                 xqc_usec_t now = xqc_monotonic_timestamp();
                 packet_out->po_sent_time = now;
                 xqc_long_packet_update_length(packet_out);
-                xqc_log(stream->stream_conn->log, XQC_LOG_INFO,
-                        "|crypto send data|pkt_num:%ui|size:%ud|sent:%d|pkt_type:%s|frame:%s|now:%ui|",
-                        packet_out->po_pkt.pkt_num, packet_out->po_used_size, n_written,
-                        xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type),
-                        xqc_frame_type_2_str(stream->stream_conn->engine, packet_out->po_frame_types), now);
 
                 xqc_send_queue_move_to_high_pri(&packet_out->po_list, stream->stream_conn->conn_send_queue);
             }
@@ -1490,12 +1488,6 @@ do_buff:
         conn->first_data_send_time = xqc_monotonic_timestamp();
     }
 
-
-    xqc_log(conn->log, XQC_LOG_INFO, "|ret:%d|stream_id:%ui|stream_send_offset:%ui|pkt_type:%s|buff_1rtt:%d|"
-                                      "send_data_size:%uz|offset:%uz|fin:%d|stream_flag:%d|conn:%p|conn_state:%s|flag:%s|",
-            ret, stream->stream_id, stream->stream_send_offset, xqc_pkt_type_2_str(pkt_type), buff_1rtt,
-            send_data_size, offset, fin, stream->stream_flag, conn, xqc_conn_state_2_str(conn->conn_state),
-            xqc_conn_flag_2_str(conn, conn->conn_flag));
     xqc_log_event(conn->log, TRA_STREAM_DATA_MOVED, stream, 0, send_data_size, 0, fin, ret, pkt_type,
                   buff_1rtt, offset);
 

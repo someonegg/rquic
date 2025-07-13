@@ -1027,7 +1027,7 @@ xqc_demo_svr_init_xquic_engine(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *arg
 
     /* init engine config */
     xqc_config_t config;
-    if (xqc_engine_get_default_config(&config, XQC_ENGINE_CLIENT) < 0) {
+    if (xqc_engine_get_default_config(&config, XQC_ENGINE_SERVER) < 0) {
         return XQC_ERROR;
     }
 
