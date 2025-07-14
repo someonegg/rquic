@@ -59,7 +59,7 @@ typedef enum {
     XQC_TRANSPORT_PARAM_INITIAL_SOURCE_CONNECTION_ID        = 0x000f,
     XQC_TRANSPORT_PARAM_RETRY_SOURCE_CONNECTION_ID          = 0x0010,
 
-    /* do no cryption on 0-RTT and 1-RTT packets */
+    /* do no cryption on 1-RTT packets */
     XQC_TRANSPORT_PARAM_NO_CRYPTO                           = 0x1000,
 
     /* multipath quic attributes */
@@ -111,7 +111,7 @@ typedef struct {
 
     /**
      * no_crypto is a self-defined experimental transport parameter by xquic, xquic will do no
-     * encryption on 0-RTT or 1-RTT packets if no_crypto is set to be 1.
+     * encryption on 1-RTT packets if no_crypto is set to be 1.
      * no_crypto is designed to be effective only on current connection and do not apply to future
      * connections, it is prohibited to store this parameter.
      * NOTICE: no_crypto MIGHT be modified or removed as it is not an official parameter.

@@ -121,30 +121,11 @@ typedef struct xqc_demo_cli_net_config_s {
  * ============================================================================
  */
 
-/* definition for quic */
-#define MAX_SESSION_TICKET_LEN      8192    /* session ticket len */
-#define MAX_TRANSPORT_PARAMS_LEN    8192    /* transport parameter len */
-#define XQC_MAX_TOKEN_LEN           8192     /* token len */
-
-#define SESSION_TICKET_FILE         "session_ticket"
-#define TRANSPORT_PARAMS_FILE       "transport_params"
-#define TOKEN_FILE                  "token"
-
 typedef struct xqc_demo_cli_quic_config_s {
     /* alpn protocol of client */
     xqc_demo_cli_alpn_type_t alpn_type;
     char alpn[16];
     int quic_version;
-
-    int  token_len;                     /* token len */
-    char token[XQC_MAX_TOKEN_LEN];      /* token buf */
-
-    /* 0-rtt config */
-    uint8_t use_0rtt;                   /* 0-rtt switch, default turned off */
-    int  st_len;                        /* session ticket len */
-    char st[MAX_SESSION_TICKET_LEN];    /* session ticket buf */
-    int  tp_len;                        /* transport params len */
-    char tp[MAX_TRANSPORT_PARAMS_LEN];  /* transport params buf */
 
     char *cipher_suites;                /* cipher suites */
 
@@ -596,71 +577,6 @@ xqc_demo_cli_keylog_cb(const xqc_cid_t *scid, const char *line, void *engine_use
  *                   start of common callback functions                       *
  ******************************************************************************/
 
-void
-xqc_demo_cli_save_session_cb(const char *data, size_t data_len, void *conn_user_data)
-{
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t*)conn_user_data;
-
-    FILE * fp  = fopen(SESSION_TICKET_FILE, "wb");
-    int write_size = fwrite(data, 1, data_len, fp);
-    if (data_len != write_size) {
-        printf("save _session_cb error\n");
-        fclose(fp);
-        return;
-    }
-    fclose(fp);
-    return;
-}
-
-void
-xqc_demo_cli_save_tp_cb(const char *data, size_t data_len, void *conn_user_data)
-{
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t*)conn_user_data;
-    FILE * fp = fopen(TRANSPORT_PARAMS_FILE, "wb");
-    if (NULL == fp) {
-        printf("open file for transport parameter error\n");
-        return;
-    }
-
-    int write_size = fwrite(data, 1, data_len, fp);
-    if (data_len != write_size) {
-        fclose(fp);
-        return;
-    }
-    fclose(fp);
-    return;
-}
-
-void
-xqc_demo_cli_save_token(const unsigned char *token, uint32_t token_len, void *conn_user_data)
-{
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t*)conn_user_data;
-
-    int fd = open(TOKEN_FILE, O_TRUNC | O_CREAT | O_WRONLY, 0666);
-    if (fd < 0) {
-        return;
-    }
-
-    ssize_t n = write(fd, token, token_len);
-    if (n < token_len) {
-        close(fd);
-        return;
-    }
-    close(fd);
-}
-
-int
-xqc_demo_cli_read_token(unsigned char *token, unsigned token_len)
-{
-    int fd = open(TOKEN_FILE, O_RDONLY);
-    if (fd < 0) {
-        return -1;
-    }
-    ssize_t n = read(fd, token, token_len);
-    close(fd);
-    return n;
-}
-
 ssize_t
 xqc_demo_cli_write_socket(const unsigned char *buf, size_t size,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen, void *conn_user_data)
@@ -1074,29 +990,6 @@ xqc_demo_cli_rebind_path(int fd, short what, void *arg)
  ******************************************************************************/
 
 void
-xqc_demo_cli_init_0rtt(xqc_demo_cli_client_args_t *args)
-{
-    /* read token */
-    int ret = xqc_demo_cli_read_token(
-        args->quic_cfg.token, XQC_MAX_TOKEN_LEN);
-    args->quic_cfg.token_len = ret > 0 ? ret : 0;
-
-    if (!args->quic_cfg.use_0rtt) {
-        return;
-    }
-
-    /* read session ticket */
-    ret = xqc_demo_read_file_data(args->quic_cfg.st,
-        MAX_SESSION_TICKET_LEN, SESSION_TICKET_FILE);
-    args->quic_cfg.st_len = ret > 0 ? ret : 0;
-
-    /* read transport params */
-    ret = xqc_demo_read_file_data(args->quic_cfg.tp,
-        MAX_TRANSPORT_PARAMS_LEN, TRANSPORT_PARAMS_FILE);
-    args->quic_cfg.tp_len = ret > 0 ? ret : 0;
-}
-
-void
 xqc_demo_cli_init_engine_ssl_config(xqc_engine_ssl_config_t* cfg, xqc_demo_cli_client_args_t *args)
 {
     memset(cfg, 0, sizeof(xqc_engine_ssl_config_t));
@@ -1115,18 +1008,6 @@ xqc_demo_cli_init_conn_ssl_config(xqc_conn_ssl_config_t *conn_ssl_config,
     xqc_demo_cli_client_args_t *args)
 {
     memset(conn_ssl_config, 0, sizeof(xqc_conn_ssl_config_t));
-
-    /* set session ticket and transport parameter args */
-    if (args->quic_cfg.st_len < 0 || args->quic_cfg.tp_len < 0) {
-        conn_ssl_config->session_ticket_data = NULL;
-        conn_ssl_config->transport_parameter_data = NULL;
-
-    } else {
-        conn_ssl_config->session_ticket_data = args->quic_cfg.st;
-        conn_ssl_config->session_ticket_len = args->quic_cfg.st_len;
-        conn_ssl_config->transport_parameter_data = args->quic_cfg.tp;
-        conn_ssl_config->transport_parameter_data_len = args->quic_cfg.tp_len;
-    }
 }
 
 void
@@ -1312,7 +1193,6 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -C    Pacing on.\n"
         "   -N    No encryption (default disabled)\n"
         "   -6    IPv6\n"
-        "   -0    use 0-RTT\n"
         , prog);
 }
 
@@ -1320,7 +1200,7 @@ void
 xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args)
 {
     int ch = 0;
-    while ((ch = getopt(argc, argv, "a:p:l:L:k:dD:U:x:Qr:K:w:I:t:T:A:S:u:F:eCN60")) != -1) {
+    while ((ch = getopt(argc, argv, "a:p:l:L:k:dD:U:x:Qr:K:w:I:t:T:A:S:u:F:eCN6")) != -1) {
         switch (ch) {
         case 'a':
             printf("option server addr :%s\n", optarg);
@@ -1463,11 +1343,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         case '6':
             printf("option ipv6\n");
             args->net_cfg.ipv6 = 1;
-            break;
-
-        case '0':
-            printf("option 0rtt\n");
-            args->quic_cfg.use_0rtt = 1;
             break;
 
         default:
@@ -1625,9 +1500,6 @@ xqc_demo_cli_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t 
 
     static xqc_transport_callbacks_t tcb = {
         .write_socket = xqc_demo_cli_write_socket,
-        .save_token = xqc_demo_cli_save_token, /* save token */
-        .save_session_cb = xqc_demo_cli_save_session_cb,
-        .save_tp_cb = xqc_demo_cli_save_tp_cb,
         .conn_update_cid_notify = xqc_demo_cli_conn_update_cid_notify,
     };
 
@@ -1716,9 +1588,6 @@ int
 xqc_demo_cli_init_xquic_connection(xqc_demo_cli_user_conn_t *user_conn,
     xqc_demo_cli_client_args_t *args)
 {
-    /* load 0-rtt args before create connection */
-    xqc_demo_cli_init_0rtt(args);
-
     /* init connection settings */
     xqc_conn_settings_t conn_settings;
     xqc_demo_cli_init_conneciton_settings(&conn_settings, args);
@@ -1728,7 +1597,7 @@ xqc_demo_cli_init_xquic_connection(xqc_demo_cli_user_conn_t *user_conn,
 
     if (1) {
         const xqc_cid_t *cid = xqc_hq_connect(user_conn->ctx->engine, &conn_settings,
-            args->quic_cfg.token, args->quic_cfg.token_len, args->net_cfg.host, args->quic_cfg.no_encryption, &conn_ssl_config,
+            args->net_cfg.host, args->quic_cfg.no_encryption, &conn_ssl_config,
             (struct sockaddr*)&args->net_cfg.addr, args->net_cfg.addr_len, user_conn);
 
         if (cid == NULL) {
@@ -1739,13 +1608,6 @@ xqc_demo_cli_init_xquic_connection(xqc_demo_cli_user_conn_t *user_conn,
     }
 
     return 0;
-}
-
-uint8_t
-xqc_demo_cli_is_0rtt_compliant(xqc_demo_cli_client_args_t *args)
-{
-    return (args->quic_cfg.use_0rtt
-        && args->quic_cfg.st_len > 0 && args->quic_cfg.tp_len > 0);
 }
 
 void

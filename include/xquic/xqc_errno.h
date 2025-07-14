@@ -23,7 +23,6 @@ typedef enum {
     TRA_INVALID_TOKEN               =  0xB,
     TRA_APPLICATION_ERROR           =  0xC,
     TRA_CRYPTO_BUFFER_EXCEEDED      =  0xD,
-    TRA_0RTT_TRANS_PARAMS_ERROR     =  0xE,   /**< MUST delete the current saved 0RTT transport parameters */
     TRA_HS_CERTIFICATE_VERIFY_FAIL  =  0x1FE, /**< for handshake certificate verify error */
     TRA_CRYPTO_ERROR                =  0x1FF, /**< 0x1XX */
 } xqc_trans_err_code_t;
@@ -130,7 +129,6 @@ typedef enum {
     XQC_TLS_VERSION_NEGOTIATION         = 720,
     XQC_TLS_STREAM_STATE                = 721,
     XQC_TLS_NOKEY                       = 722,
-    XQC_TLS_EARLY_DATA_REJECTED         = 723,
     XQC_TLS_RECV_VERSION_NEGOTIATION    = 724,
     XQC_TLS_CLOSING                     = 725,
     XQC_TLS_DRAINING                    = 726,

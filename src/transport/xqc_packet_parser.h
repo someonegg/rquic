@@ -42,8 +42,6 @@ xqc_int_t xqc_packet_parse_long_header(xqc_connection_t *c, xqc_packet_in_t *pac
 
 xqc_int_t xqc_packet_parse_initial(xqc_connection_t *c, xqc_packet_in_t *packet_in);
 
-xqc_int_t xqc_packet_parse_zero_rtt(xqc_connection_t *c, xqc_packet_in_t *packet_in);
-
 xqc_int_t xqc_packet_parse_handshake(xqc_connection_t *c, xqc_packet_in_t *packet_in);
 
 int xqc_gen_retry_packet(unsigned char *dst_buf,

@@ -87,14 +87,6 @@ static const char * const (xqc_crypto_retry_nonce)[] = {
 };
 
 
-typedef struct xqc_ssl_session_ticket_key_s {
-    size_t                      size;
-    uint8_t                     name[16];
-    uint8_t                     hmac_key[32];
-    uint8_t                     aes_key[32];
-} xqc_ssl_session_ticket_key_t;
-
-
 #define XQC_EARLY_DATA_CONTEXT          "xquic"
 #define XQC_EARLY_DATA_CONTEXT_LEN      (sizeof(XQC_EARLY_DATA_CONTEXT) - 1)
 

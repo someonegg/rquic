@@ -28,16 +28,6 @@ int xqc_ssl_alpn_select_cb(SSL *ssl, const unsigned char **out, unsigned char *o
 
 
 /**
- * @brief be called when encrypting a new ticket and when decrypting a ticket from the client
- * 
- * @param encrypt 1:encrypt a new ticket; 0:decrypt a ticket
- * @see SSL_CTX_set_tlsext_ticket_key_cb
- */
-int xqc_ssl_session_ticket_key_cb(SSL *ssl, unsigned char *key_name, unsigned char *iv,
-    EVP_CIPHER_CTX *ectx, HMAC_CTX *hctx, int encrypt);
-
-
-/**
  * @brief be called when a new session is established and ready to be cached
  * @see SSL_CTX_sess_set_new_cb
  */

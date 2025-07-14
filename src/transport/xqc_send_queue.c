@@ -164,10 +164,6 @@ xqc_send_queue_get_packet_out_for_stream(xqc_send_queue_t *send_queue, unsigned 
         xqc_send_queue_move_to_high_pri(&packet_out->po_list, send_queue);
     }
 
-    if (pkt_type == XQC_PTYPE_0RTT) {
-        send_queue->sndq_conn->zero_rtt_count++;
-    }
-
     return packet_out;
 }
 
@@ -406,77 +402,6 @@ xqc_send_queue_drop_packets(xqc_connection_t *conn)
             path->path_send_ctl->ctl_bytes_ack_eliciting_inflight[pns] = 0;
         }
         xqc_path_schedule_buf_pre_destroy(send_queue, path);
-    }
-}
-
-void
-xqc_send_queue_drop_0rtt_packets(xqc_connection_t *conn)
-{
-    xqc_send_queue_t *send_queue = conn->conn_send_queue;
-
-    xqc_list_head_t *pos, *next;
-    xqc_packet_out_t *packet_out;
-    xqc_list_for_each_safe(pos, next, &send_queue->sndq_unacked_packets[XQC_PNS_APP_DATA]) {
-        packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT) {
-            xqc_send_queue_remove_unacked(packet_out, send_queue);
-            xqc_send_ctl_decrease_inflight(conn, packet_out);
-            if (packet_out->po_origin == NULL) {
-                xqc_conn_decrease_unacked_stream_ref(conn, packet_out);
-            }
-            xqc_send_queue_insert_free(packet_out, &send_queue->sndq_free_packets, send_queue);
-        }
-    }
-
-    xqc_list_for_each_safe(pos, next, &send_queue->sndq_send_packets) {
-        packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT) {
-            xqc_send_queue_remove_send(pos);
-            xqc_send_queue_insert_free(packet_out, &send_queue->sndq_free_packets, send_queue);
-        }
-    }
-
-    xqc_list_for_each_safe(pos, next, &send_queue->sndq_lost_packets) {
-        packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT) {
-            xqc_send_queue_remove_lost(pos);
-            xqc_send_queue_insert_free(packet_out, &send_queue->sndq_free_packets, send_queue);
-        }
-    }
-
-    xqc_list_for_each_safe(pos, next, &send_queue->sndq_pto_probe_packets) {
-        packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT) {
-            xqc_send_queue_remove_probe(pos);
-            xqc_send_queue_insert_free(packet_out, &send_queue->sndq_free_packets, send_queue);
-        }
-    }
-
-    xqc_path_ctx_t *path = conn->the_path;
-    if (path) {
-        xqc_list_for_each_safe(pos, next, &path->path_schedule_buf[XQC_SEND_TYPE_NORMAL]) {
-            packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-            if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT) {
-                xqc_path_send_buffer_remove(path, packet_out);
-                xqc_send_queue_insert_free(packet_out, &send_queue->sndq_free_packets, send_queue);
-            }    
-        }
-
-        xqc_list_for_each_safe(pos, next, &path->path_schedule_buf[XQC_SEND_TYPE_RETRANS]) {
-            packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-            if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT) {
-                xqc_path_send_buffer_remove(path, packet_out);
-                xqc_send_queue_insert_free(packet_out, &send_queue->sndq_free_packets, send_queue);
-            }
-        }
-
-        xqc_list_for_each_safe(pos, next, &path->path_schedule_buf[XQC_SEND_TYPE_PTO_PROBE]) {
-            packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-            if (packet_out->po_pkt.pkt_type == XQC_PTYPE_0RTT) {
-                xqc_path_send_buffer_remove(path, packet_out);
-                xqc_send_queue_insert_free(packet_out, &send_queue->sndq_free_packets, send_queue);
-            }
-        }
     }
 }
 

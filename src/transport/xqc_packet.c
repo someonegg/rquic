@@ -20,7 +20,6 @@
 
 static const char * const pkt_type_2_str[XQC_PTYPE_NUM] = {
     [XQC_PTYPE_INIT]                = "INIT",
-    [XQC_PTYPE_0RTT]                = "0RTT",
     [XQC_PTYPE_HSK]                 = "HSK",
     [XQC_PTYPE_RETRY]               = "RETRY",
     [XQC_PTYPE_SHORT_HEADER]        = "SHORT_HEADER",
@@ -39,8 +38,6 @@ xqc_packet_type_to_enc_level(xqc_pkt_type_t pkt_type)
     switch (pkt_type) {
     case XQC_PTYPE_INIT:
         return XQC_ENC_LEV_INIT;
-    case XQC_PTYPE_0RTT:
-        return XQC_ENC_LEV_0RTT;
     case XQC_PTYPE_HSK:
         return XQC_ENC_LEV_HSK;
     case XQC_PTYPE_SHORT_HEADER:
@@ -56,8 +53,6 @@ xqc_packet_type_to_pns(xqc_pkt_type_t pkt_type)
     switch (pkt_type) {
     case XQC_PTYPE_INIT:
         return XQC_PNS_INIT;
-    case XQC_PTYPE_0RTT:
-        return XQC_PNS_APP_DATA;
     case XQC_PTYPE_HSK:
         return XQC_PNS_HSK;
     case XQC_PTYPE_SHORT_HEADER:
@@ -152,17 +147,7 @@ xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 
     } else if (XQC_PACKET_IS_LONG_HEADER(pos)) {    /* long header */
         /* buffer packets if key is not ready */
-        if (XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in->pos) == XQC_PTYPE_0RTT) {
-            c->conn_flag |= XQC_CONN_FLAG_HAS_0RTT;
-
-            if (!xqc_tls_is_key_ready(c->tls, XQC_ENC_LEV_0RTT, XQC_KEY_TYPE_RX_READ)) {
-                /* buffer packets */
-                xqc_log(c->log, XQC_LOG_INFO, "|delay|buff 0RTT before 0rtt_key_ready|");
-                xqc_conn_buff_undecrypt_packet_in(packet_in, c, XQC_ENC_LEV_0RTT);
-                return -XQC_EWAITING;
-            }
-
-        } else if (XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in->pos) == XQC_PTYPE_HSK
+        if (XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in->pos) == XQC_PTYPE_HSK
                    && !xqc_tls_is_key_ready(c->tls, XQC_ENC_LEV_HSK, XQC_KEY_TYPE_RX_READ))
         {
             /* buffer packets */
