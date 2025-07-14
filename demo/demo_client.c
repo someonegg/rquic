@@ -204,9 +204,6 @@ typedef struct xqc_demo_cli_requests_s {
 
     uint64_t idle_gap;
 
-    /* serial requests */
-    uint8_t serial;
-
     int ext_reqn;
     int batch_cnt;
 
@@ -792,8 +789,11 @@ xqc_demo_cli_hq_req_close_notify(xqc_hq_request_t *hqr, void *req_user_data)
            (unsigned)stats.stream_type, (unsigned)stats.stream_err, (size_t)stats.send_bytes, (size_t)stats.recv_bytes);
 
     /* task schedule */
-    xqc_demo_cli_continue_send_reqs(user_stream->user_conn);
     xqc_demo_cli_on_stream_fin(user_stream);
+
+    if (!user_stream->user_conn->ev_idle_restart) {
+        xqc_demo_cli_continue_send_reqs(user_stream->user_conn);
+    }
 
     free(user_stream->send_buf);
     free(user_stream);
@@ -1178,7 +1178,6 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -D    response directory\n"
         "   -U    Url. \n"
         "   -x    Extend the number of requests to X\n"
-        "   -Q    Send requests one by one (default disabled)\n"
         "   -r    Send X requests per batch\n"
         "   -K    Client's life circle time\n"
         "   -w    waiting N ms to start the first request.\n"
@@ -1200,7 +1199,7 @@ void
 xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args)
 {
     int ch = 0;
-    while ((ch = getopt(argc, argv, "a:p:l:L:k:dD:U:x:Qr:K:w:I:t:T:A:S:u:F:eCN6")) != -1) {
+    while ((ch = getopt(argc, argv, "a:p:l:L:k:dD:U:x:r:K:w:I:t:T:A:S:u:F:eCN6")) != -1) {
         switch (ch) {
         case 'a':
             printf("option server addr :%s\n", optarg);
@@ -1248,11 +1247,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         case 'x':
             printf("Extend request number: %s\n", optarg);
             args->req_cfg.ext_reqn = atoi(optarg);
-            break;
-
-        case 'Q':
-            printf("option serial requests on\n");
-            args->req_cfg.serial = 1;
             break;
 
         case 'r':
@@ -1364,11 +1358,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         }
         args->req_cfg.request_cnt = args->req_cfg.ext_reqn;
     }
-
-    if (args->req_cfg.serial) {
-        args->req_cfg.batch_cnt = 1;
-    }
-
 }
 
 #define MAX_REQ_BUF_LEN 1500
@@ -1472,8 +1461,7 @@ xqc_demo_cli_continue_send_reqs(xqc_demo_cli_user_conn_t *user_conn)
 
         if (user_conn->task->req_cnt > req_create_cnt
             && ctx->args->req_cfg.idle_gap
-            && ctx->args->req_cfg.batch_cnt
-            && !ctx->args->req_cfg.serial)
+            && ctx->args->req_cfg.batch_cnt)
         {
             struct timeval tv = {
                 .tv_sec = ctx->args->req_cfg.idle_gap / 1000,
@@ -1644,15 +1632,13 @@ xqc_demo_cli_start(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_client_args
         /* TODO: fix MAX_STREAMS bug */
         if (args->req_cfg.batch_cnt) {
             xqc_demo_cli_send_requests(user_conn, args, reqs, req_cnt > args->req_cfg.batch_cnt ? args->req_cfg.batch_cnt : req_cnt);
-
         } else {
             xqc_demo_cli_send_requests(user_conn, args, reqs, req_cnt);
         }
 
         if (req_cnt > user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_create_cnt
             && args->req_cfg.idle_gap
-            && args->req_cfg.batch_cnt
-            && !args->req_cfg.serial)
+            && args->req_cfg.batch_cnt)
         {
 
             user_conn->ev_idle_restart = event_new(user_conn->ctx->eb, -1, 0,
