@@ -21,9 +21,6 @@ typedef struct xqc_tls_ctx_s {
     /* callback functions for tls connection */
     xqc_tls_callbacks_t             tls_cbs;
 
-    /* session ticket key */
-    xqc_ssl_session_ticket_key_t    session_ticket_key;
-
     /* log handler */
     xqc_log_t                      *log;
 
@@ -63,7 +60,7 @@ xqc_create_client_ssl_ctx(xqc_tls_ctx_t *ctx)
     SSL_CTX_sess_set_new_cb(ssl_ctx, xqc_ssl_new_session_cb);
 
     /* set the lifetime of session */
-    xqc_ssl_ctx_set_timeout(ssl_ctx, ctx->cfg.session_timeout);
+    xqc_ssl_ctx_set_timeout(ssl_ctx, 0);
 
     ctx->ssl_ctx = ssl_ctx;
     return XQC_OK;
@@ -130,23 +127,13 @@ xqc_create_server_ssl_ctx(xqc_tls_ctx_t *ctx)
         goto fail;
     }
 
-    /* set session ticket key callback */
-    if (ctx->cfg.session_ticket_key_len == 0
-        || ctx->cfg.session_ticket_key_data == NULL)
-    {
-        xqc_log(ctx->log, XQC_LOG_WARN, "|read ssl session ticket key error|");
-
-    } else {
-        SSL_CTX_set_tlsext_ticket_key_cb(ssl_ctx, xqc_ssl_session_ticket_key_cb);
-    }
-
     SSL_CTX_set_cert_cb(ssl_ctx, xqc_ssl_cert_cb, ctx);
 
     SSL_CTX_set_default_verify_paths(ssl_ctx);
     SSL_CTX_set_alpn_select_cb(ssl_ctx, xqc_ssl_alpn_select_cb, ctx);
 
     xqc_ssl_ctx_enable_max_early_data(ssl_ctx);
-    xqc_ssl_ctx_set_timeout(ssl_ctx, ctx->cfg.session_timeout);
+    xqc_ssl_ctx_set_timeout(ssl_ctx, 0);
 
     ctx->ssl_ctx = ssl_ctx;
     return XQC_OK;
@@ -158,40 +145,10 @@ fail:
 
 
 xqc_int_t
-xqc_init_session_ticket_keys(xqc_ssl_session_ticket_key_t *key, char *session_key_data,
-    size_t session_key_len)
-{
-    if (session_key_len != 48 && session_key_len != 80) {
-        return -XQC_TLS_INVALID_ARGUMENT;
-    }
-
-    memset(key, 0, sizeof(xqc_ssl_session_ticket_key_t));
-
-    if (session_key_len == 48) {
-        key->size = 48;
-        memcpy(key->name, session_key_data, 16);
-        memcpy(key->aes_key, session_key_data + 16, 16);
-        memcpy(key->hmac_key, session_key_data + 32, 16);
-
-    } else {
-        key->size = 80;
-        memcpy(key->name, session_key_data, 16);
-        memcpy(key->hmac_key, session_key_data + 16, 32);
-        memcpy(key->aes_key, session_key_data + 48, 32);
-    }
-
-    return XQC_OK;
-}
-
-
-
-xqc_int_t
 xqc_tls_ctx_set_config(xqc_tls_ctx_t *ctx, const xqc_engine_ssl_config_t *src)
 {
     xqc_int_t ret = XQC_OK;
     xqc_engine_ssl_config_t *dst = &ctx->cfg;
-
-    dst->session_timeout = src->session_timeout;
 
     /* copy ciphers */
     if (src->ciphers && *src->ciphers) {
@@ -262,31 +219,6 @@ xqc_tls_ctx_set_config(xqc_tls_ctx_t *ctx, const xqc_engine_ssl_config_t *src)
         } else {
             xqc_log(ctx->log, XQC_LOG_ERROR, "|no cert file|");
             return -XQC_TLS_INVALID_ARGUMENT;
-        }
-
-        /* copy and init session ticket key */
-        if (src->session_ticket_key_len > 0) {
-            dst->session_ticket_key_len = src->session_ticket_key_len;
-            dst->session_ticket_key_data = (char *)xqc_malloc(src->session_ticket_key_len);
-            if (dst->session_ticket_key_data == NULL) {
-                xqc_log(ctx->log, XQC_LOG_ERROR, "|session ticket key data malloc error|");
-                return -XQC_EMALLOC;
-            }
-            memcpy(dst->session_ticket_key_data, src->session_ticket_key_data,
-                src->session_ticket_key_len);
-
-            /* init session ticket key */
-            if (xqc_init_session_ticket_keys(&ctx->session_ticket_key, dst->session_ticket_key_data,
-                                             dst->session_ticket_key_len) < 0)
-            {
-                xqc_log(ctx->log, XQC_LOG_ERROR, "|read session ticket key error|");
-                return -XQC_TLS_INVALID_ARGUMENT;
-            }
-
-        } else {
-            dst->session_ticket_key_len = 0;
-            dst->session_ticket_key_data = NULL;
-            xqc_log(ctx->log, XQC_LOG_WARN, "|no session ticket key data|");
         }
     }
 
@@ -369,10 +301,6 @@ xqc_tls_ctx_free_cfg(xqc_tls_ctx_t *ctx)
     if (cfg->cert_file) {
         xqc_free(cfg->cert_file);
     }
-
-    if (cfg->session_ticket_key_data) {
-        xqc_free(cfg->session_ticket_key_data);
-    }
 }
 
 
@@ -414,13 +342,6 @@ void
 xqc_tls_ctx_get_tls_callbacks(xqc_tls_ctx_t *ctx, xqc_tls_callbacks_t **tls_cbs)
 {
     *tls_cbs = &ctx->tls_cbs;
-}
-
-
-void
-xqc_tls_ctx_get_session_ticket_key(xqc_tls_ctx_t *ctx, xqc_ssl_session_ticket_key_t **stk)
-{
-    *stk = &ctx->session_ticket_key;
 }
 
 

@@ -92,16 +92,8 @@ void xqc_send_queue_copy_to_probe(xqc_packet_out_t *packet_out, xqc_send_queue_t
 
 
 void xqc_send_queue_drop_packets(xqc_connection_t *conn);
-void xqc_send_queue_drop_0rtt_packets(xqc_connection_t *conn);
 void xqc_send_queue_drop_initial_packets(xqc_connection_t *conn);
 void xqc_send_queue_drop_handshake_packets(xqc_connection_t *conn);
 void xqc_send_queue_drop_stream_frame_packets(xqc_connection_t *conn, xqc_stream_id_t stream_id);
 
-
-
-
 #endif /* _XQC_SEND_QUEUE_H_INCLUDED_ */
-
-
-
-

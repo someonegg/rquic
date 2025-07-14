@@ -230,41 +230,6 @@ typedef xqc_int_t (*xqc_conn_closing_notify_pt)(xqc_connection_t *conn,
 typedef int (*xqc_conn_notify_pt)(xqc_connection_t *conn, const xqc_cid_t *cid,
     void *conn_user_data, void *conn_proto_data);
 
-/**
- * @brief QUIC connection token callback. REQUIRED for client.
- * token is used by the server to validate client's address during the handshake period of next
- * connection to the same server. client applications shall save token to local storage, if
- * need to connect the same server, read the token and take it as the parameter of xqc_connect.
- *
- * NOTICE: as client initiate multiple connections to multiple QUIC servers or server clusters,
- * it shall save the tokens separately, e.g. save the token with the domain as the key
- */
-typedef void (*xqc_save_token_pt)(const unsigned char *token, uint32_t token_len,
-    void *conn_user_data);
-
-/**
- * @brief general type of session ticket and transport parameter callback function
- */
-typedef void (*xqc_save_string_pt)(const char *data, size_t data_len, void *conn_user_data);
-
-/**
- * @brief session ticket callback function
- *
- * session ticket is essential for 0-RTT connections. with the same storage requirements and
- * strategy as token. when initiating a new connection, session ticket is part of
- * xqc_conn_ssl_config_t parameter
- */
-typedef xqc_save_string_pt xqc_save_session_pt;
-
-/**
- * @brief transport parameters callback
- *
- * transport parameters are use when initiating 0-RTT connections to avoid violating the server's
- * restriction, it shall be remembered with the same storage requirements and strategy as token.
- * When initiating a new connection, transport parameters is part of xqc_conn_ssl_config_t parameter
- */
-typedef xqc_save_string_pt xqc_save_trans_param_pt;
-
 
 /**
  * @brief handshake finished callback function
@@ -471,21 +436,6 @@ typedef struct xqc_transport_callbacks_s {
      * QUIC connection cid update callback, REQUIRED for both server and client
      */
     xqc_conn_update_cid_notify_pt   conn_update_cid_notify;
-
-    /**
-     * QUIC token callback. REQUIRED for client
-     */
-    xqc_save_token_pt               save_token;
-
-    /**
-     * tls session ticket callback. REQUIRED for client
-     */
-    xqc_save_session_pt             save_session_cb;
-
-    /**
-     * QUIC transport parameter callback. REQUIRED for client
-     */
-    xqc_save_trans_param_pt         save_tp_cb;
 
     /**
      * tls certificate verify callback. REQUIRED for client
@@ -809,14 +759,6 @@ typedef struct xqc_engine_ssl_config_s {
     char       *cert_file;
     char       *ciphers;
     char       *groups;
-
-    /** session lifetime in second */
-    uint32_t    session_timeout;
-    /** session ticket key for server */
-    char       *session_ticket_key_data;
-    /** session ticket key length for server */ 
-    size_t      session_ticket_key_len;
-
 } xqc_engine_ssl_config_t;
 
 
@@ -829,29 +771,6 @@ typedef enum {
  * @brief connection tls config for client
  */
 typedef struct xqc_conn_ssl_config_s {
-    /**
-     * session ticket data buffer.
-     *
-     * session ticket is read from client's local storage, which is from save_session_cb callback
-     * and was stored after previous successful connection to a server
-     */
-    char       *session_ticket_data;
-
-    /**
-     * length of session_ticket_data
-     */
-    size_t      session_ticket_len;
-
-    /**
-     * server's transport parameter, derived as well as session_ticket_data
-     */
-    char       *transport_parameter_data;
-
-    /**
-     * length of transport_parameter_data
-     */
-    size_t      transport_parameter_data_len;
-
     /**
      * certificate verify flag. which is a bit-map flag defined in xqc_cert_verify_flag_e
      */
@@ -971,16 +890,6 @@ typedef struct xqc_conn_settings_s {
 } xqc_conn_settings_t;
 
 
-typedef enum {
-    /** without 0-RTT */
-    XQC_0RTT_NONE       = 0,    
-    /** 0-RTT was accepted */  
-    XQC_0RTT_ACCEPT     = 1,   
-    /** 0-RTT was rejected */
-    XQC_0RTT_REJECT     = 2,   
-} xqc_0rtt_flag_t;
-
-
 typedef struct xqc_path_metrics_s {
     uint64_t            path_id;
 
@@ -1007,8 +916,7 @@ typedef struct xqc_conn_stats_s {
     /** minimum RTT until now: initial value = 0xFFFFFFFF */
     xqc_usec_t          min_rtt;
     /** initial value = 0 */
-    uint64_t            inflight_bytes; 
-    xqc_0rtt_flag_t     early_data_flag;
+    uint64_t            inflight_bytes;
     uint32_t            recv_count;
     int                 spurious_loss_detect_on;
     int                 conn_err;
@@ -1140,25 +1048,6 @@ XQC_EXPORT_PUBLIC_API
 void* xqc_engine_get_alpn_ctx(xqc_engine_t *engine, const char *alpn, size_t alpn_len);
 
 /**
- * @brief get the private context
- * 
- * @param engine 
- * @return XQC_EXPORT_PUBLIC_API* 
- */
-XQC_EXPORT_PUBLIC_API
-void* xqc_engine_get_priv_ctx(xqc_engine_t *engine);
-
-/**
- * @brief save the private context
- * 
- * @param engine 
- * @param priv_ctx 
- * @return XQC_EXPORT_PUBLIC_API 
- */
-XQC_EXPORT_PUBLIC_API
-xqc_int_t xqc_engine_set_priv_ctx(xqc_engine_t *engine, void *priv_ctx);
-
-/**
  * Pass received UDP packet payload into xquic engine.
  * @param recv_time   UDP packet received time in microsecond
  * @param user_data   connection user_data, server is NULL
@@ -1250,10 +1139,8 @@ xqc_connection_t *xqc_engine_get_conn_by_scid(xqc_engine_t *engine,
  * Client connect
  * @param engine return from xqc_engine_create
  * @param conn_settings settings of connection
- * @param token token receive from server, xqc_save_token_pt callback
- * @param token_len
  * @param server_host server domain
- * @param no_crypto_flag 1: stop encrypt 0-RTT and 1-RTT packets. \n
+ * @param no_crypto_flag 1: stop encrypt 1-RTT packets. \n
  * This flag will add no_crypto transport parameter when initiating a connection, which is not an official parameter
  * and might be modified or removed
  * @param conn_ssl_config For handshake
@@ -1266,7 +1153,6 @@ xqc_connection_t *xqc_engine_get_conn_by_scid(xqc_engine_t *engine,
 XQC_EXPORT_PUBLIC_API
 const xqc_cid_t *xqc_connect(xqc_engine_t *engine,
     const xqc_conn_settings_t *conn_settings,
-    const unsigned char *token, unsigned token_len,
     const char *server_host, int no_crypto_flag,
     const xqc_conn_ssl_config_t *conn_ssl_config,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen,
@@ -1345,12 +1231,6 @@ xqc_int_t xqc_conn_get_local_addr(xqc_connection_t *conn, struct sockaddr *addr,
  */
 XQC_EXPORT_PUBLIC_API
 xqc_int_t xqc_conn_send_ping(xqc_engine_t *engine, const xqc_cid_t *cid, void *ping_user_data);
-
-/**
- * @return 1 for can send 0rtt, 0 for cannot send 0rtt
- */
-XQC_EXPORT_PUBLIC_API
-xqc_bool_t xqc_conn_is_ready_to_send_early_data(xqc_connection_t *conn);
 
 /**
  * @brief set the packet filter callback function, and replace write_socket. \n
@@ -1502,13 +1382,6 @@ xqc_stream_stats_t xqc_stream_get_stats(xqc_stream_t *stream);
 XQC_EXPORT_PUBLIC_API
 xqc_conn_type_t xqc_conn_get_type(xqc_connection_t *conn);
 
-/**
- * @brief client calls this API to check if it should delete 0rtt ticket according to
- * the errorcode of xqc_conn in conn_close_notify
- * @return XQC_TRUE = yes;
- */
-XQC_EXPORT_PUBLIC_API
-xqc_bool_t xqc_conn_should_clear_0rtt_ticket(xqc_int_t conn_err);
 
 /**
  * @brief Users call this function to get a template of conn settings, which serves

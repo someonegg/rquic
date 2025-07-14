@@ -185,7 +185,7 @@ xqc_send_ctl_reset(xqc_send_ctl_t *send_ctl)
 
     /*
      * Move all sent/unsent packets to the send queue for resending
-     * Initial packets and 0-RTT packets with new packet header.
+     * Initial packets with new packet header.
      * 
      * TODO: Refactoring packet generation: generate packet header before sent.
      * Then all we need to do is move the packets from the unack queue to the

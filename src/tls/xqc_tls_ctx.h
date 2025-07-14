@@ -27,11 +27,6 @@ xqc_tls_type_t xqc_tls_ctx_get_type(xqc_tls_ctx_t *ctx);
 void xqc_tls_ctx_get_tls_callbacks(xqc_tls_ctx_t *ctx, xqc_tls_callbacks_t **tls_cbs);
 
 /**
- * @brief get session ticket key
- */
-void xqc_tls_ctx_get_session_ticket_key(xqc_tls_ctx_t *ctx, xqc_ssl_session_ticket_key_t **stk);
-
-/**
  * @brief get ssl common config, basically for server
  */
 void xqc_tls_ctx_get_cfg(xqc_tls_ctx_t *ctx, xqc_engine_ssl_config_t **cfg);

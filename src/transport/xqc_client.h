@@ -9,8 +9,6 @@
 
 xqc_connection_t *xqc_client_connect(xqc_engine_t *engine,
     const xqc_conn_settings_t *conn_settings,
-    const unsigned char *token,
-    unsigned token_len,
     const char *server_host,
     int no_crypto_flag,
     const xqc_conn_ssl_config_t *conn_ssl_config,

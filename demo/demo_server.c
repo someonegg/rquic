@@ -70,16 +70,10 @@ typedef struct xqc_demo_svr_net_config_s {
  * ============================================================================
  */
 
-#define SESSION_TICKET_KEY_FILE     "session_ticket.key"
-#define SESSION_TICKET_KEY_BUF_LEN  2048
 typedef struct xqc_demo_svr_quic_config_s {
     /* cipher config */
     char cipher_suit[CIPHER_SUIT_LEN];
     char groups[TLS_GROUPS_LEN];
-
-    /* 0-rtt config */
-    int  stk_len;                           /* session ticket len */
-    char stk[SESSION_TICKET_KEY_BUF_LEN];   /* session ticket buf */
 
     /* dummy mode */
     int  dummy_mode;
@@ -391,9 +385,9 @@ xqc_demo_svr_hq_conn_close_notify(xqc_hq_conn_t *conn, const xqc_cid_t *cid, voi
     xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t*)conn_user_data;
     xqc_conn_stats_t stats = xqc_conn_get_stats(user_conn->ctx->engine, cid);
     printf("send_count:%u, lost_count:%u, tlp_count:%u, recv_count:%u, srtt:%"PRIu64" "
-            "early_data_flag:%d, conn_err:%d, ack_info:%s\n",
+            "conn_err:%d, ack_info:%s\n",
             stats.send_count, stats.lost_count, stats.tlp_count, stats.recv_count, stats.srtt,
-            stats.early_data_flag, stats.conn_err, stats.ack_info);
+            stats.conn_err, stats.ack_info);
     free(user_conn);
     user_conn = NULL;
 
@@ -784,15 +778,6 @@ xqc_demo_svr_engine_callback(int fd, short what, void *arg)
 }
 
 void
-xqc_demo_svr_init_0rtt(xqc_demo_svr_args_t *args)
-{
-    /* read session ticket key */
-    int ret = xqc_demo_read_file_data(args->quic_cfg.stk,
-            SESSION_TICKET_KEY_BUF_LEN, SESSION_TICKET_KEY_FILE);
-    args->quic_cfg.stk_len = ret > 0 ? ret : 0;
-}
-
-void
 xqc_demo_svr_init_args(xqc_demo_svr_args_t *args)
 {
     memset(args, 0, sizeof(xqc_demo_svr_args_t));
@@ -802,7 +787,6 @@ xqc_demo_svr_init_args(xqc_demo_svr_args_t *args)
     args->net_cfg.port = DEFAULT_PORT;
 
     /* quic cfg */
-    xqc_demo_svr_init_0rtt(args);
     strncpy(args->quic_cfg.cipher_suit, XQC_TLS_CIPHERS, CIPHER_SUIT_LEN - 1);
     strncpy(args->quic_cfg.groups, XQC_TLS_GROUPS, TLS_GROUPS_LEN - 1);
 
@@ -951,15 +935,6 @@ xqc_demo_svr_init_ssl_config(xqc_engine_ssl_config_t *cfg, xqc_demo_svr_args_t *
     cfg->cert_file = args->env_cfg.cert_pem_path;
     cfg->ciphers = args->quic_cfg.cipher_suit;
     cfg->groups = args->quic_cfg.groups;
-
-    if (args->quic_cfg.stk_len <= 0) {
-        cfg->session_ticket_key_data = NULL;
-        cfg->session_ticket_key_len = 0;
-
-    } else {
-        cfg->session_ticket_key_data = args->quic_cfg.stk;
-        cfg->session_ticket_key_len = args->quic_cfg.stk_len;
-    }
 }
 
 void

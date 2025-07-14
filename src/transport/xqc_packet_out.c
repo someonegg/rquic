@@ -600,21 +600,10 @@ xqc_write_reset_stream_to_packet(xqc_connection_t *conn, xqc_stream_t *stream,
     ssize_t ret;
     xqc_packet_out_t *packet_out;
     xqc_pkt_type_t pkt_type = XQC_PTYPE_SHORT_HEADER;
-    int support_0rtt = xqc_conn_is_ready_to_send_early_data(conn);
     xqc_bool_t buff_reset = XQC_FALSE;
 
     if (!(conn->conn_flag & XQC_CONN_FLAG_CAN_SEND_1RTT)) {
-        if ((conn->conn_type == XQC_CONN_TYPE_CLIENT) 
-            && (conn->conn_state == XQC_CONN_STATE_CLIENT_INITIAL_SENT) 
-            && support_0rtt)
-        {
-            pkt_type = XQC_PTYPE_0RTT;
-            conn->conn_flag |= XQC_CONN_FLAG_HAS_0RTT;
-            stream->stream_flag |= XQC_STREAM_FLAG_HAS_0RTT;
-
-        } else {
-            buff_reset = XQC_TRUE;
-        }
+        buff_reset = XQC_TRUE;
     }
 
     packet_out = xqc_write_new_packet(conn, pkt_type);
@@ -673,21 +662,10 @@ xqc_write_stop_sending_to_packet(xqc_connection_t *conn, xqc_stream_t *stream,
     }
 
     xqc_pkt_type_t pkt_type = XQC_PTYPE_SHORT_HEADER;
-    int support_0rtt = xqc_conn_is_ready_to_send_early_data(conn);
     xqc_bool_t buff_pkt = XQC_FALSE;
 
     if (!(conn->conn_flag & XQC_CONN_FLAG_CAN_SEND_1RTT)) {
-        if ((conn->conn_type == XQC_CONN_TYPE_CLIENT) 
-            && (conn->conn_state == XQC_CONN_STATE_CLIENT_INITIAL_SENT) 
-            && support_0rtt)
-        {
-            pkt_type = XQC_PTYPE_0RTT;
-            conn->conn_flag |= XQC_CONN_FLAG_HAS_0RTT;
-            stream->stream_flag |= XQC_STREAM_FLAG_HAS_0RTT;
-
-        } else {
-            buff_pkt = XQC_TRUE;
-        }
+        buff_pkt = XQC_TRUE;
     }
 
     packet_out = xqc_write_new_packet(conn, pkt_type);

@@ -1056,10 +1056,9 @@ xqc_engine_packet_process(xqc_engine_t *engine,
     if (XQC_UNLIKELY(conn == NULL)) {
 
         if (XQC_PACKET_IS_LONG_HEADER(packet_in_buf)) {
-            /* server creates connection when receiving a initial/0-rtt packet */
+            /* server creates connection when receiving a initial packet */
             if (engine->eng_type == XQC_ENGINE_SERVER
-                && (XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in_buf) == XQC_PTYPE_INIT
-                || XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in_buf) == XQC_PTYPE_0RTT)
+                && (XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in_buf) == XQC_PTYPE_INIT)
                      && (local_addr != NULL && peer_addr != NULL))
             {
                 conn = xqc_conn_server_create(engine, local_addr, local_addrlen,
@@ -1388,25 +1387,6 @@ xqc_engine_is_sendmmsg_on(xqc_engine_t *engine, xqc_connection_t *conn)
     return engine->config->sendmmsg_on
         && engine->transport_cbs.write_mmsg
         && (!conn->conn_settings.disable_send_mmsg);
-}
-
-
-void* 
-xqc_engine_get_priv_ctx(xqc_engine_t *engine)
-{
-    return engine->priv_ctx;
-}
-
-
-xqc_int_t 
-xqc_engine_set_priv_ctx(xqc_engine_t *engine, void *priv_ctx)
-{
-    if (engine->priv_ctx) {
-        return -XQC_ESTATE;
-    }
-
-    engine->priv_ctx = priv_ctx;
-    return XQC_OK;
 }
 
 

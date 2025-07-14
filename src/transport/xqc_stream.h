@@ -23,12 +23,11 @@ typedef enum {
     XQC_STREAM_FLAG_READY_TO_WRITE  = 1 << 0,
     XQC_STREAM_FLAG_READY_TO_READ   = 1 << 1,
     XQC_STREAM_FLAG_DATA_BLOCKED    = 1 << 2,
-    XQC_STREAM_FLAG_HAS_0RTT        = 1 << 3,
-    XQC_STREAM_FLAG_NEED_CLOSE      = 1 << 5,
-    XQC_STREAM_FLAG_FIN_WRITE       = 1 << 6,
-    XQC_STREAM_FLAG_CLOSED          = 1 << 7,
-    XQC_STREAM_FLAG_UNEXPECTED      = 1 << 8,
-    XQC_STREAM_FLAG_DISCARDED       = 1 << 9,   /* stream create_notify with error, all stream data will be discarded */
+    XQC_STREAM_FLAG_NEED_CLOSE      = 1 << 3,
+    XQC_STREAM_FLAG_FIN_WRITE       = 1 << 4,
+    XQC_STREAM_FLAG_CLOSED          = 1 << 5,
+    XQC_STREAM_FLAG_UNEXPECTED      = 1 << 6,
+    XQC_STREAM_FLAG_DISCARDED       = 1 << 7,   /* stream create_notify with error, all stream data will be discarded */
 } xqc_stream_flag_t;
 
 typedef enum {
@@ -67,21 +66,6 @@ typedef struct xqc_stream_data_in_s {
 } xqc_stream_data_in_t;
 
 
-typedef struct xqc_stream_write_buff_s {
-    xqc_list_head_t         sw_list;
-    unsigned char          *sw_data;
-    unsigned                data_length;
-    uint64_t                data_offset;
-    uint64_t                next_write_offset;
-    unsigned char           fin;
-} xqc_stream_write_buff_t;
-
-typedef struct xqc_stream_write_buff_list_s {
-    xqc_list_head_t         write_buff_list; /* xqc_stream_write_buff_t */
-    uint64_t                next_write_offset;
-    uint64_t                total_len;
-} xqc_stream_write_buff_list_t;
-
 struct xqc_stream_s {
     xqc_connection_t       *stream_conn;
     xqc_stream_id_t         stream_id;
@@ -90,8 +74,6 @@ struct xqc_stream_s {
     xqc_stream_callbacks_t *stream_if;
 
     xqc_stream_flow_ctl_t   stream_flow_ctl;
-    xqc_stream_write_buff_list_t
-                            stream_write_buff_list; /* buffer list for 0RTT */
     xqc_list_head_t         write_stream_list,
                             read_stream_list,
                             closing_stream_list,
@@ -211,17 +193,9 @@ int xqc_crypto_stream_on_write(xqc_stream_t *stream, void *user_data);
 
 int xqc_read_crypto_stream(xqc_stream_t *stream);
 
-ssize_t xqc_stream_buff_data(xqc_stream_t *stream, unsigned char *send_data, size_t send_data_size, uint8_t fin);
-
-int xqc_stream_write_buffed_data_to_packets(xqc_stream_t *stream);
-
 void xqc_destroy_stream_frame(xqc_stream_frame_t *stream_frame);
 
-void xqc_destroy_write_buff(xqc_stream_write_buff_t *write_buff);
-
 void xqc_destroy_frame_list(xqc_list_head_t *head);
-
-void xqc_destroy_write_buff_list(xqc_list_head_t *head);
 
 void xqc_stream_refcnt_add(xqc_stream_t *stream);
 void xqc_stream_refcnt_del(xqc_stream_t *stream);

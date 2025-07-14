@@ -4,8 +4,6 @@ XQUIC_VERS_1.0 {
         xqc_server_set_conn_settings;
         xqc_engine_create;
         xqc_engine_destroy;
-        xqc_engine_set_priv_ctx;
-        xqc_engine_get_priv_ctx;
         xqc_scid_str;
         xqc_connect;
         xqc_conn_close;
@@ -37,7 +35,6 @@ XQUIC_VERS_1.0 {
         xqc_stream_get_stats;
         xqc_bbr_cb;
         xqc_bbr2_cb;
-        xqc_conn_is_ready_to_send_early_data;
         xqc_conn_send_ping;
         xqc_engine_conns_hash_find;
         xqc_dcid_str_by_scid;
@@ -46,7 +43,6 @@ XQUIC_VERS_1.0 {
         xqc_engine_get_alpn_ctx;
         xqc_conn_set_alp_user_data;
         xqc_conn_close_with_error;
-        xqc_conn_should_clear_0rtt_ticket;
         xqc_conn_get_conn_settings_template;
         xqc_conn_get_lastest_rtt;
         xqc_log_disable;

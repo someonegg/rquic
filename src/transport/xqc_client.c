@@ -15,7 +15,7 @@
 
 xqc_connection_t *
 xqc_client_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
-    const unsigned char *token, unsigned token_len, const char *server_host, int no_crypto_flag,
+    const char *server_host, int no_crypto_flag,
     const xqc_conn_ssl_config_t *conn_ssl_config, const char *alpn, 
     const struct sockaddr *peer_addr, socklen_t peer_addrlen, void *user_data)
 {
@@ -25,12 +25,6 @@ xqc_client_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_setting
     if (NULL == conn_ssl_config) {
         xqc_log(engine->log, XQC_LOG_ERROR,
                 "|xqc_conn_ssl_config is NULL|");
-        return NULL;
-    }
-
-    if (token_len > XQC_MAX_TOKEN_LEN) {
-        xqc_log(engine->log, XQC_LOG_ERROR,
-                "|%ud exceed XQC_MAX_TOKEN_LEN|", token_len);
         return NULL;
     }
 
@@ -49,11 +43,6 @@ xqc_client_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_setting
         xqc_log(engine->log, XQC_LOG_ERROR,
                 "|create connection error|");
         return NULL;
-    }
-
-    if (token && token_len > 0) {
-        xc->conn_token_len = token_len;
-        memcpy(xc->conn_token, token, token_len);
     }
 
     if (peer_addr && peer_addrlen > 0) {
@@ -97,7 +86,7 @@ xqc_client_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_setting
 
 const xqc_cid_t *
 xqc_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings, 
-    const unsigned char *token, unsigned token_len, const char *server_host, int no_crypto_flag,
+    const char *server_host, int no_crypto_flag,
     const xqc_conn_ssl_config_t *conn_ssl_config, const struct sockaddr *peer_addr,
     socklen_t peer_addrlen, const char *alpn, void *user_data)
 {
@@ -107,7 +96,7 @@ xqc_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
         return NULL;
     }
 
-    conn = xqc_client_connect(engine, conn_settings, token, token_len, server_host, no_crypto_flag, 
+    conn = xqc_client_connect(engine, conn_settings, server_host, no_crypto_flag,
                               conn_ssl_config, alpn, peer_addr, peer_addrlen, user_data);
     if (conn) {
         return &conn->scid_set.user_scid;
@@ -134,17 +123,6 @@ xqc_client_create_tls(xqc_connection_t *conn, const xqc_conn_ssl_config_t *conn_
     /* init tls config */
     cfg.cert_verify_flag = conn_ssl_config->cert_verify_flag;
     cfg.no_crypto_flag = no_crypto_flag;
-
-    /* copy session ticket */
-    cfg.session_ticket = xqc_malloc(conn_ssl_config->session_ticket_len + 1);
-    if (NULL == cfg.session_ticket) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|malloc for session ticket fail|");
-        ret = -XQC_EMALLOC;
-        goto end;
-    }
-    xqc_memcpy(cfg.session_ticket, conn_ssl_config->session_ticket_data,
-               conn_ssl_config->session_ticket_len);
-    cfg.session_ticket_len = conn_ssl_config->session_ticket_len;
 
     /* copy alpn */
     alpn_cap = strlen(alpn) + 1;
@@ -243,18 +221,6 @@ xqc_client_create_connection(xqc_engine_t *engine, xqc_cid_t dcid, xqc_cid_t sci
     /* create and init tls, startup ClientHello */
     if (xqc_client_create_tls(xc, conn_ssl_config, server_host, no_crypto_flag, alpn) != XQC_OK) {
         goto fail;
-    }
-
-    /* recover server's transport parameter */
-    if (conn_ssl_config->transport_parameter_data
-        && conn_ssl_config->transport_parameter_data_len > 0)
-    {
-        xqc_init_transport_params(&tp);
-        ret = xqc_read_transport_params(conn_ssl_config->transport_parameter_data,
-                                        conn_ssl_config->transport_parameter_data_len, &tp);
-        if (ret == XQC_OK) {
-            xqc_conn_set_early_remote_transport_params(xc, &tp);
-        }
     }
 
     if (xqc_conn_client_on_alpn(xc, alpn, strlen(alpn)) != XQC_OK) {

@@ -16,10 +16,6 @@
 #define XQC_QUIC_MAX_MSS                    1420
 #define XQC_MSS                             (XQC_QUIC_MAX_MSS + XQC_ACK_SPACE)
 
-/* max 0rtt packet count sent by client */
-#define XQC_PACKET_0RTT_MAX_COUNT           30
-/* max 0rtt packet count buffered by server before Initial packet received */
-#define XQC_UNDECRYPT_0RTT_MAX_BEFORE_INIT  10
 /* max buffered packet count */
 #define XQC_UNDECRYPT_PACKET_MAX            100
 
@@ -32,9 +28,8 @@ typedef enum xqc_pkt_num_space {
 
 typedef enum xqc_pkt_type {
     XQC_PTYPE_INIT  = 0,
-    XQC_PTYPE_0RTT  = 1,
-    XQC_PTYPE_HSK   = 2,
-    XQC_PTYPE_RETRY = 3,
+    XQC_PTYPE_HSK,
+    XQC_PTYPE_RETRY,
     XQC_PTYPE_SHORT_HEADER,
     XQC_PTYPE_VERSION_NEGOTIATION,
     XQC_PTYPE_NUM,
