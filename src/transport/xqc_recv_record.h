@@ -56,8 +56,6 @@ void xqc_recv_record_del(xqc_recv_record_t *recv_record, xqc_packet_number_t del
 
 void xqc_recv_record_destroy(xqc_recv_record_t *recv_record);
 
-void xqc_recv_record_move(xqc_recv_record_t *dst, xqc_recv_record_t *src);
-
 xqc_pkt_range_status xqc_recv_record_add(xqc_recv_record_t *recv_record, xqc_packet_number_t packet_number);
 
 xqc_packet_number_t xqc_recv_record_largest(xqc_recv_record_t *recv_record);
@@ -65,8 +63,6 @@ xqc_packet_number_t xqc_recv_record_largest(xqc_recv_record_t *recv_record);
 void xqc_maybe_should_ack(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_pn_ctl_t *pn_ctl, xqc_pkt_num_space_t pns, int out_of_order, xqc_usec_t now);
 
 int xqc_ack_sent_record_init(xqc_ack_sent_record_t *record);
-
-void xqc_ack_sent_record_reset(xqc_ack_sent_record_t *record);
 
 void xqc_ack_sent_record_destroy(xqc_ack_sent_record_t *record);
 

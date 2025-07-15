@@ -43,21 +43,20 @@ typedef enum {
 typedef enum {
     XQC_TRANSPORT_PARAM_ORIGINAL_DEST_CONNECTION_ID         = 0x0000,
     XQC_TRANSPORT_PARAM_MAX_IDLE_TIMEOUT                    = 0x0001,
-    XQC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN               = 0x0002,
-    XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE                = 0x0003,
-    XQC_TRANSPORT_PARAM_INITIAL_MAX_DATA                    = 0x0004,
-    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL  = 0x0005,
-    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE = 0x0006,
-    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_UNI         = 0x0007,
-    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_BIDI            = 0x0008,
-    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI             = 0x0009,
-    XQC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT                  = 0x000a,
-    XQC_TRANSPORT_PARAM_MAX_ACK_DELAY                       = 0x000b,
-    XQC_TRANSPORT_PARAM_DISABLE_ACTIVE_MIGRATION            = 0x000c,
-    XQC_TRANSPORT_PARAM_PREFERRED_ADDRESS                   = 0x000d,
-    XQC_TRANSPORT_PARAM_ACTIVE_CONNECTION_ID_LIMIT          = 0x000e,
-    XQC_TRANSPORT_PARAM_INITIAL_SOURCE_CONNECTION_ID        = 0x000f,
-    XQC_TRANSPORT_PARAM_RETRY_SOURCE_CONNECTION_ID          = 0x0010,
+    XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE                = 0x0002,
+    XQC_TRANSPORT_PARAM_INITIAL_MAX_DATA                    = 0x0003,
+    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL  = 0x0004,
+    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE = 0x0005,
+    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_UNI         = 0x0006,
+    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_BIDI            = 0x0007,
+    XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI             = 0x0008,
+    XQC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT                  = 0x0009,
+    XQC_TRANSPORT_PARAM_MAX_ACK_DELAY                       = 0x000a,
+    XQC_TRANSPORT_PARAM_DISABLE_ACTIVE_MIGRATION            = 0x000b,
+    XQC_TRANSPORT_PARAM_PREFERRED_ADDRESS                   = 0x000c,
+    XQC_TRANSPORT_PARAM_ACTIVE_CONNECTION_ID_LIMIT          = 0x000d,
+    XQC_TRANSPORT_PARAM_INITIAL_SOURCE_CONNECTION_ID        = 0x000e,
+    XQC_TRANSPORT_PARAM_RETRY_SOURCE_CONNECTION_ID          = 0x000f,
 
     /* do no cryption on 1-RTT packets */
     XQC_TRANSPORT_PARAM_NO_CRYPTO                           = 0x1000,
@@ -76,7 +75,6 @@ typedef struct {
     uint8_t                 ipv6[16];
     uint16_t                ipv6_port;
     xqc_cid_t               cid;
-    uint8_t                 stateless_reset_token[XQC_STATELESS_RESET_TOKENLEN];
 } xqc_preferred_addr_t;
 
 
@@ -89,8 +87,6 @@ typedef struct {
     uint8_t                 original_dest_connection_id_present;
 
     xqc_usec_t              max_idle_timeout;
-    uint8_t                 stateless_reset_token[XQC_STATELESS_RESET_TOKENLEN];
-    uint8_t                 stateless_reset_token_present;
     uint64_t                max_udp_payload_size;
     uint64_t                initial_max_data;
     uint64_t                initial_max_stream_data_bidi_local;

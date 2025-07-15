@@ -144,7 +144,6 @@ typedef struct xqc_demo_svr_ctx_s {
     socklen_t           local_addrlen6;
     struct event        *ev_socket6;
 
-    /* used to remember fd type to send stateless reset */
     int                 current_fd;
 
     int                 log_fd;

@@ -1014,7 +1014,6 @@ xqc_write_new_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t retire_pr
     xqc_int_t           ret = XQC_ERROR;
     xqc_packet_out_t   *packet_out = NULL;
     xqc_cid_t           new_conn_cid;
-    uint8_t             sr_token[XQC_STATELESS_RESET_TOKENLEN];
     xqc_cid_set_inner_t *inner_set;
 
     inner_set = xqc_get_path_cid_set(&conn->scid_set, XQC_INITIAL_PATH_ID);
@@ -1031,11 +1030,6 @@ xqc_write_new_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t retire_pr
         xqc_log(conn->log, XQC_LOG_WARN, "|generate cid error|");
         return -XQC_EGENERATE_CID;
     }
-
-    /* generate stateless reset token */
-    xqc_gen_reset_token(&new_conn_cid, sr_token, XQC_STATELESS_RESET_TOKENLEN,
-                        conn->engine->config->reset_token_key,
-                        conn->engine->config->reset_token_keylen);
 
     /* insert to scid_set & add scid_unused_cnt */
     ret = xqc_cid_set_insert_cid(&conn->scid_set, &new_conn_cid, XQC_CID_UNUSED,
@@ -1063,8 +1057,7 @@ xqc_write_new_conn_id_frame_to_packet(xqc_connection_t *conn, uint64_t retire_pr
         return -XQC_EWRITE_PKT;
     }
 
-    ret = xqc_gen_new_conn_id_frame(packet_out, &new_conn_cid, retire_prior_to,
-                                    sr_token);
+    ret = xqc_gen_new_conn_id_frame(packet_out, &new_conn_cid, retire_prior_to);
     if (ret < 0) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_gen_new_conn_id_frame error|");
         goto error;

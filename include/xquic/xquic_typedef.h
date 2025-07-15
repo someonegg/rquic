@@ -111,9 +111,6 @@ typedef uint8_t         xqc_bool_t;
 /** restrictions of key length in lb cid encryption */
 #define XQC_LB_CID_KEY_LEN 16
 
-/** length of stateless reset token */
-#define XQC_STATELESS_RESET_TOKENLEN    16
-
 /**
  * @brief cid structure for xquic connection identification
  */
@@ -121,7 +118,6 @@ typedef struct xqc_cid_s {
     uint8_t             cid_len;
     uint8_t             cid_buf[XQC_MAX_CID_LEN];
     uint64_t            cid_seq_num;
-    uint8_t             sr_token[XQC_STATELESS_RESET_TOKENLEN];
     uint64_t            path_id; /**< preallocate for multi-path */
 } xqc_cid_t;
 

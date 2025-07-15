@@ -70,9 +70,6 @@ typedef enum xqc_proto_version_s {
 #define XQC_TLS_GROUPS "P-256:X25519:P-384:P-521"
 
 
-#define XQC_RESET_TOKEN_MAX_KEY_LEN     256
-
-
 /**
  * the max message count of iovec in sendmmsg
  */
@@ -186,19 +183,6 @@ typedef int (*xqc_server_accept_pt)(xqc_engine_t *engine, xqc_connection_t *conn
  */
 typedef void (*xqc_server_refuse_pt)(xqc_engine_t *engine, xqc_connection_t *conn,
     const xqc_cid_t *cid, void *user_data);
-
-/**
- * @brief engine can't find connection related to input udp packet, and return a STATELESS_RESET
- * packet, implementations shall send this buffer back to peer. this callback function is almost the
- * same with xqc_socket_write_pt, but with different user_data definition.
- *
- * @param user_data user_data related to connection, originated from the user_data parameter of
- * xqc_engine_packet_process
- */
-typedef ssize_t (*xqc_stateless_reset_pt)(const unsigned char *buf, size_t size,
-    const struct sockaddr *peer_addr, socklen_t peer_addrlen,
-    const struct sockaddr *local_addr, socklen_t local_addrlen,
-    void *user_data);
 
 /**
  * @brief connection closing notify callback function.
@@ -322,8 +306,6 @@ typedef ssize_t (*xqc_socket_write_pt)(const unsigned char *buf, size_t size,
  * XQC_SOCKET_ERROR for error, xquic will destroy the connection
  * XQC_SOCKET_EAGAIN for EAGAIN, application could continue sending data with xqc_conn_continue_send
  * function when socket write event is ready
- * Warning: server's user_data is what passed in xqc_engine_packet_process when send a stateless
- * reset packet, as xquic can't find a connection
  */
 typedef ssize_t (*xqc_send_mmsg_pt)(const struct iovec *msg_iov, unsigned int vlen,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen, void *conn_user_data);
@@ -418,9 +400,6 @@ typedef struct xqc_transport_callbacks_s {
      * connection refused by xquic. REQUIRED only for server
      */
     xqc_server_refuse_pt            server_refuse;
-
-    /** stateless reset callback */
-    xqc_stateless_reset_pt          stateless_reset;
 
     /**
      * write socket callback, ALTERNATIVE with write_mmsg
@@ -698,10 +677,6 @@ typedef struct xqc_config_s {
      * generate its own cid, despite of the enable of cid negotiation.
      */
     uint8_t         cid_negotiate;
-
-    /** used to generate stateless reset token */
-    char            reset_token_key[XQC_RESET_TOKEN_MAX_KEY_LEN];
-    size_t          reset_token_keylen;
 
     /**
      * sendmmsg switch. non-zero for enable, 0 for disable.
