@@ -103,8 +103,6 @@ int64_t xqc_cid_set_get_retired_cnt(xqc_cid_set_t *cid_set, uint64_t path_id);
 int64_t xqc_cid_set_get_largest_seq_or_rpt(xqc_cid_set_t *cid_set, uint64_t path_id);
 xqc_int_t xqc_cid_set_set_largest_seq_or_rpt(xqc_cid_set_t *cid_set, uint64_t path_id, uint64_t val);
 
-unsigned char *xqc_sr_token_str(xqc_engine_t *engine, const char *sr_token);
-
 xqc_int_t xqc_cid_set_add_path(xqc_cid_set_t *cid_set, uint64_t path_id);
 
 void xqc_cid_set_update_state(xqc_cid_set_t *cid_set, uint64_t path_id, xqc_cid_set_state_t state);

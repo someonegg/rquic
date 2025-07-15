@@ -89,11 +89,6 @@ if(XQC_PRINT_SECRET)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DXQC_PRINT_SECRET")
 endif()
 
-# compat with the stateless reset before version v1.6.0
-if(XQC_COMPAT_GENERATE_SR_PKT)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -DXQC_COMPAT_GENERATE_SR_PKT")
-endif()
-
 # print only error log
 if(XQC_ONLY_ERROR_LOG)
     set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -DXQC_ONLY_ERROR_LOG ")

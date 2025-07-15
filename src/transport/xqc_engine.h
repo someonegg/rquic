@@ -12,8 +12,6 @@
 #include "src/tls/xqc_tls.h"
 #include "src/common/xqc_list.h"
 
-#define XQC_RESET_CNT_ARRAY_LEN 16384
-
 
 typedef enum {
     XQC_ENG_FLAG_RUNNING    = 1 << 0,
@@ -47,12 +45,8 @@ typedef struct xqc_engine_s {
     /* for connections */
     xqc_config_t                   *config;
     xqc_str_hash_table_t           *conns_hash;             /* scid */
-    xqc_str_hash_table_t           *conns_hash_dcid;        /* For reset packet */
-    xqc_str_hash_table_t           *conns_hash_sr_token;    /* For stateless reset */
     xqc_pq_t                       *conns_active_pq;        /* In process */
     xqc_pq_t                       *conns_wait_wakeup_pq;   /* Need wakeup after next tick time */
-    uint8_t                         reset_sent_cnt[XQC_RESET_CNT_ARRAY_LEN]; /* remote addr hash */
-    xqc_usec_t                      reset_sent_cnt_cleared;
 
     /* tls context */
     xqc_tls_ctx_t                  *tls_ctx;
@@ -73,13 +67,10 @@ typedef struct xqc_engine_s {
 
     char                            scid_buf[XQC_MAX_CID_LEN * 2 + 1];
     char                            dcid_buf[XQC_MAX_CID_LEN * 2 + 1];
-    char                            sr_token_buf[XQC_STATELESS_RESET_TOKENLEN * 2 + 1];
     char                            conn_flag_str_buf[1024];
     char                            frame_type_buf[128];
     char                            local_addr_str[INET6_ADDRSTRLEN];
     char                            peer_addr_str[INET6_ADDRSTRLEN];
-
-    void                           *priv_ctx;
 
 } xqc_engine_t;
 

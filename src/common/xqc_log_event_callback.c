@@ -510,13 +510,6 @@ xqc_log_TRA_DATAGRAM_DATA_MOVED_callback(xqc_log_t *log, const char *func, xqc_s
 }
 
 void
-xqc_log_TRA_STATELESS_RESET_callback(xqc_log_t *log, const char *func, xqc_connection_t *conn)
-{
-    xqc_qlog_implement(log, TRA_STATELESS_RESET, func, "|stateless reset|cid:%s|",
-                      log->scid);
-}
-
-void
 xqc_log_REC_PARAMETERS_SET_callback(xqc_log_t *log, const char *func, xqc_send_ctl_t *send_ctl, uint8_t timer_granularity,
                                     xqc_cc_params_t cc_params)
 {

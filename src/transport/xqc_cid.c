@@ -65,7 +65,6 @@ xqc_cid_copy(xqc_cid_t *dst, xqc_cid_t *src)
     dst->cid_len = src->cid_len;
     xqc_memcpy(dst->cid_buf, src->cid_buf, dst->cid_len);
     dst->cid_seq_num = src->cid_seq_num;
-    xqc_memcpy(dst->sr_token, src->sr_token, XQC_STATELESS_RESET_TOKENLEN);
     dst->path_id = src->path_id;
 }
 
@@ -86,8 +85,6 @@ xqc_cid_set(xqc_cid_t *cid, const unsigned char *data, uint8_t len)
     }
 }
 
-static unsigned char g_sr_token_buf[XQC_STATELESS_RESET_TOKENLEN * 2 + 1];
-
 unsigned char *
 xqc_dcid_str(xqc_engine_t *engine, const xqc_cid_t *dcid)
 {
@@ -102,14 +99,6 @@ xqc_scid_str(xqc_engine_t *engine, const xqc_cid_t *scid)
     xqc_hex_dump(engine->scid_buf, scid->cid_buf, scid->cid_len);
     engine->scid_buf[scid->cid_len * 2] = '\0';
     return engine->scid_buf;
-}
-
-unsigned char *
-xqc_sr_token_str(xqc_engine_t *engine, const char *sr_token)
-{
-    xqc_hex_dump(engine->sr_token_buf, sr_token, XQC_STATELESS_RESET_TOKENLEN);
-    engine->sr_token_buf[XQC_STATELESS_RESET_TOKENLEN * 2] = '\0';
-    return engine->sr_token_buf;
 }
 
 unsigned char *

@@ -205,7 +205,6 @@ xqc_log_type_str(xqc_log_type_t type)
             [TRA_FRAMES_PROCESSED]              = "frames_processed",
             [TRA_STREAM_DATA_MOVED]             = "stream_data_moved",
             [TRA_DATAGRAM_DATA_MOVED]           = "datagram_data_moved",
-            [TRA_STATELESS_RESET]               = "stateless_reset",
             [REC_PARAMETERS_SET]                = "rec_parameters_set",
             [REC_METRICS_UPDATED]               = "rec_metrics_updated",
             [REC_CONGESTION_STATE_UPDATED]      = "congestion_state_updated",

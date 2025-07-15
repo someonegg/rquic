@@ -733,37 +733,6 @@ xqc_process_new_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in
         return XQC_OK;
     }
 
-    /* insert into dcid-connection hash, for processing the deprecated stateless
-       reset packet */
-    ret = xqc_insert_conns_hash(conn->engine->conns_hash_dcid, conn, 
-                                new_conn_cid.cid_buf, new_conn_cid.cid_len);
-    if (ret < 0) {
-        xqc_log(conn->log, XQC_LOG_ERROR,
-                "|insert new_cid into conns_hash_dcid failed|");
-        return ret;
-    }
-
-    /* insert into sr_token-connection hash, for processing stateless reset
-       packet */
-    if (xqc_find_conns_hash(conn->engine->conns_hash_sr_token, conn,
-        new_conn_cid.sr_token,
-        XQC_STATELESS_RESET_TOKENLEN) == NULL) 
-    {
-        ret = xqc_insert_conns_hash(conn->engine->conns_hash_sr_token, conn,
-                                    new_conn_cid.sr_token,
-                                    XQC_STATELESS_RESET_TOKENLEN);
-    } else {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|sr_token conflict:%s", xqc_sr_token_str(conn->engine, new_conn_cid.sr_token));
-        /* ignore this error, as it is not fatal. */
-        ret = XQC_OK;
-    }
-
-    if (ret < 0) {
-        xqc_log(conn->log, XQC_LOG_ERROR,
-                "|insert new_cid into conns_hash_sr_token failed|");
-        return ret;
-    }
-
     ret = xqc_cid_set_insert_cid(&conn->dcid_set, &new_conn_cid, 
                                  XQC_CID_UNUSED, 
                                  conn->local_settings.active_connection_id_limit, 

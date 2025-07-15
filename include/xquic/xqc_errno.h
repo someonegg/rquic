@@ -87,7 +87,6 @@ typedef enum {
     XQC_EACTIVE_CID_LIMIT               = 638,      /**< active cid exceed active_connection_id_limit */
     XQC_EALPN_NOT_SUPPORTED             = 639,      /**< alpn is not supported by server */
     XQC_EALPN_NOT_REGISTERED            = 640,      /**< alpn is not registered */
-    XQC_ESTATELESS_RESET                = 641,      /**< connection is reset by peer */
     XQC_EPACKET_FILETER_CALLBACK        = 642,      /**< error with packet filter callback function */
 
     XQC_EMP_CREATE_PATH                 = 652,      /**< create path error */

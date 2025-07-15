@@ -27,20 +27,19 @@ typedef enum {
     XQC_POF_IN_FLIGHT           = 1 << 0,
     XQC_POF_LOST                = 1 << 1,
     XQC_POF_DCID_NOT_DONE       = 1 << 2,
-    XQC_POF_RESERVED            = 1 << 3,
-    XQC_POF_TLP                 = 1 << 4,
-    XQC_POF_STREAM_UNACK        = 1 << 5,
-    XQC_POF_RETRANSED           = 1 << 6,
-    XQC_POF_NOTIFY              = 1 << 7,  /* need to notify user when a packet is acked, lost, etc. */
-    XQC_POF_RESEND              = 1 << 8,
-    XQC_POF_IN_PATH_BUF_LIST    = 1 << 9, /* FIXED: reset when copy */
-    XQC_POF_IN_UNACK_LIST       = 1 << 10, /* FIXED: reset when copy */
-    XQC_POF_NOT_SCHEDULE        = 1 << 11,
-    XQC_POF_PMTUD_PROBING       = 1 << 12,
-    XQC_POF_QOS_HIGH            = 1 << 13,
-    XQC_POF_QOS_PROBING         = 1 << 14,
-    XQC_POF_SPURIOUS_LOSS       = 1 << 15,
-    XQC_POF_STREAM_NO_LEN       = 1 << 16,  /* for stream without LEN bit, shouldn't attach different frame to it */
+    XQC_POF_TLP                 = 1 << 3,
+    XQC_POF_STREAM_UNACK        = 1 << 4,
+    XQC_POF_RETRANSED           = 1 << 5,
+    XQC_POF_NOTIFY              = 1 << 6,  /* need to notify user when a packet is acked, lost, etc. */
+    XQC_POF_RESEND              = 1 << 7,
+    XQC_POF_IN_PATH_BUF_LIST    = 1 << 8, /* FIXED: reset when copy */
+    XQC_POF_IN_UNACK_LIST       = 1 << 9, /* FIXED: reset when copy */
+    XQC_POF_NOT_SCHEDULE        = 1 << 10,
+    XQC_POF_PMTUD_PROBING       = 1 << 11,
+    XQC_POF_QOS_HIGH            = 1 << 12,
+    XQC_POF_QOS_PROBING         = 1 << 13,
+    XQC_POF_SPURIOUS_LOSS       = 1 << 14,
+    XQC_POF_STREAM_NO_LEN       = 1 << 15,  /* for stream without LEN bit, shouldn't attach different frame to it */
 } xqc_packet_out_flag_t;
 
 typedef struct xqc_po_stream_frame_s {

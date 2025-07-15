@@ -165,7 +165,6 @@ static const char * const xqc_conn_flag_to_str[XQC_CONN_FLAG_SHIFT_NUM] = {
     [XQC_CONN_FLAG_NEED_RUN_SHIFT]              = "NEED_RUN",
     [XQC_CONN_FLAG_PING_SHIFT]                  = "PING",
     [XQC_CONN_FLAG_HSK_ACKED_SHIFT]             = "HSK_ACKED",
-    [XQC_CONN_FLAG_RESERVE_SHIFT]               = "RESERVE",
     [XQC_CONN_FLAG_HANDSHAKE_DONE_RECVD_SHIFT]  = "HSK_DONE_RECVD",
     [XQC_CONN_FLAG_UPDATE_NEW_TOKEN_SHIFT]      = "UPDATE_NEW_TOKEN",
     [XQC_CONN_FLAG_VERSION_NEGOTIATION_SHIFT]   = "VERSION_NEGOTIATION",
@@ -174,12 +173,13 @@ static const char * const xqc_conn_flag_to_str[XQC_CONN_FLAG_SHIFT_NUM] = {
     [XQC_CONN_FLAG_ADDR_VALIDATED_SHIFT]        = "ADDR_VALIDATED",
     [XQC_CONN_FLAG_LINGER_CLOSING_SHIFT]        = "LINGER_CLOSING",
     [XQC_CONN_FLAG_RETRY_RECVD_SHIFT]           = "RETRY_RECVD",
+    [XQC_CONN_FLAG_TLS_CH_SHIFT]                = "TLS_CH",
     [XQC_CONN_FLAG_TLS_HSK_COMPLETED_SHIFT]     = "TLS_HSK_CMPTD",
     [XQC_CONN_FLAG_VALIDATE_REBINDING_SHIFT]    = "VALIDATE_REBINDING",
     [XQC_CONN_FLAG_CONN_CLOSING_NOTIFY_SHIFT]   = "CLOSING_NOTIFY",
     [XQC_CONN_FLAG_CONN_CLOSING_NOTIFIED_SHIFT] = "CLOSING_NOTIFIED",
-    [XQC_CONN_FLAG_LOCAL_TP_UPDATED_SHIFT]      = "LOCAL_TP_UPDATED",
     [XQC_CONN_FLAG_PMTUD_PROBING_SHIFT]         = "PMTUD_PROBING",
+    [XQC_CONN_FLAG_HANDSHAKE_DONE_SENT_SHIFT]   = "HSK_DONE_SENT",
 };
 
 
@@ -666,12 +666,6 @@ xqc_conn_server_create(xqc_engine_t *engine, const struct sockaddr *local_addr,
         }
     }
 
-    /* generate sr token for server's initial cid */
-    xqc_gen_reset_token(&new_scid, new_scid.sr_token,
-                        XQC_STATELESS_RESET_TOKENLEN,
-                        engine->config->reset_token_key,
-                        engine->config->reset_token_keylen);
-
     conn = xqc_conn_create(engine, dcid, &new_scid, settings, user_data, XQC_CONN_TYPE_SERVER);
     if (conn == NULL) {
         xqc_log(engine->log, XQC_LOG_ERROR, "|fail to create connection|");
@@ -817,24 +811,6 @@ xqc_conn_server_on_alpn(xqc_connection_t *conn, const unsigned char *alpn, size_
             goto err;
         }
         conn->conn_flag |= XQC_CONN_FLAG_UPPER_CONN_EXIST;
-    }
-
-    if (conn->conn_flag & XQC_CONN_FLAG_LOCAL_TP_UPDATED) {
-        ret = xqc_conn_encode_local_tp(conn, tp_buf, 
-                                       XQC_MAX_TRANSPORT_PARAM_BUF_LEN, &tp_len);
-        if (ret != XQC_OK) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|server encode tp error|ret:%d|", ret);
-            goto err;
-        }
-
-        ret = xqc_tls_update_tp(conn->tls, tp_buf, tp_len);
-
-        if (ret != XQC_OK) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|server tls update tp error|ret:%d|", ret);
-            goto err;
-        }
-
-        conn->conn_flag &= ~XQC_CONN_FLAG_LOCAL_TP_UPDATED;
     }
 
     return XQC_OK;
@@ -2866,14 +2842,6 @@ xqc_conn_confirm_cid(xqc_connection_t *c, xqc_packet_t *pkt)
             xqc_cid_copy(&c->the_path->path_dcid, &pkt->pkt_scid);
         }
 
-        if (xqc_insert_conns_hash(c->engine->conns_hash_dcid, c,
-                                  c->dcid_set.current_dcid.cid_buf,
-                                  c->dcid_set.current_dcid.cid_len))
-        {
-            xqc_log(c->log, XQC_LOG_ERROR, "|insert conn hash error");
-            return -XQC_EMALLOC;
-        }
-
         c->conn_flag |= XQC_CONN_FLAG_DCID_OK;
     }
 
@@ -3202,34 +3170,6 @@ xqc_conn_destroy_cids(xqc_connection_t *conn)
                 {
                     xqc_remove_conns_hash(conn->engine->conns_hash, conn,
                                         cid->cid.cid_buf, cid->cid.cid_len);
-                }
-            }
-        }
-    }
-
-    xqc_list_for_each_safe(pos_set, next_set, &conn->dcid_set.cid_set_list) {
-        inner_set = xqc_list_entry(pos_set, xqc_cid_set_inner_t, next);
-        xqc_list_for_each_safe(pos, next, &inner_set->cid_list) {
-            cid = xqc_list_entry(pos, xqc_cid_inner_t, list);
-            if (conn->engine->conns_hash_dcid) {
-                /* delete relationship from conns_hash_dcid */
-                if (xqc_find_conns_hash(conn->engine->conns_hash_dcid, conn,
-                                        cid->cid.cid_buf, cid->cid.cid_len))
-                {
-                    xqc_remove_conns_hash(conn->engine->conns_hash_dcid, conn,
-                                        cid->cid.cid_buf, cid->cid.cid_len);
-                }
-
-            }
-            if (conn->engine->conns_hash_sr_token) {
-                /* delete relationship from conns_hash_sr_token */
-                if (xqc_find_conns_hash(conn->engine->conns_hash_sr_token, conn,
-                                        cid->cid.sr_token,
-                                        XQC_STATELESS_RESET_TOKENLEN))
-                {
-                    xqc_remove_conns_hash(conn->engine->conns_hash_sr_token, conn,
-                                        cid->cid.sr_token,
-                                        XQC_STATELESS_RESET_TOKENLEN);
                 }
             }
         }
@@ -3642,15 +3582,6 @@ xqc_conn_set_remote_transport_params(xqc_connection_t *conn,
     settings->max_streams_uni = params->initial_max_streams_uni;
     settings->max_idle_timeout = params->max_idle_timeout;
     settings->max_udp_payload_size = params->max_udp_payload_size;
-    settings->stateless_reset_token_present = params->stateless_reset_token_present;
-
-    if (params->stateless_reset_token_present) {
-        xqc_memcpy(settings->stateless_reset_token, params->stateless_reset_token,
-                   sizeof(settings->stateless_reset_token));
-
-    } else {
-        xqc_memset(settings->stateless_reset_token, 0, sizeof(settings->stateless_reset_token));
-    }
 
     settings->ack_delay_exponent = params->ack_delay_exponent;
     settings->disable_active_migration = params->disable_active_migration;
@@ -3682,15 +3613,6 @@ xqc_conn_get_local_transport_params(xqc_connection_t *conn, xqc_transport_params
     params->initial_max_streams_uni = settings->max_streams_uni;
     params->max_idle_timeout = settings->max_idle_timeout;
     params->max_udp_payload_size = settings->max_udp_payload_size;
-    params->stateless_reset_token_present = settings->stateless_reset_token_present;
-
-    if (settings->stateless_reset_token_present) {
-        memcpy(params->stateless_reset_token, settings->stateless_reset_token,
-               sizeof(params->stateless_reset_token));
-
-    } else {
-        memset(params->stateless_reset_token, 0, sizeof(params->stateless_reset_token));
-    }
 
     params->ack_delay_exponent = settings->ack_delay_exponent;
     params->disable_active_migration = settings->disable_active_migration;
@@ -3707,18 +3629,6 @@ xqc_conn_get_local_transport_params(xqc_connection_t *conn, xqc_transport_params
         xqc_cid_set(&params->original_dest_connection_id,
                      conn->original_dcid.cid_buf, conn->original_dcid.cid_len);
         params->original_dest_connection_id_present = 1;
-
-        xqc_gen_reset_token(&conn->original_dcid, 
-                            params->stateless_reset_token,
-                            XQC_STATELESS_RESET_TOKENLEN, 
-                            conn->engine->config->reset_token_key, 
-                            conn->engine->config->reset_token_keylen);
-        params->stateless_reset_token_present = 1;
-
-        xqc_log(conn->log, XQC_LOG_INFO, "|generate sr_token[%s] for cid[%s]",
-                xqc_sr_token_str(conn->engine, params->stateless_reset_token),
-                xqc_scid_str(conn->engine, &conn->original_dcid));
-
     } else {
         params->original_dest_connection_id_present = 0;
     }
@@ -3750,8 +3660,7 @@ xqc_conn_check_transport_params(xqc_connection_t *conn, const xqc_transport_para
         /* server MUST NOT received server-only parameters from client */
         if (params->original_dest_connection_id_present
             || params->preferred_address_present
-            || params->retry_source_connection_id_present
-            || params->stateless_reset_token_present)
+            || params->retry_source_connection_id_present)
         {
             return -XQC_TLS_TRANSPORT_PARAM;
         }
@@ -3816,44 +3725,6 @@ xqc_conn_tls_transport_params_cb(const uint8_t *tp, size_t len, void *user_data)
         conn->remote_settings.no_crypto = 1;
         conn->local_settings.no_crypto = 1;
         xqc_tls_set_no_crypto(conn->tls);
-    }
-
-    /* sr token will only present in server's transport parameter, it means
-       client have already confirmed server's cid, associate the sr token with
-       server's cid */
-    if (params.stateless_reset_token_present) {
-        /* it is supposed to be only one existing cid in the dcid set, find the
-           first node and copy the sr token to that cid */
-        xqc_cid_set_inner_t *inner_set = xqc_get_path_cid_set(&conn->dcid_set, XQC_INITIAL_PATH_ID);
-        node = inner_set->cid_list.next;
-        if (NULL != node) {
-            cid_node = xqc_list_entry(node, xqc_cid_inner_t, list);
-            xqc_memcpy(cid_node->cid.sr_token, params.stateless_reset_token,
-                       XQC_STATELESS_RESET_TOKENLEN);
-
-            xqc_log(conn->log, XQC_LOG_INFO, "|store sr_token with cid: %s"
-                    "|token:%s", xqc_dcid_str(conn->engine, &cid_node->cid),
-                    xqc_sr_token_str(conn->engine, params.stateless_reset_token));
-
-            if (xqc_find_conns_hash(conn->engine->conns_hash_sr_token, conn,
-                cid_node->cid.sr_token,
-                XQC_STATELESS_RESET_TOKENLEN) == NULL) 
-            {
-                if (xqc_insert_conns_hash(conn->engine->conns_hash_sr_token, conn,
-                    cid_node->cid.sr_token,
-                    XQC_STATELESS_RESET_TOKENLEN))
-                {
-                    xqc_log(conn->log, XQC_LOG_ERROR, "|insert sr conn hash error");
-                }
-            } else {
-                xqc_log(conn->log, XQC_LOG_ERROR, "|sr_token conflict:%s", xqc_sr_token_str(conn->engine, cid_node->cid.sr_token));
-            }
-
-        } else {
-            /* it's weired if sr token present while cid not confirmed */
-            xqc_log(conn->log, XQC_LOG_ERROR,
-                    "|cid not confirmed while sr token present");
-        }
     }
 
     xqc_conn_try_to_enable_pmtud(conn);
@@ -3951,15 +3822,6 @@ xqc_settings_copy_from_transport_params(xqc_trans_settings_t *dest,
     dest->max_streams_uni = src->initial_max_streams_uni;
     dest->max_idle_timeout = src->max_idle_timeout;
     dest->max_udp_payload_size = src->max_udp_payload_size;
-    dest->stateless_reset_token_present = src->stateless_reset_token_present;
-
-    if (src->stateless_reset_token_present) {
-        xqc_memcpy(dest->stateless_reset_token, src->stateless_reset_token,
-                   sizeof(dest->stateless_reset_token));
-
-    } else {
-        xqc_memset(dest->stateless_reset_token, 0, sizeof(dest->stateless_reset_token));
-    }
 
     dest->ack_delay_exponent = src->ack_delay_exponent;
     dest->disable_active_migration = src->disable_active_migration;
@@ -4492,99 +4354,3 @@ xqc_conn_gp_timer_get_info(xqc_connection_t *conn, xqc_gp_timer_id_t gp_timer_id
 {
     return xqc_timer_gp_timer_get_info(&conn->conn_timer_manager, gp_timer_id, is_set, expire_time);
 }
-
-
-void
-xqc_conn_reset(xqc_connection_t *conn)
-{
-    xqc_conn_shutdown(conn);
-
-    /* set error code and close message, notify to application */
-    conn->conn_state = XQC_CONN_STATE_DRAINING;
-    xqc_log_event(conn->log, CON_CONNECTION_STATE_UPDATED, conn);
-    conn->conn_err = XQC_ESTATELESS_RESET;
-    XQC_CONN_CLOSE_MSG(conn, "stateless reset");
-    xqc_conn_closing(conn);
-}
-
-xqc_int_t
-xqc_conn_handle_stateless_reset(xqc_connection_t *conn,
-    const uint8_t *sr_token)
-{
-    xqc_int_t            ret;
-    int                  res;
-    xqc_list_head_t     *pos, *next;
-    xqc_cid_inner_t     *cid;
-    xqc_cid_set_inner_t *inner_set;
-    xqc_list_head_t     *pos_set, *next_set;
-
-    if (NULL == conn || NULL == sr_token) {
-        return -XQC_EPARAM;
-    }
-
-    if (conn->conn_state >= XQC_CONN_STATE_DRAINING) {
-        xqc_log(conn->log, XQC_LOG_INFO, "|conn closing, ignore pkt");
-        return XQC_OK;
-    }
-
-    /* compare received stateless reset token with the ones peer sent */
-    xqc_list_for_each_safe(pos_set, next_set, &conn->dcid_set.cid_set_list) {
-        inner_set = xqc_list_entry(pos_set, xqc_cid_set_inner_t, next);
-        
-        xqc_list_for_each_safe(pos, next, &inner_set->cid_list) {
-            cid = xqc_list_entry(pos, xqc_cid_inner_t, list);
-
-            res = xqc_memcmp(sr_token, cid->cid.sr_token,
-                            XQC_STATELESS_RESET_TOKENLEN);
-            if (0 == res) {
-                xqc_log(conn->log, XQC_LOG_INFO, "|====>|receive stateless reset"
-                        "|cid:%s|sr_token:%s|", 
-                        xqc_dcid_str(conn->engine, &cid->cid),
-                        xqc_sr_token_str(conn->engine, sr_token));
-                xqc_log_event(conn->log, TRA_STATELESS_RESET, conn);
-
-                if (inner_set->set_state < XQC_CID_SET_ABANDONED
-                    && cid->state < XQC_CID_RETIRED)
-                {
-                    /* only responds for non-retired CIDs */
-                    /* stateless reset received, close connection */
-                    xqc_conn_reset(conn);
-                }
-
-                goto end;
-            }
-        }
-    }
-
-    /* sr_token not matched */
-    return -XQC_ERROR;
-
-end:
-    return XQC_OK;
-}
-
-#ifdef XQC_COMPAT_GENERATE_SR_PKT
-
-xqc_int_t
-xqc_conn_handle_deprecated_stateless_reset(xqc_connection_t *conn,
-    const xqc_cid_t *scid)
-{
-    if (NULL == conn) {
-        return -XQC_EPARAM;
-    }
-
-    if (conn->conn_state >= XQC_CONN_STATE_DRAINING) {
-        xqc_log(conn->log, XQC_LOG_INFO, "|conn closing, ignore pkt");
-        return XQC_OK;
-    }
-
-    xqc_log(conn->log, XQC_LOG_INFO, "|====>|receive stateless reset"
-            "|deprecated|cid:%s", xqc_dcid_str(conn->engine, scid));
-
-    /* reset state of connection */
-    xqc_conn_reset(conn);
-
-    return XQC_OK;
-}
-
-#endif

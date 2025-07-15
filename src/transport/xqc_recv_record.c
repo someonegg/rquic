@@ -185,29 +185,6 @@ xqc_recv_record_destroy(xqc_recv_record_t *recv_record)
     recv_record->rr_del_from = 0;
 }
 
-/* 把src的链表逐个节点移动到dst */
-void 
-xqc_recv_record_move(xqc_recv_record_t *dst, xqc_recv_record_t *src)
-{
-    if (!dst || !src)
-        return;
-    
-    xqc_recv_record_destroy(dst);
-
-    if (!xqc_list_empty(&src->list_head)) {
-        src->list_head.next->prev = &dst->list_head;
-        dst->list_head.next = src->list_head.next;
-        src->list_head.prev->next = &dst->list_head;
-        dst->list_head.prev = src->list_head.prev;
-        xqc_init_list_head(&src->list_head);
-    }
-
-    dst->rr_del_from = src->rr_del_from;
-    src->rr_del_from = 0;
-    dst->node_count = src->node_count;
-    src->node_count = 0;
-}
-
 xqc_packet_number_t
 xqc_recv_record_largest(xqc_recv_record_t *recv_record)
 {
@@ -287,13 +264,6 @@ xqc_ack_sent_record_init(xqc_ack_sent_record_t *record)
         return XQC_ERROR;
     }
     return XQC_OK;
-}
-
-void 
-xqc_ack_sent_record_reset(xqc_ack_sent_record_t *record)
-{
-    record->last_add_time = 0;
-    xqc_rarray_reinit(record->ack_sent);
 }
 
 void

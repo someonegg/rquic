@@ -48,14 +48,6 @@ xqc_transport_params_calc_length(const xqc_transport_params_t *params,
                xqc_put_varint_len(params->max_idle_timeout);
     }
 
-    if (XQC_TP_TYPE_ENCRYPTED_EXTENSIONS == exttype 
-        && params->stateless_reset_token_present) 
-    {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN) +
-               xqc_put_varint_len(XQC_STATELESS_RESET_TOKENLEN) + 
-               XQC_STATELESS_RESET_TOKENLEN;
-    }
-
     if (params->max_udp_payload_size != XQC_DEFAULT_MAX_UDP_PAYLOAD_SIZE) {
         len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE) + 
                xqc_put_varint_len(xqc_put_varint_len(params->max_udp_payload_size)) +
@@ -125,8 +117,7 @@ xqc_transport_params_calc_length(const xqc_transport_params_t *params,
                             sizeof(params->preferred_address.ipv6) +
                             sizeof(params->preferred_address.ipv6_port) +
                             sizeof(params->preferred_address.cid.cid_len) +
-                            params->preferred_address.cid.cid_len +
-                            sizeof(params->preferred_address.stateless_reset_token);
+                            params->preferred_address.cid.cid_len;
 
         len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_PREFERRED_ADDRESS) +
                xqc_put_varint_len(preferred_addrlen) + preferred_addrlen;
@@ -219,14 +210,6 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
                                  params->max_idle_timeout);
     }
 
-    if (XQC_TP_TYPE_ENCRYPTED_EXTENSIONS == exttype 
-        && params->stateless_reset_token_present) 
-    {
-        p = xqc_put_varint(p, XQC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN);
-        p = xqc_put_varint(p, XQC_STATELESS_RESET_TOKENLEN);
-        p = xqc_cpymem(p, params->stateless_reset_token, XQC_STATELESS_RESET_TOKENLEN);
-    }
-
     if (params->max_udp_payload_size != XQC_DEFAULT_MAX_UDP_PAYLOAD_SIZE) {
         p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE, 
                                  params->max_udp_payload_size);
@@ -285,8 +268,7 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
                             sizeof(params->preferred_address.ipv6) + 
                             sizeof(params->preferred_address.ipv6_port) +
                             sizeof(params->preferred_address.cid.cid_len) + 
-                            params->preferred_address.cid.cid_len +
-                            sizeof(params->preferred_address.stateless_reset_token);
+                            params->preferred_address.cid.cid_len;
 
         p = xqc_put_varint(p, XQC_TRANSPORT_PARAM_PREFERRED_ADDRESS);
         p = xqc_put_varint(p, preferred_addrlen);
@@ -296,7 +278,6 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
         p = xqc_put_uint16be(p, params->preferred_address.ipv6_port);
         *p++ = params->preferred_address.cid.cid_len;
         p = xqc_cpymem(p, params->preferred_address.cid.cid_buf, params->preferred_address.cid.cid_len);
-        p = xqc_cpymem(p, params->preferred_address.stateless_reset_token, XQC_STATELESS_RESET_TOKENLEN);
     }
 
     if (params->active_connection_id_limit != XQC_DEFAULT_ACTIVE_CONNECTION_ID_LIMIT) {
@@ -363,25 +344,6 @@ xqc_decode_max_idle_timeout(xqc_transport_params_t *params, xqc_transport_params
     const uint8_t *p, const uint8_t *end, uint64_t param_type, uint64_t param_len)
 {
     XQC_DECODE_VINT_VALUE(&params->max_idle_timeout, p, end);
-}
-
-static xqc_int_t
-xqc_decode_stateless_token(xqc_transport_params_t *params, xqc_transport_params_type_t exttype,
-    const uint8_t *p, const uint8_t *end, uint64_t param_type, uint64_t param_len)
-{
-    if (exttype != XQC_TP_TYPE_ENCRYPTED_EXTENSIONS) {
-        return -XQC_TLS_MALFORMED_TRANSPORT_PARAM;
-    }
-
-    if ((size_t)(end - p) < sizeof(params->stateless_reset_token)
-        || param_len != sizeof(params->stateless_reset_token))
-    {
-        return -XQC_TLS_MALFORMED_TRANSPORT_PARAM;
-    }
-
-    memcpy(params->stateless_reset_token, p, param_len);
-    params->stateless_reset_token_present = 1;
-    return XQC_OK;
 }
 
 static xqc_int_t
@@ -517,14 +479,6 @@ xqc_decode_preferred_address(xqc_transport_params_t *params, xqc_transport_param
         p += params->preferred_address.cid.cid_len;
     }
 
-    /* stateless reset token */
-    if ((end - p) < XQC_STATELESS_RESET_TOKENLEN) {
-        return -XQC_TLS_MALFORMED_TRANSPORT_PARAM;
-    }
-    memcpy(params->preferred_address.stateless_reset_token, p,
-            sizeof(params->preferred_address.stateless_reset_token));
-    p += sizeof(params->preferred_address.stateless_reset_token);
-
     params->preferred_address_present = 1;
     return XQC_OK;
 }
@@ -571,7 +525,6 @@ xqc_decode_enable_pmtud(xqc_transport_params_t *params, xqc_transport_params_typ
 typedef enum {
     XQC_TP_DECODER_ORIGINAL_DEST_CONNECTION_ID = 0x0000,
     XQC_TP_DECODER_MAX_IDLE_TIMEOUT                    ,
-    XQC_TP_DECODER_STATELESS_RESET_TOKEN               ,
     XQC_TP_DECODER_MAX_UDP_PAYLOAD_SIZE                ,
     XQC_TP_DECODER_INITIAL_MAX_DATA                    ,
     XQC_TP_DECODER_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL  ,
@@ -597,9 +550,8 @@ typedef xqc_int_t (*xqc_trans_param_decode_func)(
     const uint8_t *p, const uint8_t *end, uint64_t param_type, uint64_t param_len);
 
 xqc_trans_param_decode_func xqc_trans_param_decode_func_list[] = {
-    xqc_decode_original_dest_cid, 
-    xqc_decode_max_idle_timeout, 
-    xqc_decode_stateless_token,
+    xqc_decode_original_dest_cid,
+    xqc_decode_max_idle_timeout,
     xqc_decode_max_udp_payload_size,
     xqc_decode_initial_max_data,
     xqc_decode_initial_max_stream_data_bidi_local,
@@ -627,7 +579,6 @@ xqc_trans_param_get_index(uint64_t param_type)
 
     case XQC_TRANSPORT_PARAM_ORIGINAL_DEST_CONNECTION_ID:
     case XQC_TRANSPORT_PARAM_MAX_IDLE_TIMEOUT:
-    case XQC_TRANSPORT_PARAM_STATELESS_RESET_TOKEN:
     case XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE:
     case XQC_TRANSPORT_PARAM_INITIAL_MAX_DATA:
     case XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL:
@@ -717,7 +668,6 @@ xqc_decode_transport_params(xqc_transport_params_t *params,
     params->original_dest_connection_id_present = 0;
     params->max_idle_timeout = 0;
 
-    params->stateless_reset_token_present = 0;
     params->max_udp_payload_size = XQC_DEFAULT_MAX_UDP_PAYLOAD_SIZE;
 
     params->initial_max_data = 0;
