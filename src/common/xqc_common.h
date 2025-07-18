@@ -10,7 +10,6 @@
 #include <xquic/xqc_errno.h>
 #include <xquic/xquic_typedef.h>
 
-
 #ifndef XQC_LITTLE_ENDIAN
 # define XQC_LITTLE_ENDIAN 1
 #endif
@@ -36,6 +35,5 @@ xqc_pow2_upper(uint64_t n)
     for(; m < n; m = m << 1);
     return m;
 }
-
 
 #endif /*_XQC_COMMON_H_INCLUDED_*/

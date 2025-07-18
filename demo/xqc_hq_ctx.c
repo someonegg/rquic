@@ -10,7 +10,6 @@
 #include "src/common/xqc_malloc.h"
 #include <xquic/xqc_errno.h>
 
-
 typedef struct xqc_hq_ctx_s {
     xqc_hq_callbacks_t  hq_cbs;
 } xqc_hq_ctx_t;
@@ -73,7 +72,6 @@ error:
     xqc_hq_ctx_destroy(engine);
     return ret;
 }
-
 
 xqc_int_t
 xqc_hq_ctx_destroy(xqc_engine_t *engine)

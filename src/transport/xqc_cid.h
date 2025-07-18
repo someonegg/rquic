@@ -11,7 +11,7 @@
 #define XQC_DEFAULT_CID_LEN 8
 
 typedef enum {
-    XQC_CID_UNUSED, 
+    XQC_CID_UNUSED,
     XQC_CID_USED,
     XQC_CID_RETIRED,
     XQC_CID_REMOVED,
@@ -65,7 +65,6 @@ typedef struct xqc_cid_set_s {
     uint32_t          set_cnt[XQC_CID_SET_MAX_STATE];
 } xqc_cid_set_t;
 
-
 xqc_int_t xqc_generate_cid(xqc_engine_t *engine, xqc_cid_t *ori_cid, xqc_cid_t *cid,
     uint64_t cid_seq_num);
 
@@ -76,27 +75,27 @@ void xqc_cid_set(xqc_cid_t *cid, const unsigned char *data, uint8_t len);
 void xqc_init_cid_set(xqc_cid_set_t *cid_set);
 void xqc_destroy_cid_set(xqc_cid_set_t *cid_set);
 
-xqc_int_t xqc_cid_set_insert_cid(xqc_cid_set_t *cid_set, xqc_cid_t *cid, 
+xqc_int_t xqc_cid_set_insert_cid(xqc_cid_set_t *cid_set, xqc_cid_t *cid,
     xqc_cid_state_t state, uint64_t limit, uint64_t path_id);
-xqc_int_t xqc_cid_set_delete_cid(xqc_cid_set_t *cid_set, 
+xqc_int_t xqc_cid_set_delete_cid(xqc_cid_set_t *cid_set,
     xqc_cid_t *cid, uint64_t path_id);
 
-xqc_cid_inner_t *xqc_get_inner_cid_by_seq(xqc_cid_set_t *cid_set, 
+xqc_cid_inner_t *xqc_get_inner_cid_by_seq(xqc_cid_set_t *cid_set,
     uint64_t seq_num, uint64_t path_id);
-xqc_cid_inner_t *xqc_cid_in_cid_set(xqc_cid_set_t *cid_set, 
+xqc_cid_inner_t *xqc_cid_in_cid_set(xqc_cid_set_t *cid_set,
     xqc_cid_t *cid, uint64_t path_id);
-xqc_cid_inner_t *xqc_cid_set_search_cid(xqc_cid_set_t *cid_set, 
+xqc_cid_inner_t *xqc_cid_set_search_cid(xqc_cid_set_t *cid_set,
     xqc_cid_t *cid);
 
-xqc_int_t xqc_cid_switch_to_next_state(xqc_cid_set_t *cid_set, 
+xqc_int_t xqc_cid_switch_to_next_state(xqc_cid_set_t *cid_set,
     xqc_cid_inner_t *cid, xqc_cid_state_t state, uint64_t path_id);
 
-xqc_int_t xqc_get_unused_cid(xqc_cid_set_t *cid_set, 
+xqc_int_t xqc_get_unused_cid(xqc_cid_set_t *cid_set,
     xqc_cid_t *cid, uint64_t path_id);
 
 void xqc_cid_set_inner_init(xqc_cid_set_inner_t *cid_set_inner);
 void xqc_cid_set_inner_destroy(xqc_cid_set_inner_t *cid_set_inner);
-xqc_cid_set_inner_t* xqc_get_path_cid_set(xqc_cid_set_t *cid_set, uint64_t path_id); 
+xqc_cid_set_inner_t* xqc_get_path_cid_set(xqc_cid_set_t *cid_set, uint64_t path_id);
 int64_t xqc_cid_set_get_unused_cnt(xqc_cid_set_t *cid_set, uint64_t path_id);
 int64_t xqc_cid_set_get_used_cnt(xqc_cid_set_t *cid_set, uint64_t path_id);\
 int64_t xqc_cid_set_get_retired_cnt(xqc_cid_set_t *cid_set, uint64_t path_id);
@@ -109,7 +108,6 @@ void xqc_cid_set_update_state(xqc_cid_set_t *cid_set, uint64_t path_id, xqc_cid_
 
 xqc_cid_set_inner_t* xqc_get_next_unused_path_cid_set(xqc_cid_set_t *cid_set);
 void xqc_cid_set_on_cid_acked(xqc_cid_set_t *cid_set, uint64_t path_id, uint64_t cid_seq);
-
 
 #endif /* _XQC_CID_H_INCLUDED_ */
 

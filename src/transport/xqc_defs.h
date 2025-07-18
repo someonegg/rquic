@@ -15,7 +15,6 @@
 /* default connection initial timeout(millisecond) */
 #define XQC_CONN_INITIAL_IDLE_TIMEOUT   10000
 
-
 #define XQC_CONN_ADDR_VALIDATION_CID_ENTROPY 8
 
 /* connection PTO packet count */
@@ -38,21 +37,17 @@
 
 #define XQC_CONN_MAX_CRYPTO_DATA_TOTAL_LEN (10*1024*1024)
 
-
 /* max token length supported by xquic */
 #define XQC_MAX_TOKEN_LEN               256
 
 /* length of retry integrity tag */
 #define XQC_RETRY_INTEGRITY_TAG_LEN     16
 
-
 extern const uint32_t       xqc_proto_version_value[];
 extern const unsigned char  xqc_proto_version_field[][XQC_PROTO_VERSION_LEN];
 
-
 #define xqc_check_proto_version_valid(ver) \
         ((ver) > XQC_IDRAFT_INIT_VER && (ver) < XQC_IDRAFT_VER_NEGOTIATION)
-
 
 /* max alpn length */
 #define XQC_MAX_ALPN_LEN                        255

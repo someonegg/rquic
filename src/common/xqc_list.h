@@ -5,7 +5,6 @@
 #ifndef _XQC_H_LIST_INCLUDE_
 #define _XQC_H_LIST_INCLUDE_
 
-
 #include <stddef.h>
 #include <assert.h>
 #include "xqc_common.h"
@@ -93,9 +92,9 @@ __xqc_list_del_entry(xqc_list_head_t *entry)
     next = entry->next;
 
     assert(prev != NULL && next != NULL);
-    assert(next != XQC_LIST_POISON1 
+    assert(next != XQC_LIST_POISON1
            && prev != XQC_LIST_POISON2
-           && prev->next == entry 
+           && prev->next == entry
            && next->prev == entry);
 #endif
 
@@ -138,7 +137,6 @@ xqc_list_is_inited(const xqc_list_head_t *head)
     return head->next != NULL;
 }
 
-
 static inline void
 __xqc_list_splice(const xqc_list_head_t *list,
     xqc_list_head_t *prev, xqc_list_head_t *next)
@@ -178,7 +176,7 @@ xqc_list_splice_init(xqc_list_head_t *list, xqc_list_head_t *head)
     }
 }
 
-static inline void 
+static inline void
 xqc_list_splice_tail_init(xqc_list_head_t *list, xqc_list_head_t *head)
 {
     if (!xqc_list_empty(list)) {
@@ -186,7 +184,6 @@ xqc_list_splice_tail_init(xqc_list_head_t *list, xqc_list_head_t *head)
         xqc_init_list_head(list);
     }
 }
-
 
 #define xqc_list_for_each(pos, head) \
     for (pos = (head)->next; pos != (head); pos = pos->next)

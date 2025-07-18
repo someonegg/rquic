@@ -47,7 +47,6 @@ xqc_discrete_vint_parse(const uint8_t *p, size_t sz,
     return (pos - p);
 }
 
-
 ssize_t
 xqc_fixed_len_int_parse(const uint8_t *p, size_t sz, uint8_t len,
     xqc_discrete_int_pctx_t *pctx, xqc_bool_t *fin)

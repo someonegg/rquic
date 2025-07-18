@@ -5,7 +5,6 @@
 #ifndef _XQC_BBR_H_INCLUDED_
 #define _XQC_BBR_H_INCLUDED_
 
-
 #include <xquic/xquic.h>
 #include <xquic/xquic_typedef.h>
 #include "src/congestion_control/xqc_window_filter.h"
@@ -153,7 +152,7 @@ typedef struct xqc_bbr_s {
     xqc_bool_t             lt_is_sampling;
     xqc_bool_t             lt_use_bw;
     uint16_t               lt_rtt_cnt;
-    
+
     xqc_bool_t             ignore_app_limit;
 
 } xqc_bbr_t;

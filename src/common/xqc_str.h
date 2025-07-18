@@ -34,7 +34,6 @@ typedef struct xqc_str_s {
 #define xqc_tolower(c)          (unsigned char) ((c >= 'A' && c <= 'Z') ? (c | 0x20) : c)
 #define xqc_toupper(c)          (unsigned char) ((c >= 'a' && c <= 'z') ? (c & ~0x20) : c)
 
-
 #define xqc_memzero(buf, n)     (void) memset(buf, 0, n)
 #define xqc_memset(buf, c, n)   (void) memset(buf, c, n)
 
@@ -44,7 +43,6 @@ typedef struct xqc_str_s {
 #define xqc_memcmp(s1, s2, n)   memcmp((const char *) s1, (const char *) s2, n)
 
 #define xqc_lengthof(x)         (sizeof(x) - 1)
-
 
 unsigned char *xqc_hex_dump(unsigned char *dst, const unsigned char *src, size_t len);
 unsigned char *xqc_vsprintf(unsigned char *buf, unsigned char *last, const char *fmt, va_list args);
@@ -77,7 +75,7 @@ xqc_str_tolower(unsigned char *dst, unsigned char *src, size_t n)
     }
 }
 
-static inline unsigned char * 
+static inline unsigned char *
 xqc_sprintf(unsigned char *buf, unsigned char *last, const char *fmt, ...)
 {
     unsigned char *p;
@@ -88,7 +86,6 @@ xqc_sprintf(unsigned char *buf, unsigned char *last, const char *fmt, ...)
     return p;
 }
 
-
 inline static xqc_bool_t
 xqc_memeq(const void *s1, const void *s2, size_t n)
 {
@@ -98,7 +95,7 @@ xqc_memeq(const void *s1, const void *s2, size_t n)
 inline static xqc_bool_t
 xqc_char_is_letter_or_number(char c)
 {
-    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z') 
+    if ((c >= 'A' && c <= 'Z') || (c >= 'a' && c <= 'z')
         || (c >= '0' && c <= '9'))
     {
         return XQC_TRUE;

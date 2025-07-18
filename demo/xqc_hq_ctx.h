@@ -9,5 +9,4 @@
 
 xqc_int_t xqc_hq_ctx_get_callbacks(xqc_engine_t *engine, char *alpn, size_t alpn_len, xqc_hq_callbacks_t **hq_cbs);
 
-
 #endif

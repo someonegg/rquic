@@ -50,7 +50,6 @@
 #endif
 #endif
 
-
 /* TODO: there may be problems using -o2 under Android platform */
 #if defined(__GNUC__) && !defined(ANDROID)
 #   define XQC_UNLIKELY(cond) __builtin_expect(!!(cond), 0)
@@ -169,17 +168,15 @@ struct iovec {
 
 #if !(defined __MINGW32__) && !(defined __MINGW64__)
 #undef XQC_EXPORT_PUBLIC_API
-#define XQC_EXPORT_PUBLIC_API   _declspec(dllexport) 
+#define XQC_EXPORT_PUBLIC_API   _declspec(dllexport)
 #endif
 
 #endif
-
 
 typedef enum {
     XQC_CONN_TYPE_CLIENT    = 0,
     XQC_CONN_TYPE_SERVER    = 1,
 } xqc_conn_type_t;
-
 
 typedef enum {
     XQC_STREAM_BIDI = 0,
@@ -199,7 +196,6 @@ typedef enum xqc_conn_settings_type_e {
 typedef struct xqc_stream_settings_s {
     uint64_t recv_rate_bytes_per_sec;
 } xqc_stream_settings_t;
-
 
 typedef enum {
     XQC_CLI_BID = 0,

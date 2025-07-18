@@ -155,7 +155,6 @@ typedef enum {
 
 } xqc_conn_flag_t;
 
-
 typedef struct {
     xqc_preferred_addr_t    preferred_address;
     xqc_usec_t              max_idle_timeout;
@@ -174,7 +173,6 @@ typedef struct {
 
     uint64_t                enable_pmtud;
 } xqc_trans_settings_t;
- 
 
 typedef struct {
     /* flow control limit */
@@ -192,7 +190,6 @@ typedef struct {
     uint64_t                fc_recv_windows_size;
     xqc_usec_t              fc_last_window_update_time;
 } xqc_conn_flow_ctl_t;
-
 
 typedef struct {
     xqc_list_head_t list_head;
@@ -479,7 +476,7 @@ xqc_conn_has_undecrypt_packets(xqc_connection_t *conn)
 xqc_int_t xqc_conn_process_packet(xqc_connection_t *c, const unsigned char *packet_in_buf,
     size_t packet_in_size, xqc_usec_t recv_time);
 
-void xqc_conn_process_packet_recved_path(xqc_connection_t *conn, xqc_cid_t *scid, 
+void xqc_conn_process_packet_recved_path(xqc_connection_t *conn, xqc_cid_t *scid,
     size_t packet_in_size, xqc_usec_t recv_time);
 
 xqc_int_t xqc_conn_check_handshake_complete(xqc_connection_t *conn);
@@ -511,7 +508,7 @@ xqc_int_t xqc_conn_confirm_key_update(xqc_connection_t *conn);
 /* from send_ctl */
 void xqc_conn_decrease_unacked_stream_ref(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
 void xqc_conn_increase_unacked_stream_ref(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
-void xqc_conn_update_stream_stats_on_sent(xqc_connection_t *conn, xqc_send_ctl_t *ctl, 
+void xqc_conn_update_stream_stats_on_sent(xqc_connection_t *conn, xqc_send_ctl_t *ctl,
     xqc_packet_out_t *packet_out, xqc_usec_t now);
 
 /* 选择所有path的PTO中最大的那个，作为conn的PTO，用于连接级别的定时器触发:
@@ -550,11 +547,9 @@ xqc_int_t xqc_conn_gp_timer_unset(xqc_connection_t *conn, xqc_gp_timer_id_t gp_t
 
 xqc_int_t xqc_conn_gp_timer_get_info(xqc_connection_t *conn, xqc_gp_timer_id_t gp_timer_id, xqc_bool_t *is_set, xqc_usec_t *expire_time);
 
-
 void xqc_conn_schedule_packets_to_paths(xqc_connection_t *conn);
 
-
-static inline xqc_uint_t 
+static inline xqc_uint_t
 xqc_conn_get_mss(xqc_connection_t *conn) {
     return conn->pkt_out_size + XQC_ACK_SPACE;
 }

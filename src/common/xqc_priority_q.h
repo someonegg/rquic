@@ -71,7 +71,7 @@ typedef struct xqc_priority_queue_s {
 #define xqc_pq_default_capacity 16
 
 static inline int
-xqc_pq_init(xqc_pq_t *pq, size_t element_size, 
+xqc_pq_init(xqc_pq_t *pq, size_t element_size,
     size_t capacity, xqc_allocator_t a, xqc_pq_compare_ptr cmp,
     xqc_pq_element_op_t eop)
 {
@@ -215,14 +215,13 @@ xqc_pq_pop(xqc_pq_t *pq)
     }
 
     xqc_pq_element_copy(pq, 0, pq->count);
-    
+
     if (pq->eop) {
         pq->eop(pq, xqc_pq_element(pq, 0));
     }
 
     xqc_pq_move_towards_bottom(pq, 0);
 }
-
 
 static inline void
 xqc_pq_remove(xqc_pq_t *pq, uint32_t index)

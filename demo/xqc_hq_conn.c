@@ -10,7 +10,6 @@
 #include "src/transport/xqc_engine.h"
 #include "src/transport/xqc_conn.h"
 
-
 xqc_hq_conn_t *
 xqc_hq_conn_create(xqc_connection_t *conn, const xqc_cid_t *cid, void *user_data)
 {
@@ -23,7 +22,7 @@ xqc_hq_conn_create(xqc_connection_t *conn, const xqc_cid_t *cid, void *user_data
     xqc_int_t ret;
 
     ret = xqc_hq_ctx_get_callbacks(conn->engine, conn->alpn, conn->alpn_len, &hq_cbs);
-    
+
     if (ret != XQC_OK || hq_cbs == NULL) {
         PRINT_LOG("|create hq conn failed");
         xqc_free(hqc);
@@ -41,7 +40,6 @@ xqc_hq_conn_create(xqc_connection_t *conn, const xqc_cid_t *cid, void *user_data
     return hqc;
 }
 
-
 void
 xqc_hq_conn_destroy(xqc_hq_conn_t *hqc)
 {
@@ -50,20 +48,19 @@ xqc_hq_conn_destroy(xqc_hq_conn_t *hqc)
     }
 }
 
-const xqc_cid_t* 
-xqc_hq_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings, 
+const xqc_cid_t*
+xqc_hq_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
     const char *server_host, int no_crypto_flag,
     const xqc_conn_ssl_config_t *conn_ssl_config, const struct sockaddr *peer_addr,
     socklen_t peer_addrlen, void *user_data)
 {
     /* HQ is also known as HTTP/0.9, here it is used as interop protocol */
     const xqc_cid_t *cid = xqc_connect(engine, conn_settings, server_host,
-        no_crypto_flag, conn_ssl_config, peer_addr, peer_addrlen, 
+        no_crypto_flag, conn_ssl_config, peer_addr, peer_addrlen,
         xqc_hq_alpn[conn_settings->proto_version], user_data);
 
     return cid;
 }
-
 
 xqc_int_t
 xqc_hq_conn_close(xqc_engine_t *engine, xqc_hq_conn_t *hqc, const xqc_cid_t *cid)
@@ -71,13 +68,11 @@ xqc_hq_conn_close(xqc_engine_t *engine, xqc_hq_conn_t *hqc, const xqc_cid_t *cid
     return xqc_conn_close(engine, cid);
 }
 
-
 void
 xqc_hq_conn_set_user_data(xqc_hq_conn_t *hqc, void *user_data)
 {
     hqc->user_data = user_data;
 }
-
 
 xqc_int_t
 xqc_hq_conn_get_peer_addr(xqc_hq_conn_t *hqc, struct sockaddr *addr, socklen_t addr_cap,
@@ -124,14 +119,12 @@ xqc_hq_conn_close_notify(xqc_connection_t *conn, const xqc_cid_t *cid,
     return XQC_OK;
 }
 
-
 void
 xqc_hq_conn_handshake_finished(xqc_connection_t *conn, void *conn_user_data,
     void *conn_proto_data)
 {
     return;
 }
-
 
 /* connection callback over quic Transport layere */
 const xqc_conn_callbacks_t hq_conn_callbacks = {

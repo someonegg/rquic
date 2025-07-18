@@ -8,13 +8,12 @@
 #include <stdint.h>
 #include <stdio.h>
 
-
 static inline int
 xqc_uint32_list_find(const uint32_t *list, size_t count, uint32_t target)
 {
     for (size_t i = 0; i < count; ++i) {
         if (list[i] == target) {
-            return i; 
+            return i;
         }
     }
     return -1;

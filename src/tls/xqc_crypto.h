@@ -25,7 +25,6 @@ typedef struct xqc_hdr_protect_cipher_s    xqc_hdr_protect_cipher_t;
 
 #undef  XQC_CRYPTO_PRIVATE
 
-
 /* aes_d_gcm  d is the length of key */
 #define xqc_aead_init_aes_gcm(aead, d)              XQC_AEAD_INIT_AES_GCM_IMPL(aead, d)
 
@@ -74,7 +73,6 @@ typedef xqc_int_t (*xqc_hp_mask_pt)(const xqc_hdr_protect_cipher_t *hp_cipher, v
     const uint8_t *key, size_t keylen,
     const uint8_t *sample, size_t samplelen);
 
-
 struct xqc_pkt_protect_aead_s {
     /*
      * implementation handler for aead
@@ -90,7 +88,6 @@ struct xqc_pkt_protect_aead_s {
     xqc_aead_encrypt_pt     encrypt;
     xqc_aead_decrypt_pt     decrypt;
 };
-
 
 struct xqc_hdr_protect_cipher_s {
     /*
@@ -140,7 +137,6 @@ typedef struct xqc_crypto_keys_s {
     void               *tx_hp_ctx;
 } xqc_crypto_keys_t;
 
-
 typedef struct xqc_crypto_s {
 
     /* aead suites for packet payload protection */
@@ -162,7 +158,6 @@ typedef struct xqc_crypto_s {
     xqc_uint_t                  key_phase;
 
 } xqc_crypto_t;
-
 
 /**
  * @brief create crypto instance, initialize aead suites, cipher suites and digest suites
@@ -194,7 +189,7 @@ xqc_bool_t xqc_crypto_is_key_ready(xqc_crypto_t *crypto, xqc_key_type_t type);
 /**
  * @brief encrypt packet payload
  *
- * @param crypto 
+ * @param crypto
  * @param dst destination buffer
  * @param dst_cap capacity of dst
  * @param dst_len written length
@@ -207,14 +202,14 @@ xqc_int_t xqc_crypto_encrypt_payload(xqc_crypto_t *crypto,
 
 /**
  * @brief decrypt packet payload
- * 
- * @param crypto 
+ *
+ * @param crypto
  * @param header decrypted packet header
  * @param header_len decrypted packet header length
  * @param dst destination buffer for decrypted payload
  * @param dst_cap capacity of destination buffer
  * @param dst_len length of decrypted payload
- * @return xqc_int_t 
+ * @return xqc_int_t
  */
 xqc_int_t xqc_crypto_decrypt_payload(xqc_crypto_t *crypto,
     uint64_t pktno, xqc_uint_t key_phase, uint32_t path_id,
@@ -223,26 +218,26 @@ xqc_int_t xqc_crypto_decrypt_payload(xqc_crypto_t *crypto,
 
 /**
  * @brief apply header protection
- * 
- * @param crypto 
- * @param header header to be protected with subsequent encrypted payload buffer, after header 
+ *
+ * @param crypto
+ * @param header header to be protected with subsequent encrypted payload buffer, after header
  * protection, the first byte and packet number will be modified and protected with mask.
  * @param pktno position of packet number
  * @param end end position of buffer
- * @return XQC_OK for success, others for failure 
+ * @return XQC_OK for success, others for failure
  */
 xqc_int_t xqc_crypto_encrypt_header(xqc_crypto_t *crypto, xqc_pkt_type_t pkt_type, uint8_t *header,
     uint8_t *pktno, uint8_t *end);
 
 /**
  * @brief remove header protection
- * 
- * @param crypto 
- * @param header header buffer to be remove header protection, after remove, the first byte and 
+ *
+ * @param crypto
+ * @param header header buffer to be remove header protection, after remove, the first byte and
  * packet number will be modified and restored
  * @param pktno position of packet number
  * @param end end position of buffer
- * @return XQC_OK for success, others for failure 
+ * @return XQC_OK for success, others for failure
  */
 xqc_int_t xqc_crypto_decrypt_header(xqc_crypto_t *crypto, xqc_pkt_type_t pkt_type, uint8_t *header,
     uint8_t *pktno, uint8_t *end);
@@ -255,9 +250,7 @@ xqc_int_t xqc_crypto_derive_initial_secret(
     uint8_t *svr_initial_secret, size_t svr_initial_secret_len,
     const xqc_cid_t *cid, const uint8_t *salt, size_t saltlen);
 
-
 ssize_t xqc_crypto_aead_tag_len(xqc_crypto_t *crypto);
-
 
 /**
  * @brief derive updated secrets and read/write keys on 1-RTT
@@ -269,7 +262,6 @@ xqc_int_t xqc_crypto_derive_updated_keys(xqc_crypto_t *crypto, xqc_key_type_t ty
  */
 void xqc_crypto_discard_old_keys(xqc_crypto_t *crypto);
 
-
 /**
  * @brief call aead encrypt callback directly
  */
@@ -279,6 +271,5 @@ xqc_int_t xqc_crypto_aead_encrypt(xqc_crypto_t *crypto,
     const uint8_t *nonce, size_t noncelen,
     const uint8_t *ad, size_t adlen,
     uint8_t *dst, size_t dst_cap, size_t *dst_len);
-
 
 #endif

@@ -34,7 +34,7 @@ long xqc_random(void) {
 
 }
 
-xqc_random_generator_t * 
+xqc_random_generator_t *
 xqc_random_generator_create(xqc_log_t *log)
 {
     xqc_random_generator_t *rand_gen = xqc_malloc(sizeof(xqc_random_generator_t));
@@ -59,7 +59,7 @@ xqc_random_generator_create(xqc_log_t *log)
     return rand_gen;
 }
 
-void 
+void
 xqc_random_generator_destroy(xqc_random_generator_t *rand_gen)
 {
 #ifdef XQC_SYS_WINDOWS
@@ -76,7 +76,7 @@ xqc_random_generator_destroy(xqc_random_generator_t *rand_gen)
 xqc_int_t
 xqc_get_random(xqc_random_generator_t *rand_gen, u_char *buf, size_t need_len)
 {
-#ifndef XQC_SYS_WINDOWS 
+#ifndef XQC_SYS_WINDOWS
     size_t total_read = 0;
     ssize_t bytes_read = 0;
 
@@ -96,8 +96,8 @@ xqc_get_random(xqc_random_generator_t *rand_gen, u_char *buf, size_t need_len)
 
         while (total_read < rand_gen->rand_buf_size) {
 
-            bytes_read = read(rand_gen->rand_fd, 
-                              rand_gen->rand_buf.data + total_read, 
+            bytes_read = read(rand_gen->rand_fd,
+                              rand_gen->rand_buf.data + total_read,
                               rand_gen->rand_buf_size - total_read);
 
             if (bytes_read == -1) {
@@ -121,15 +121,15 @@ xqc_get_random(xqc_random_generator_t *rand_gen, u_char *buf, size_t need_len)
 
             total_read += bytes_read;
         }
- 
+
         if (total_read < need_len) {
             xqc_log(rand_gen->log, XQC_LOG_WARN,
                     "|random|can not generate rand buf|%zu|%zu|", total_read, need_len);
-            return XQC_ERROR;            
+            return XQC_ERROR;
         }
-        
+
         rand_gen->rand_buf_offset = 0;
-        rand_gen->rand_buf.len = total_read;   
+        rand_gen->rand_buf.len = total_read;
     }
 
     xqc_memcpy(buf, rand_gen->rand_buf.data + rand_gen->rand_buf_offset, need_len);

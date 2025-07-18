@@ -56,7 +56,7 @@ xqc_pacing_rate_calc(xqc_pacing_t *pacing)
                 "|pacing_rate zero|cwnd:%ui|srtt:%ui|", cwnd, srtt);
     }
 
-    if (send_ctl->ctl_cong_callback->xqc_cong_ctl_in_slow_start 
+    if (send_ctl->ctl_cong_callback->xqc_cong_ctl_in_slow_start
         && send_ctl->ctl_cong_callback->xqc_cong_ctl_in_slow_start(send_ctl->ctl_cong))
     {
         pacing_rate *= 2;
@@ -68,16 +68,16 @@ xqc_pacing_rate_calc(xqc_pacing_t *pacing)
     return pacing_rate;
 }
 
-static uint32_t 
+static uint32_t
 xqc_pacing_max_burst_size(xqc_pacing_t *pacing)
 {
     xqc_usec_t t_diff = (XQC_PACING_DELAY_US + XQC_CLOCK_GRANULARITY_US);
-    uint64_t max_burst_bytes = t_diff * xqc_pacing_rate_calc(pacing) 
+    uint64_t max_burst_bytes = t_diff * xqc_pacing_rate_calc(pacing)
                                 / 1000000;
     return xqc_max(XQC_MAX_BURST_NUM, max_burst_bytes);
 }
 
-static uint32_t 
+static uint32_t
 xqc_pacing_calc_budget(xqc_pacing_t *pacing, xqc_usec_t now)
 {
     uint32_t budget = pacing->bytes_budget;
@@ -102,7 +102,7 @@ xqc_pacing_on_timeout(xqc_pacing_t *pacing)
     pacing->last_sent_time = now;
 }
 
-void 
+void
 xqc_pacing_on_packet_sent(xqc_pacing_t *pacing, uint32_t bytes)
 {
     xqc_usec_t now = xqc_monotonic_timestamp();
@@ -117,21 +117,21 @@ xqc_pacing_on_packet_sent(xqc_pacing_t *pacing, uint32_t bytes)
     pacing->last_sent_time = now;
 }
 
-xqc_usec_t 
+xqc_usec_t
 xqc_pacing_time_until_send(xqc_pacing_t *pacing, uint32_t bytes)
 {
     if (pacing->bytes_budget >= bytes) {
         return 0;
     }
     xqc_usec_t delay_us;
-    delay_us = (uint64_t)(bytes - pacing->bytes_budget) * 1000000 
+    delay_us = (uint64_t)(bytes - pacing->bytes_budget) * 1000000
             / xqc_pacing_rate_calc(pacing);
     delay_us = xqc_max(delay_us, XQC_PACING_DELAY_US);
     pacing->pending_budget = bytes - pacing->bytes_budget;
     return delay_us;
 }
 
-int 
+int
 xqc_pacing_can_write(xqc_pacing_t *pacing, uint32_t total_bytes)
 {
     xqc_send_ctl_t *send_ctl = pacing->ctl_ctx;

@@ -9,14 +9,11 @@
 #include <xquic/xquic_typedef.h>
 #include <xquic/xqc_errno.h>
 
-
 typedef struct xqc_hq_conn_s    xqc_hq_conn_t;
 typedef struct xqc_hq_request_s xqc_hq_request_t;
 
-
 typedef int (*xqc_hq_conn_notify_pt)(xqc_hq_conn_t *conn, const xqc_cid_t *cid,
     void *conn_user_data);
-
 
 /**
  * @brief application-layer-protocol callback funcitons for hq
@@ -34,7 +31,6 @@ typedef struct xqc_hq_conn_callbacks_s {
     xqc_hq_conn_notify_pt               conn_close_notify;
 
 } xqc_hq_conn_callbacks_t;
-
 
 typedef int (*xqc_hq_req_create_notify_pt)(xqc_hq_request_t *hq_req, void *req_user_data);
 
@@ -67,7 +63,6 @@ typedef struct xqc_hq_request_callbacks_s {
 
 } xqc_hq_request_callbacks_t;
 
-
 /**
  * @brief hq callbacks
  */
@@ -81,25 +76,21 @@ typedef struct xqc_hq_callbacks_s {
 
 } xqc_hq_callbacks_t;
 
-
-
 /**
  * @brief init the environment of hq, MUST be invoked before create hq connection
  */
 xqc_int_t
 xqc_hq_ctx_init(xqc_engine_t *engine, xqc_hq_callbacks_t *hq_cbs);
 
-
 xqc_int_t
 xqc_hq_ctx_destroy(xqc_engine_t *engine);
-
 
 /**
  * @brief hq connection functions
  */
 
 const xqc_cid_t *
-xqc_hq_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings, 
+xqc_hq_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
     const char *server_host, int no_crypto_flag,
     const xqc_conn_ssl_config_t *conn_ssl_config, const struct sockaddr *peer_addr,
     socklen_t peer_addrlen, void *user_data);
@@ -113,7 +104,6 @@ xqc_hq_conn_set_user_data(xqc_hq_conn_t *hqc, void *user_data);
 xqc_int_t
 xqc_hq_conn_get_peer_addr(xqc_hq_conn_t *hqc, struct sockaddr *addr, socklen_t addr_cap,
     socklen_t *peer_addr_len);
-
 
 /**
  * @brief hq request functions
@@ -146,6 +136,5 @@ xqc_hq_request_close(xqc_hq_request_t *hqr);
 
 xqc_stream_stats_t
 xqc_hq_request_get_stats(xqc_hq_request_t *hqr);
-
 
 #endif

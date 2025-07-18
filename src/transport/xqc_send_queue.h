@@ -4,7 +4,6 @@
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_conn.h"
 
-
 #define XQC_SNDQ_PACKETS_USED_MAX            18000
 #define XQC_SNDQ_RELEASE_ENOUGH_SPACE_TH     10  /* 1 / 10*/
 #define XQC_SNDQ_MAX_UNACK_PACKETS_LIMIT     (100 * 1000) /* limit unack packets to avoid ddos attack */
@@ -33,7 +32,6 @@ typedef struct xqc_send_queue_s {
 
 } xqc_send_queue_t;
 
-
 static inline int
 xqc_send_queue_can_write(xqc_send_queue_t *send_queue)
 {
@@ -51,7 +49,6 @@ xqc_send_queue_release_enough_space(xqc_send_queue_t *send_queue)
 }
 uint64_t xqc_send_queue_get_unsent_packets_num(xqc_send_queue_t *send_queue);
 
-
 xqc_send_queue_t *xqc_send_queue_create(xqc_connection_t *conn);
 void xqc_send_queue_destroy(xqc_send_queue_t *send_queue);
 
@@ -62,7 +59,6 @@ xqc_packet_out_t *xqc_send_queue_get_packet_out(xqc_send_queue_t *send_queue, un
 xqc_packet_out_t *xqc_send_queue_get_packet_out_for_stream(xqc_send_queue_t *send_queue, unsigned need, xqc_pkt_type_t pkt_type,
     xqc_stream_t *stream);
 int xqc_send_queue_out_queue_empty(xqc_send_queue_t *send_queue);
-
 
 void xqc_send_queue_insert_send(xqc_packet_out_t *po, xqc_list_head_t *head, xqc_send_queue_t *send_queue);
 void xqc_send_queue_remove_send(xqc_list_head_t *pos);
@@ -82,14 +78,12 @@ void xqc_send_queue_remove_probe(xqc_list_head_t *pos);
 void xqc_send_queue_insert_unacked(xqc_packet_out_t *packet_out, xqc_list_head_t *head, xqc_send_queue_t *send_queue);
 void xqc_send_queue_remove_unacked(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue);
 
-
 void xqc_send_queue_move_to_head(xqc_list_head_t *pos, xqc_list_head_t *head);
 void xqc_send_queue_move_to_tail(xqc_list_head_t *pos, xqc_list_head_t *head);
 void xqc_send_queue_move_to_high_pri(xqc_list_head_t *pos, xqc_send_queue_t *send_queue);
 
 void xqc_send_queue_copy_to_lost(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue, xqc_bool_t mark_retrans);
 void xqc_send_queue_copy_to_probe(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue, xqc_path_ctx_t *path);
-
 
 void xqc_send_queue_drop_packets(xqc_connection_t *conn);
 void xqc_send_queue_drop_initial_packets(xqc_connection_t *conn);

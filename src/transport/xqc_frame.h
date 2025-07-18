@@ -57,7 +57,6 @@ typedef enum {
     XQC_FRAME_BIT_NUM                   = 1ULL << XQC_FRAME_NUM,
 } xqc_frame_type_bit_t;
 
-
 /*
  * Ack-eliciting Packet:  A QUIC packet that contains frames other than
       ACK, PADDING, and CONNECTION_CLOSE.  These cause a recipient to
@@ -80,13 +79,11 @@ typedef enum {
  */
 #define XQC_CAN_IN_FLIGHT(types) ((types) & ~(XQC_FRAME_BIT_ACK | XQC_FRAME_BIT_CONNECTION_CLOSE))
 
-
 /*
  * PING and PADDING frames contain no information, so lost PING or
  *     PADDING frames do not require repair
  */
 #define XQC_NEED_REPAIR(types) ((types) & ~(XQC_FRAME_BIT_ACK| XQC_FRAME_BIT_PADDING | XQC_FRAME_BIT_PING | XQC_FRAME_BIT_CONNECTION_CLOSE))
-
 
 const char *xqc_frame_type_2_str(xqc_engine_t *engine, xqc_frame_type_bit_t type_bit);
 

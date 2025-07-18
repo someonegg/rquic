@@ -22,7 +22,6 @@ set(
     "demo_server.c"
 )
 
-
 if(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
     set(GETOPT_SOURCES
         getopt.c

@@ -11,7 +11,6 @@
 #include <openssl/rand.h>
 #include <openssl/hmac.h>
 
-
 typedef enum xqc_tls_flag_e {
     /* initial state */
     XQC_TLS_FLAG_NONE                   = 0,
@@ -26,7 +25,6 @@ typedef enum xqc_tls_flag_e {
     XQC_TLS_FLAG_HSK_COMPLETED          = 1 << 1,
 
 } xqc_tls_flag_t;
-
 
 typedef struct xqc_tls_s {
     /* tls context */
@@ -67,10 +65,8 @@ typedef struct xqc_tls_s {
 
 } xqc_tls_t;
 
-
 /* quic method callback functions for ssl library */
 SSL_QUIC_METHOD xqc_ssl_quic_method;
-
 
 xqc_bool_t
 xqc_tls_check_session_ticket_timeout(SSL_SESSION *session)
@@ -90,7 +86,6 @@ xqc_tls_check_session_ticket_timeout(SSL_SESSION *session)
     /* session is still available */
     return XQC_TRUE;
 }
-
 
 xqc_int_t
 xqc_tls_cli_set_session_data(xqc_tls_t *tls, char *session_data, size_t session_data_len)
@@ -154,8 +149,8 @@ xqc_tls_set_alpn(SSL *ssl, const char *alpn)
         return -XQC_TLS_INVALID_ARGUMENT;
     }
 
-    /* 
-     * ALPN protocol is a series of non-empty, 8-bit length-prefixed strings, 
+    /*
+     * ALPN protocol is a series of non-empty, 8-bit length-prefixed strings,
      * the length is one byte more than input alpn string.
      */
     size_t protos_len = alpn_len + 1;
@@ -176,7 +171,6 @@ xqc_tls_set_alpn(SSL *ssl, const char *alpn)
     xqc_free(p_alpn);
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_tls_init_client_ssl(xqc_tls_t *tls, xqc_tls_config_t *cfg)
@@ -199,8 +193,8 @@ xqc_tls_init_client_ssl(xqc_tls_t *tls, xqc_tls_config_t *cfg)
     SSL_set_tlsext_host_name(ssl, hostname);
 
     /*
-     * set alpn in ClientHello. for client, xquic set alpn for every ssl instance. while server set 
-     * the alpn select callback function while initializing tls context. 
+     * set alpn in ClientHello. for client, xquic set alpn for every ssl instance. while server set
+     * the alpn select callback function while initializing tls context.
      */
     ret = xqc_tls_set_alpn(ssl, cfg->alpn);
     if (ret != XQC_OK) {
@@ -219,7 +213,7 @@ xqc_tls_init_client_ssl(xqc_tls_t *tls, xqc_tls_config_t *cfg)
     }
 
     /* set verify if flag set */
-    if (cfg->cert_verify_flag & XQC_TLS_CERT_FLAG_NEED_VERIFY) { 
+    if (cfg->cert_verify_flag & XQC_TLS_CERT_FLAG_NEED_VERIFY) {
         if (X509_VERIFY_PARAM_set1_host(SSL_get0_param(ssl), hostname,
                                         strlen(hostname)) != XQC_SSL_SUCCESS)
         {
@@ -247,7 +241,7 @@ xqc_tls_init_server_ssl(xqc_tls_t *tls, xqc_tls_config_t *cfg)
 
     /* enable early data and set context */
     xqc_ssl_enable_max_early_data(ssl);
-    SSL_set_quic_early_data_context(ssl, (const uint8_t *)XQC_EARLY_DATA_CONTEXT, 
+    SSL_set_quic_early_data_context(ssl, (const uint8_t *)XQC_EARLY_DATA_CONTEXT,
                                     XQC_EARLY_DATA_CONTEXT_LEN);
 
     return ret;
@@ -269,7 +263,7 @@ xqc_tls_create_ssl(xqc_tls_t *tls, xqc_tls_config_t *cfg)
     }
     tls->ssl = ssl;
 
-    /* 
+    /*
      * make tls the app data of ssl instance, which will be used in callback
      * functions defined in xqc_ssl_cbs.h
      */
@@ -298,7 +292,6 @@ xqc_tls_create_ssl(xqc_tls_t *tls, xqc_tls_config_t *cfg)
         goto end;
     }
 
-
     /* the difference of initialization between client and server */
     if (tls->type == XQC_TLS_TYPE_SERVER) {
         ret = xqc_tls_init_server_ssl(tls, cfg);
@@ -311,7 +304,7 @@ end:
     return ret;
 }
 
-xqc_int_t 
+xqc_int_t
 xqc_tls_update_tp(xqc_tls_t *tls, uint8_t *tp_buf, size_t tp_len)
 {
     xqc_int_t ret = XQC_OK;
@@ -325,7 +318,6 @@ xqc_tls_update_tp(xqc_tls_t *tls, uint8_t *tp_buf, size_t tp_len)
     }
     return ret;
 }
-
 
 xqc_tls_t *
 xqc_tls_create(xqc_tls_ctx_t *ctx, xqc_tls_config_t *cfg, xqc_log_t *log, void *user_data)
@@ -360,7 +352,6 @@ fail:
     xqc_tls_destroy(tls);
     return NULL;
 }
-
 
 /* try to get transport parameter bytes from ssl and notify to Transport layer */
 void
@@ -473,7 +464,6 @@ xqc_tls_derive_and_install_initial_keys(xqc_tls_t *tls, const xqc_cid_t *odcid)
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_tls_init_client(xqc_tls_t *tls, const xqc_cid_t *odcid)
 {
@@ -532,7 +522,6 @@ xqc_tls_reset_initial(xqc_tls_t *tls, xqc_proto_version_t version, const xqc_cid
     return xqc_tls_derive_and_install_initial_keys(tls, odcid);
 }
 
-
 void
 xqc_tls_destroy(xqc_tls_t *tls)
 {
@@ -548,7 +537,6 @@ xqc_tls_destroy(xqc_tls_t *tls)
         xqc_free(tls);
     }
 }
-
 
 xqc_int_t
 xqc_tls_process_crypto_data(xqc_tls_t *tls, xqc_encrypt_level_t level,
@@ -598,7 +586,6 @@ xqc_tls_process_crypto_data(xqc_tls_t *tls, xqc_encrypt_level_t level,
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_tls_encrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level,
     xqc_pkt_type_t pkt_type, uint8_t *header, uint8_t *pktno, uint8_t *end)
@@ -611,7 +598,6 @@ xqc_tls_encrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level,
 
     return xqc_crypto_encrypt_header(crypto, pkt_type, header, pktno, end);
 }
-
 
 xqc_int_t
 xqc_tls_encrypt_payload(xqc_tls_t *tls, xqc_encrypt_level_t level,
@@ -640,7 +626,7 @@ xqc_tls_encrypt_payload(xqc_tls_t *tls, xqc_encrypt_level_t level,
 }
 
 xqc_int_t
-xqc_tls_decrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level, 
+xqc_tls_decrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level,
     xqc_pkt_type_t pkt_type, uint8_t *header, uint8_t *pktno, uint8_t *end)
 {
     xqc_crypto_t *crypto = tls->crypto[level];
@@ -651,7 +637,6 @@ xqc_tls_decrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level,
 
     return xqc_crypto_decrypt_header(crypto, pkt_type, header, pktno, end);
 }
-
 
 xqc_int_t
 xqc_tls_decrypt_payload(xqc_tls_t *tls, xqc_encrypt_level_t level,
@@ -678,7 +663,6 @@ xqc_tls_decrypt_payload(xqc_tls_t *tls, xqc_encrypt_level_t level,
                                       header, header_len, payload, payload_len,
                                       dst, dst_cap, dst_len);
 }
-
 
 xqc_bool_t
 xqc_tls_is_key_ready(xqc_tls_t *tls, xqc_encrypt_level_t level, xqc_key_type_t key_type)
@@ -818,7 +802,6 @@ xqc_tls_cal_retry_integrity_tag(xqc_tls_t *tls,
     return ret;
 }
 
-
 /**
  * ============================================================================
  *                        callback functions to upper layer
@@ -833,7 +816,6 @@ xqc_ssl_keylog_cb(const SSL *ssl, const char *line)
         tls->cbs->keylog_cb(line, tls->user_data);
     }
 }
-
 
 int
 xqc_ssl_alpn_select_cb(SSL *ssl, const unsigned char **out, unsigned char *outlen,
@@ -870,7 +852,6 @@ xqc_ssl_alpn_select_cb(SSL *ssl, const unsigned char **out, unsigned char *outle
         inlen, alpn, alpn_len);
     return SSL_TLSEXT_ERR_OK;
 }
-
 
 int
 xqc_ssl_new_session_cb(SSL *ssl, SSL_SESSION *session)
@@ -909,7 +890,6 @@ end:
     /* return one for taking ownership and zero otherwise */
     return 0;
 }
-
 
 int
 xqc_ssl_cert_verify_cb(int ok, X509_STORE_CTX *store_ctx)
@@ -960,7 +940,7 @@ xqc_ssl_cert_verify_cb(int ok, X509_STORE_CTX *store_ctx)
 
     /* callback to upper layer */
     if (tls->cbs->cert_verify_cb != NULL) {
-        if (tls->cbs->cert_verify_cb((const unsigned char **)certs_array, certs_len, 
+        if (tls->cbs->cert_verify_cb((const unsigned char **)certs_array, certs_len,
                                      certs_array_len, tls->user_data) != XQC_OK)
         {
             verify_res = XQC_SSL_FAIL;
@@ -974,7 +954,6 @@ end:
     xqc_ssl_free_certs_array(certs_array, certs_array_len);
     return verify_res;
 }
-
 
 int
 xqc_ssl_cert_cb(SSL *ssl, void *arg)
@@ -1064,14 +1043,13 @@ xqc_tls_get_ssl(xqc_tls_t *tls)
     return tls->ssl;
 }
 
-
 /**
  * ============================================================================
  *                        quic method callback functions
  * ============================================================================
  */
 
-int 
+int
 xqc_tls_set_read_secret(SSL *ssl, enum ssl_encryption_level_t level,
     const SSL_CIPHER *cipher, const uint8_t *secret, size_t secret_len)
 {
@@ -1113,8 +1091,7 @@ xqc_tls_set_read_secret(SSL *ssl, enum ssl_encryption_level_t level,
     return XQC_SSL_SUCCESS;
 }
 
-
-int 
+int
 xqc_tls_set_write_secret(SSL *ssl, enum ssl_encryption_level_t level,
     const SSL_CIPHER *cipher, const uint8_t *secret, size_t secret_len)
 {
@@ -1156,7 +1133,7 @@ xqc_tls_set_write_secret(SSL *ssl, enum ssl_encryption_level_t level,
     return XQC_SSL_SUCCESS;
 }
 
-int 
+int
 xqc_tls_add_handshake_data(SSL *ssl, enum ssl_encryption_level_t level,
     const uint8_t *data, size_t len)
 {
@@ -1175,13 +1152,13 @@ xqc_tls_add_handshake_data(SSL *ssl, enum ssl_encryption_level_t level,
     return XQC_SSL_SUCCESS;
 }
 
-int 
+int
 xqc_tls_flush_flight(SSL *ssl)
 {
     return XQC_SSL_SUCCESS;
 }
 
-int 
+int
 xqc_tls_send_alert(SSL *ssl, enum ssl_encryption_level_t level, uint8_t alert)
 {
     xqc_tls_t *tls = SSL_get_app_data(ssl);

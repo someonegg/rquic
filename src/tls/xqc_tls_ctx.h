@@ -10,7 +10,6 @@
 #include <openssl/ssl.h>
 #include <openssl/err.h>
 
-
 /**
  * @brief get SSL_CTX object
  */

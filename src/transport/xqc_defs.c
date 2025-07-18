@@ -13,7 +13,6 @@ const uint32_t xqc_proto_version_value[XQC_VERSION_MAX] = {
     0x00000000,
 };
 
-
 const unsigned char xqc_proto_version_field[XQC_VERSION_MAX][XQC_PROTO_VERSION_LEN] = {
     [XQC_IDRAFT_INIT_VER]        = { 0xFF, 0xFF, 0xFF, 0xFF, },  /* placeholder */
     [XQC_VERSION_V1]             = { 0x00, 0x00, 0x00, 0x01, },

@@ -24,7 +24,6 @@
 
 #define xqc_packet_number_bits2len(b) ((b) + 1)
 
-
 unsigned
 xqc_short_packet_header_size(unsigned char dcid_len, unsigned char pktno_bits)
 {
@@ -46,7 +45,6 @@ xqc_long_packet_header_size (unsigned char dcid_len, unsigned char scid_len, uns
            + XQC_LONG_HEADER_LENGTH_BYTE    /* Length (i) */
            + xqc_packet_number_bits2len(pktno_bits);
 }
-
 
 xqc_int_t
 xqc_packet_parse_cid(xqc_cid_t *dcid, xqc_cid_t *scid, uint8_t cid_len, const unsigned char *buf, size_t size)
@@ -105,7 +103,6 @@ xqc_packet_parse_cid(xqc_cid_t *dcid, xqc_cid_t *scid, uint8_t cid_len, const un
     return XQC_OK;
 }
 
-
 void
 xqc_packet_parse_packet_number(uint8_t *pos, xqc_uint_t packet_number_len, uint64_t *packet_num)
 {
@@ -137,7 +134,7 @@ xqc_packet_decode_packet_number(xqc_packet_number_t largest_pn, xqc_packet_numbe
 
     // To fully align with RFC9000
     if ((candidate_pn + pn_hwin <= expected_pn)
-        && (candidate_pn < ((1ULL << 62) - pn_win))) 
+        && (candidate_pn < ((1ULL << 62) - pn_win)))
     {
         return candidate_pn + pn_win;
     }
@@ -169,7 +166,6 @@ xqc_write_packet_number(unsigned char *buf, xqc_packet_number_t packet_number, u
 
     return buf - p;
 }
-
 
 int
 xqc_gen_short_packet_header(xqc_packet_out_t *packet_out, unsigned char *dcid, unsigned int dcid_len,
@@ -221,7 +217,6 @@ xqc_gen_short_packet_header(xqc_packet_out_t *packet_out, unsigned char *dcid, u
 
     return need;
 }
-
 
 /*
 0                   1                   2                   3
@@ -289,7 +284,6 @@ xqc_packet_parse_short_header(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 
     return XQC_OK;
 }
-
 
 void
 xqc_long_packet_update_length(xqc_packet_out_t *packet_out)
@@ -394,7 +388,6 @@ xqc_gen_long_packet_header (xqc_packet_out_t *packet_out,
     return dst_buf - begin;
 }
 
-
 /*
 +-+-+-+-+-+-+-+-+
 |1|1| 0 |R R|P P|
@@ -483,7 +476,6 @@ xqc_packet_parse_initial(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_packet_encrypt_buf(xqc_connection_t *conn, xqc_packet_out_t *packet_out,
@@ -586,8 +578,7 @@ xqc_packet_encrypt(xqc_connection_t *conn, xqc_packet_out_t *packet_out)
                                   &conn->enc_pkt_len);
 }
 
-
-xqc_int_t 
+xqc_int_t
 xqc_packet_decrypt(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 {
     xqc_int_t ret;
@@ -632,7 +623,7 @@ xqc_packet_decrypt(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
     xqc_pn_ctl_t *pn_ctl = xqc_get_pn_ctl(conn, path);
     xqc_pkt_num_space_t pns = packet_in->pi_pkt.pkt_pns;
     xqc_packet_number_t largest_pn = xqc_recv_record_largest(&pn_ctl->ctl_recv_record[pns]);
-    
+
     packet_in->pi_pkt.pkt_num =
         xqc_packet_decode_packet_number(largest_pn, truncated_pn, pktno_len * 8);
 
@@ -698,7 +689,6 @@ xqc_packet_decrypt(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 
     return XQC_OK;
 }
-
 
 /*
 +-+-+-+-+-+-+-+-+
@@ -874,11 +864,10 @@ xqc_conn_cal_retry_integrity_tag(xqc_connection_t *conn,
         xqc_log(conn->log, XQC_LOG_ERROR,
                 "|xqc_tls_cal_retry_integrity_tag error|ret:%d|tag_len:%d|", ret, *tag_len);
         return ret;
-    } 
+    }
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
@@ -933,7 +922,7 @@ xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 
     pos += retry_token_len;
 
-    /* 
+    /*
      * clients MUST discard Retry packets that have a Retry Integrity Tag
      * that cannot be validated
      */
@@ -964,7 +953,6 @@ xqc_packet_parse_retry(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     return xqc_conn_on_recv_retry(c, &packet_in->pi_pkt.pkt_scid);
 }
 
-
 /*
 Version Negotiation Packet {
     Header Form (1) = 1,
@@ -982,7 +970,7 @@ xqc_packet_parse_version_negotiation(xqc_connection_t *c, xqc_packet_in_t *packe
 {
     /* check original DCID */
     if (xqc_cid_is_equal(&c->original_dcid, &packet_in->pi_pkt.pkt_scid) != XQC_OK) {
-        xqc_log(c->log, XQC_LOG_ERROR, "|version negotiation pkt SCID error|original_dcid:%s|scid:%s|", 
+        xqc_log(c->log, XQC_LOG_ERROR, "|version negotiation pkt SCID error|original_dcid:%s|scid:%s|",
                 xqc_dcid_str(c->engine, &c->original_dcid), xqc_scid_str(c->engine, &packet_in->pi_pkt.pkt_scid));
         return -XQC_EILLPKT;
     }
@@ -1077,7 +1065,6 @@ xqc_packet_parse_version_negotiation(xqc_connection_t *c, xqc_packet_in_t *packe
     return XQC_OK;
 }
 
-
 /*
  0                   1                   2                   3
  0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1138,7 +1125,7 @@ xqc_packet_parse_long_header(xqc_connection_t *c,
     if ((XQC_BUFF_LEFT_SIZE(pos, end) < dcid->cid_len + 1)
         || (dcid->cid_len > XQC_MAX_CID_LEN))
     {
-        xqc_log(c->log, XQC_LOG_ERROR, "|long header dcid len err|size:%d|cid_len:%d|", 
+        xqc_log(c->log, XQC_LOG_ERROR, "|long header dcid len err|size:%d|cid_len:%d|",
                 XQC_BUFF_LEFT_SIZE(pos, end), dcid->cid_len + 1);
         return -XQC_EILLPKT;
     }
@@ -1153,7 +1140,7 @@ xqc_packet_parse_long_header(xqc_connection_t *c,
     if ((XQC_BUFF_LEFT_SIZE(pos, end) < scid->cid_len)
         || (scid->cid_len > XQC_MAX_CID_LEN))
     {
-        xqc_log(c->log, XQC_LOG_ERROR, "|long header scid len err|size:%d|cid_len:%d|", 
+        xqc_log(c->log, XQC_LOG_ERROR, "|long header scid len err|size:%d|cid_len:%d|",
                 XQC_BUFF_LEFT_SIZE(pos, end), scid->cid_len);
         return -XQC_EILLPKT;
     }

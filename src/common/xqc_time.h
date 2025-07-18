@@ -19,7 +19,6 @@ int gettimeofday(struct timeval *tv, struct timezone *tz);
 #endif
 #endif
 
-
 /**
  * @brief get realtime timestamp
  */

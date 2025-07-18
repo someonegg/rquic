@@ -27,7 +27,6 @@ typedef enum {
     TRA_CRYPTO_ERROR                =  0x1FF, /**< 0x1XX */
 } xqc_trans_err_code_t;
 
-
 #define TRA_CRYPTO_ERROR_BASE   0x100
 
 typedef enum {
@@ -37,13 +36,11 @@ typedef enum {
     REQUEST_INCOMPLETE           = 0x10D,
 } xqc_request_err_code_t;
 
-
 #define XQC_OK      0
 #define XQC_ERROR   -1
 
-
 /**
- * @brief xquic transport internal error codes: 6xx 
+ * @brief xquic transport internal error codes: 6xx
  */
 typedef enum {
     XQC_ENOBUF                          = 600,      /**< not enough buf space */
@@ -100,9 +97,8 @@ typedef enum {
 #define TRANS_ERR_START 600
 static const int TRANS_ERR_CNT = XQC_E_MAX - TRANS_ERR_START;
 
-
 /**
- * @brief xquic TLS internal error codes: 7xx 
+ * @brief xquic TLS internal error codes: 7xx
  */
 typedef enum {
     XQC_TLS_INVALID_ARGUMENT            = 700,
@@ -142,7 +138,7 @@ typedef enum {
     XQC_TLS_CLIENT_REINTIAL_ERROR       = 735,
     XQC_TLS_ENCRYPT_DATA_ERROR          = 736,
     XQC_TLS_DECRYPT_DATA_ERROR          = 737,
-    XQC_TLS_CRYPTO_CTX_NEGOTIATED_ERROR = 738, 
+    XQC_TLS_CRYPTO_CTX_NEGOTIATED_ERROR = 738,
     XQC_TLS_SET_TRANSPORT_PARAM_ERROR   = 739,
     XQC_TLS_SET_CIPHER_SUITES_ERROR     = 740,
     XQC_TLS_DERIVE_KEY_ERROR            = 741,
@@ -156,6 +152,5 @@ typedef enum {
 
 #define TLS_ERR_START 700
 static const int TLS_ERR_CNT = XQC_TLS_ERR_MAX - TLS_ERR_START;
-
 
 #endif /* _XQC_ERRNO_H_INCLUDED_ */

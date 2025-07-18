@@ -7,7 +7,7 @@
 
 #include "src/common/xqc_log.h"
 
-void xqc_log_CON_SERVER_LISTENING_callback(xqc_log_t *log, const char *func, const struct sockaddr *peer_addr, 
+void xqc_log_CON_SERVER_LISTENING_callback(xqc_log_t *log, const char *func, const struct sockaddr *peer_addr,
     socklen_t peer_addrlen);
 
 void xqc_log_CON_CONNECTION_STARTED_callback(xqc_log_t *log, const char *func,
@@ -35,7 +35,7 @@ void xqc_log_TRA_VERSION_INFORMATION_callback(xqc_log_t *log, const char *func,
     uint32_t local_count, uint32_t *local_version, uint32_t remote_count,
     uint32_t *remote_version, uint32_t choose);
 
-void xqc_log_TRA_ALPN_INFORMATION_callback(xqc_log_t *log, const char *func, const unsigned char * server_alpn_list, 
+void xqc_log_TRA_ALPN_INFORMATION_callback(xqc_log_t *log, const char *func, const unsigned char * server_alpn_list,
     unsigned int server_alpn_list_len, const unsigned char *client_alpn_list, unsigned int client_alpn_list_len,
     const char *selected_alpn, size_t selected_alpn_len);
 
@@ -67,7 +67,7 @@ void xqc_log_TRA_STREAM_STATE_UPDATED_callback(xqc_log_t *log, const char *func,
 void xqc_log_TRA_FRAMES_PROCESSED_callback(xqc_log_t *log, const char *func, ...);
 
 void xqc_log_TRA_STREAM_DATA_MOVED_callback(xqc_log_t *log, const char *func, xqc_stream_t *stream,
-    xqc_bool_t is_recv, size_t read_or_write_size, size_t recv_buf_size, uint8_t fin, int ret, 
+    xqc_bool_t is_recv, size_t read_or_write_size, size_t recv_buf_size, uint8_t fin, int ret,
     int pkt_type, int buff_1rtt, size_t offset);
 
 void xqc_log_TRA_DATAGRAM_DATA_MOVED_callback(xqc_log_t *log, const char *func, xqc_stream_t *stream,
@@ -84,7 +84,7 @@ void xqc_log_REC_CONGESTION_STATE_UPDATED_callback(xqc_log_t *log, const char *f
 void xqc_log_REC_LOSS_TIMER_UPDATED_callback(xqc_log_t *log, const char *func,
     xqc_timer_manager_t *timer_manager, xqc_usec_t inter_time, xqc_int_t type, xqc_int_t event);
 
-void xqc_log_REC_PACKET_LOST_callback(xqc_log_t *log, const char *func, xqc_packet_out_t *packet_out, 
+void xqc_log_REC_PACKET_LOST_callback(xqc_log_t *log, const char *func, xqc_packet_out_t *packet_out,
     xqc_packet_number_t lost_pn, xqc_usec_t lost_send_time, xqc_usec_t loss_delay);
 
 #endif /* XQUIC_XQC_LOG_EVENT_CALLBACK_H */

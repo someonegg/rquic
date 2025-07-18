@@ -8,7 +8,6 @@
 #include "src/common/xqc_malloc.h"
 #include "src/common/utils/vint/xqc_variable_len_int.h"
 
-
 #define XQC_NONCE_LEN        16
 #define XQC_HP_SAMPLELEN     16
 #define XQC_HP_MASKLEN       5
@@ -168,7 +167,7 @@ xqc_crypto_create_nonce(uint8_t *dest, const uint8_t *iv, size_t ivlen, uint64_t
      * 32 bit Connection ID Sequence Number in byte order, two zero bits, and the
      * 62 bits of the reconstructed QUIC packet number in network byte order.
      * If the IV is larger than 96 bits, the path-and-packet-number is left-padded
-     * with zeros to the size of the IV. 
+     * with zeros to the size of the IV.
      * The exclusive OR of the padded packet number and the IV forms the AEAD nonce.
      */
 
@@ -182,7 +181,6 @@ xqc_crypto_create_nonce(uint8_t *dest, const uint8_t *iv, size_t ivlen, uint64_t
         dest[ivlen - 12 + i] ^= ((uint8_t *)&path_id)[i];
     }
 }
-
 
 xqc_int_t
 xqc_crypto_encrypt_header(xqc_crypto_t *crypto, xqc_pkt_type_t pkt_type, uint8_t *header,
@@ -239,7 +237,6 @@ xqc_crypto_encrypt_header(xqc_crypto_t *crypto, xqc_pkt_type_t pkt_type, uint8_t
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_crypto_decrypt_header(xqc_crypto_t *crypto, xqc_pkt_type_t pkt_type, uint8_t *header,
     uint8_t *pktno, uint8_t *end)
@@ -292,7 +289,6 @@ xqc_crypto_decrypt_header(xqc_crypto_t *crypto, xqc_pkt_type_t pkt_type, uint8_t
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_crypto_encrypt_payload(xqc_crypto_t *crypto,
     uint64_t pktno, xqc_uint_t key_phase, uint32_t path_id,
@@ -332,7 +328,6 @@ xqc_crypto_encrypt_payload(xqc_crypto_t *crypto,
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_crypto_decrypt_payload(xqc_crypto_t *crypto,
@@ -375,7 +370,6 @@ xqc_crypto_decrypt_payload(xqc_crypto_t *crypto,
     return XQC_OK;
 }
 
-
 /* derive packet protection keys and store them in xqc_crypto_t */
 
 xqc_int_t
@@ -405,9 +399,9 @@ xqc_crypto_derive_packet_protection_iv(xqc_crypto_t *crypto, uint8_t *dest, size
 {
     static uint8_t LABEL[] = "quic iv";
 
-    /* 
+    /*
      * he Length provided with "quic iv" is the minimum length of the AEAD nonce
-     * or 8 bytes if that is larger 
+     * or 8 bytes if that is larger
      */
     size_t ivlen = xqc_max(8, crypto->pp_aead.noncelen);
     if (ivlen > destcap) {
@@ -452,7 +446,7 @@ xqc_crypto_derive_keys(xqc_crypto_t *crypto, const uint8_t *secret, size_t secre
     xqc_key_type_t type)
 {
     /* derive packet protection keys (includes key & iv & hp) */
-    uint8_t key[XQC_MAX_KNP_LEN] = {0}, iv[XQC_MAX_KNP_LEN] = {0}, hp[XQC_MAX_KNP_LEN] = {0}; 
+    uint8_t key[XQC_MAX_KNP_LEN] = {0}, iv[XQC_MAX_KNP_LEN] = {0}, hp[XQC_MAX_KNP_LEN] = {0};
     size_t  keycap = XQC_MAX_KNP_LEN,   ivcap = XQC_MAX_KNP_LEN,   hpcap = XQC_MAX_KNP_LEN;
     size_t  keylen = 0,                 ivlen = 0,                 hplen = 0;
 
@@ -464,7 +458,6 @@ xqc_crypto_derive_keys(xqc_crypto_t *crypto, const uint8_t *secret, size_t secre
                 "|xqc_crypto_derive_packet_protection_key failed|ret:%d|", ret);
         return ret;
     }
-
 
     ret = xqc_crypto_derive_packet_protection_iv(crypto, iv, ivcap, &ivlen, secret, secretlen);
     if (ret != XQC_OK || ivlen <= 0) {
@@ -547,7 +540,7 @@ xqc_crypto_save_application_traffic_secret_0(xqc_crypto_t *crypto,
     case XQC_KEY_TYPE_TX_WRITE:
         ckm = &crypto->keys.tx_ckm[crypto->key_phase];
         break;
-    
+
     default:
         xqc_log(crypto->log, XQC_LOG_ERROR, "|illegal crypto secret type|type:%d|", type);
         return -XQC_TLS_INVALID_ARGUMENT;
@@ -584,7 +577,6 @@ xqc_crypto_is_key_ready(xqc_crypto_t *crypto, xqc_key_type_t type)
 
     return XQC_TRUE;
 }
-
 
 /* derive initial secret (for initial encryption level) */
 
@@ -626,7 +618,6 @@ xqc_crypto_derive_initial_secret(uint8_t *cli_initial_secret, size_t cli_initial
     return XQC_OK;
 }
 
-
 ssize_t
 xqc_crypto_aead_tag_len(xqc_crypto_t *crypto)
 {
@@ -658,7 +649,6 @@ xqc_crypto_derive_updated_keys(xqc_crypto_t *crypto, xqc_key_type_t type)
         return -XQC_TLS_INVALID_ARGUMENT;
     }
 
-
     /* update application traffic secret */
     static uint8_t LABEL[] = "quic ku";
     uint8_t dest_buf[XQC_MAX_KNP_LEN];
@@ -675,9 +665,8 @@ xqc_crypto_derive_updated_keys(xqc_crypto_t *crypto, xqc_key_type_t type)
     }
     xqc_vec_assign(&updated_ckm->secret, dest_buf, current_ckm->secret.len);
 
-
     /* derive packet protection key with new secret */
-    uint8_t key[XQC_MAX_KNP_LEN] = {0}, iv[XQC_MAX_KNP_LEN] = {0}; 
+    uint8_t key[XQC_MAX_KNP_LEN] = {0}, iv[XQC_MAX_KNP_LEN] = {0};
     size_t  keycap = XQC_MAX_KNP_LEN,   ivcap = XQC_MAX_KNP_LEN;
     size_t  keylen = 0,                 ivlen = 0;
 

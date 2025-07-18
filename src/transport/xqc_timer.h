@@ -89,7 +89,7 @@ typedef struct xqc_timer_manager_s {
 } xqc_timer_manager_t;
 
 /* APIs for gp timer */
-xqc_gp_timer_id_t xqc_timer_register_gp_timer(xqc_timer_manager_t *manager, 
+xqc_gp_timer_id_t xqc_timer_register_gp_timer(xqc_timer_manager_t *manager,
     char *timer_name, xqc_gp_timer_timeout_pt cb, void *user_data);
 
 xqc_int_t xqc_timer_unregister_gp_timer(xqc_timer_manager_t *manager, xqc_gp_timer_id_t gp_timer_id);
@@ -205,7 +205,6 @@ xqc_timer_update(xqc_timer_manager_t *manager, xqc_timer_type_t type, xqc_usec_t
     }
 }
 
-
 static inline void
 xqc_timer_expire(xqc_timer_manager_t *manager, xqc_usec_t now)
 {
@@ -242,6 +241,5 @@ xqc_timer_expire(xqc_timer_manager_t *manager, xqc_usec_t now)
 /*
  * *****************TIMER END*****************
  */
-
 
 #endif /* _XQC_TIMER_H_INCLUDED_ */

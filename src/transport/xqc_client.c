@@ -16,7 +16,7 @@
 xqc_connection_t *
 xqc_client_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
     const char *server_host, int no_crypto_flag,
-    const xqc_conn_ssl_config_t *conn_ssl_config, const char *alpn, 
+    const xqc_conn_ssl_config_t *conn_ssl_config, const char *alpn,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen, void *user_data)
 {
     xqc_cid_t dcid;
@@ -85,7 +85,7 @@ xqc_client_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_setting
 }
 
 const xqc_cid_t *
-xqc_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings, 
+xqc_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
     const char *server_host, int no_crypto_flag,
     const xqc_conn_ssl_config_t *conn_ssl_config, const struct sockaddr *peer_addr,
     socklen_t peer_addrlen, const char *alpn, void *user_data)
@@ -105,7 +105,6 @@ xqc_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
     xqc_log(engine->log, XQC_LOG_ERROR, "|xqc_client_connect error|");
     return NULL;
 }
-
 
 xqc_int_t
 xqc_client_create_tls(xqc_connection_t *conn, const xqc_conn_ssl_config_t *conn_ssl_config,
@@ -183,7 +182,6 @@ end:
 
     return ret;
 }
-
 
 xqc_connection_t *
 xqc_client_create_connection(xqc_engine_t *engine, xqc_cid_t dcid, xqc_cid_t scid,

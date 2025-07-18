@@ -5,7 +5,6 @@
 #include "src/transport/xqc_stream.h"
 #include "src/transport/xqc_utils.h"
 
-
 static const char * const timer_type_2_str[XQC_TIMER_N] = {
 
     /* path level (path->path_send_ctl->path_timer_manager->timer[XQC_TIMER_N])*/
@@ -254,7 +253,6 @@ xqc_timer_pmtud_probing_timeout(xqc_timer_type_t type, xqc_usec_t now, void *use
     conn->conn_flag |= XQC_CONN_FLAG_PMTUD_PROBING;
 }
 
-
 /* timer callbacks end */
 
 void
@@ -309,7 +307,7 @@ xqc_timer_init(xqc_timer_manager_t *manager, xqc_log_t *log, void *user_data)
         } else if (type == XQC_TIMER_KEY_UPDATE) {
             timer->timeout_cb = xqc_timer_key_update_timeout;
             timer->user_data = user_data;
-            
+
         } else if (type == XQC_TIMER_PMTUD_PROBING) {
             timer->timeout_cb = xqc_timer_pmtud_probing_timeout;
             timer->user_data = user_data;
@@ -321,7 +319,7 @@ xqc_timer_init(xqc_timer_manager_t *manager, xqc_log_t *log, void *user_data)
     manager->next_gp_timer_id = 0;
 }
 
-xqc_gp_timer_id_t xqc_timer_register_gp_timer(xqc_timer_manager_t *manager, 
+xqc_gp_timer_id_t xqc_timer_register_gp_timer(xqc_timer_manager_t *manager,
     char *timer_name, xqc_gp_timer_timeout_pt cb, void *user_data)
 {
     if (timer_name == NULL
@@ -347,7 +345,7 @@ xqc_gp_timer_id_t xqc_timer_register_gp_timer(xqc_timer_manager_t *manager,
         return -XQC_EMALLOC;
     }
     xqc_memcpy(timer->name, timer_name, name_len);
-    
+
     timer->timer_is_set = XQC_FALSE;
     timer->id = manager->next_gp_timer_id++;
     timer->timeout_cb = cb;
@@ -357,7 +355,7 @@ xqc_gp_timer_id_t xqc_timer_register_gp_timer(xqc_timer_manager_t *manager,
     return timer->id;
 }
 
-xqc_int_t 
+xqc_int_t
 xqc_timer_unregister_gp_timer(xqc_timer_manager_t *manager, xqc_gp_timer_id_t gp_timer_id)
 {
     if (!manager || gp_timer_id >= manager->next_gp_timer_id) {
@@ -377,7 +375,7 @@ xqc_timer_unregister_gp_timer(xqc_timer_manager_t *manager, xqc_gp_timer_id_t gp
     return XQC_ERROR;
 }
 
-void 
+void
 xqc_timer_destroy_gp_timer(xqc_gp_timer_t *gp_timer)
 {
     xqc_list_del_init(&gp_timer->list);
@@ -385,7 +383,7 @@ xqc_timer_destroy_gp_timer(xqc_gp_timer_t *gp_timer)
     xqc_free(gp_timer);
 }
 
-void 
+void
 xqc_timer_destroy_gp_timer_list(xqc_timer_manager_t *manager)
 {
     xqc_list_head_t *pos, *next;

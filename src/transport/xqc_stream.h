@@ -18,7 +18,6 @@
     }                                               \
 } while(0)                                          \
 
-
 typedef enum {
     XQC_STREAM_FLAG_READY_TO_WRITE  = 1 << 0,
     XQC_STREAM_FLAG_READY_TO_READ   = 1 << 1,
@@ -43,7 +42,6 @@ typedef struct {
     xqc_usec_t              fc_last_window_update_time;
 } xqc_stream_flow_ctl_t;
 
-
 /* Put one STREAM frame */
 typedef struct xqc_stream_frame_s {
     xqc_list_head_t         sf_list;
@@ -54,7 +52,6 @@ typedef struct xqc_stream_frame_s {
     unsigned char           fin;
 } xqc_stream_frame_t;
 
-
 /* Put all received STREAM data here */
 typedef struct xqc_stream_data_in_s {
     /* A list of STREAM frame, order by offset */
@@ -64,7 +61,6 @@ typedef struct xqc_stream_data_in_s {
     uint64_t                stream_length;
     xqc_bool_t              stream_determined;
 } xqc_stream_data_in_t;
-
 
 struct xqc_stream_s {
     xqc_connection_t       *stream_conn;
@@ -98,7 +94,7 @@ struct xqc_stream_s {
         xqc_usec_t          peer_fin_read_time;     /* app read fin */
         xqc_usec_t          local_fin_write_time;   /* app send fin */
         xqc_usec_t          local_fin_snd_time;     /* socket send fin */
-        xqc_usec_t          local_fst_fin_snd_time; 
+        xqc_usec_t          local_fst_fin_snd_time;
         xqc_usec_t          first_write_time;       /* app send data */
         xqc_usec_t          first_snd_time;         /* socket send data */
         xqc_usec_t          first_fin_ack_time;
@@ -108,12 +104,12 @@ struct xqc_stream_s {
         xqc_usec_t          local_reset_time;       /* socket snd reset */
         xqc_usec_t          peer_reset_time;        /* quic stack rcv reset */
         xqc_usec_t          first_rcv_time;         /* recv the first udp packet */
-        uint32_t            sched_cwnd_blk_cnt;  
+        uint32_t            sched_cwnd_blk_cnt;
         uint32_t            send_cwnd_blk_cnt;
-        uint32_t            send_pacing_blk_cnt;  
+        uint32_t            send_pacing_blk_cnt;
         xqc_usec_t          sched_cwnd_blk_duration;
         xqc_usec_t          send_cwnd_blk_duration;
-        xqc_usec_t          send_pacing_blk_duration;  
+        xqc_usec_t          send_pacing_blk_duration;
         uint32_t            retrans_pkt_cnt;
         uint32_t            sent_pkt_cnt;
         uint8_t             max_pto_backoff;
@@ -122,7 +118,7 @@ struct xqc_stream_s {
     } stream_stats;
 
     uint64_t                recv_rate_bytes_per_sec;
-    
+
     xqc_stream_priority_t   stream_priority;
 };
 

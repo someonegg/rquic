@@ -16,8 +16,6 @@
 #include "src/transport/xqc_engine.h"
 #include "src/tls/xqc_tls.h"
 
-
-
 static const char * const pkt_type_2_str[XQC_PTYPE_NUM] = {
     [XQC_PTYPE_INIT]                = "INIT",
     [XQC_PTYPE_HSK]                 = "HSK",
@@ -90,8 +88,8 @@ xqc_packet_need_decrypt(xqc_packet_t *pkt)
     return xqc_has_packet_number(pkt);
 }
 
-/* 
- * a client MUST discard Initial keys when it first sends a Handshake packet 
+/*
+ * a client MUST discard Initial keys when it first sends a Handshake packet
  * and a server MUST discard Initial keys when it first successfully processes a Handshake packet
  * we should ignore initial packet if xqc_conn_check_initial_packet_from_cur_state return XQC_FALSE
  */
@@ -184,9 +182,9 @@ xqc_packet_decrypt_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 {
     xqc_int_t ret = XQC_OK;
 
-    /* 
+    /*
      * remember the last position of udp packet, as the last pointer
-     * of packet_in will be changed during processing QUIC packets 
+     * of packet_in will be changed during processing QUIC packets
      */
     unsigned char *last = packet_in->last;
 
@@ -204,7 +202,7 @@ xqc_packet_decrypt_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         if (ret == -XQC_TLS_DATA_REJECT) {
             ret = -XQC_EIGNORE_PKT;
         } else {
-            xqc_log_event(c->log, TRA_PACKET_DROPPED, "decrypt data error", ret, 
+            xqc_log_event(c->log, TRA_PACKET_DROPPED, "decrypt data error", ret,
                 xqc_pkt_type_2_str(packet_in->pi_pkt.pkt_type), packet_in->pi_pkt.pkt_num);
             c->packet_dropped_count ++;
             ret = -XQC_EDECRYPT;
@@ -243,7 +241,4 @@ xqc_packet_process_single(xqc_connection_t *c,
 
     return XQC_OK;
 }
-
-
-
 

@@ -9,7 +9,6 @@
 #include "src/transport/xqc_stream.h"
 #include "src/transport/xqc_conn.h"
 
-
 xqc_send_queue_t *
 xqc_send_queue_create(xqc_connection_t *conn)
 {
@@ -70,10 +69,9 @@ xqc_send_queue_destroy(xqc_send_queue_t *send_queue)
 
     send_queue->sndq_packets_used = 0;
     send_queue->sndq_packets_used_bytes = 0;
-    send_queue->sndq_packets_free = 0;   
+    send_queue->sndq_packets_free = 0;
     send_queue->sndq_packets_in_unacked_list = 0;
 }
-
 
 void
 xqc_send_queue_pre_destroy_packets_list(xqc_send_queue_t *send_queue, xqc_list_head_t *head)
@@ -114,7 +112,7 @@ xqc_send_queue_get_packet_out(xqc_send_queue_t *send_queue, unsigned need, xqc_p
 
     xqc_list_for_each_reverse(pos, &send_queue->sndq_send_packets) {
         packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
-        if (packet_out->po_pkt.pkt_type == pkt_type 
+        if (packet_out->po_pkt.pkt_type == pkt_type
             && xqc_get_po_remained_size(packet_out) >= need)
         {
             return packet_out;
@@ -159,7 +157,7 @@ xqc_send_queue_get_packet_out_for_stream(xqc_send_queue_t *send_queue, unsigned 
     if (packet_out == NULL) {
         return NULL;
     }
-    
+
     if (stream->stream_priority == XQC_STREAM_PRI_HIGH) {
         xqc_send_queue_move_to_high_pri(&packet_out->po_list, send_queue);
     }
@@ -195,8 +193,6 @@ int xqc_send_queue_out_queue_empty(xqc_send_queue_t *send_queue)
 
     return empty;
 }
-
-
 
 void
 xqc_send_queue_insert_send(xqc_packet_out_t *po, xqc_list_head_t *head, xqc_send_queue_t *send_queue)
@@ -285,9 +281,9 @@ xqc_send_queue_insert_unacked(xqc_packet_out_t *packet_out, xqc_list_head_t *hea
                 XQC_CONN_ERR(conn, XQC_ELIMIT);
                 xqc_log(conn->log, XQC_LOG_ERROR,
                         "|sndq unack packets exceed|sndq_packets_in_unacked_list:%ui|",
-                        send_queue->sndq_packets_in_unacked_list); 
+                        send_queue->sndq_packets_in_unacked_list);
             }
-        } 
+        }
     }
 }
 
@@ -295,9 +291,9 @@ void
 xqc_send_queue_remove_unacked(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue)
 {
     xqc_list_del_init(&packet_out->po_list);
-    /* @FIXED: 
+    /* @FIXED:
      * It is possible that the packet_out is not in the unacked list (e.g. in path buffer).
-     * So, sndq_packets_in_unacked_list is incorrect sometimes. 
+     * So, sndq_packets_in_unacked_list is incorrect sometimes.
      * Now, we use it to estimate unsent bytes. so, it's not gonna make fatal errors.
      * But, we must find a way to fix it.
      */
@@ -311,7 +307,7 @@ xqc_send_queue_remove_unacked(xqc_packet_out_t *packet_out, xqc_send_queue_t *se
     }
 }
 
-uint64_t 
+uint64_t
 xqc_send_queue_get_unsent_packets_num(xqc_send_queue_t *send_queue)
 {
     if (send_queue->sndq_packets_in_unacked_list > send_queue->sndq_packets_used) {
@@ -320,7 +316,6 @@ xqc_send_queue_get_unsent_packets_num(xqc_send_queue_t *send_queue)
     }
     return send_queue->sndq_packets_used - send_queue->sndq_packets_in_unacked_list;
 }
-
 
 void
 xqc_send_queue_move_to_head(xqc_list_head_t *pos, xqc_list_head_t *head)
@@ -342,7 +337,6 @@ xqc_send_queue_move_to_high_pri(xqc_list_head_t *pos, xqc_send_queue_t *send_que
     xqc_list_del_init(pos);
     xqc_list_add_tail(pos, &send_queue->sndq_send_packets_high_pri);
 }
-
 
 void
 xqc_send_queue_copy_to_lost(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue, xqc_bool_t mark_retrans)
@@ -471,7 +465,6 @@ void xqc_send_queue_drop_initial_packets(xqc_connection_t *conn)
     conn->max_acked_po_size = XQC_QUIC_MIN_MSS;
 }
 
-
 void xqc_send_queue_drop_handshake_packets(xqc_connection_t *conn)
 {
     /* handshake packets are send on initial path */
@@ -481,18 +474,17 @@ void xqc_send_queue_drop_handshake_packets(xqc_connection_t *conn)
     xqc_send_ctl_on_pns_discard(send_ctl, XQC_PNS_HSK);
 }
 
-
 int
 xqc_send_ctl_stream_frame_can_drop(xqc_packet_out_t *packet_out, xqc_stream_id_t stream_id)
 {
     int drop = 0;
-    /* 
+    /*
      * Attached ACK could lead to a situation
-     * where an original packet (w/o ACK) can be removed but the corresponding 
-     * replicated packet (w/ ACK) cannot be removed. This 
-     * ultimately causes that the po_origin of the replicated packet (R) points to a new 
+     * where an original packet (w/o ACK) can be removed but the corresponding
+     * replicated packet (w/ ACK) cannot be removed. This
+     * ultimately causes that the po_origin of the replicated packet (R) points to a new
      * packet (N) to which the buffer of the original packet is reallocated. This is
-     * very rare but may lead to a infinite loop or crash when the unacked list 
+     * very rare but may lead to a infinite loop or crash when the unacked list
      * in xqc_send_ctl_detect_lost is traversed. For example, when N is next to R in the unacked list,
      * removing R may also free N via xqc_send_ctl_indirectly_ack_or_drop_po. If that
      * happens, an infinite loop that traversing the free_packets list is triggered.

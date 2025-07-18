@@ -14,11 +14,10 @@
 # define EINTR WSAEINTR
 #endif
 
-
 /**
  * @brief get system last errno
- * 
- * @return int 
+ *
+ * @return int
  */
 static inline int get_sys_errno()
 {
@@ -42,13 +41,13 @@ static inline void set_sys_errno(int err)
 
 /**
  * @brief init platform env if necessary
- * 
+ *
  */
 static inline void xqc_platform_init_env()
 {
     int result = 0;
 
- #ifdef XQC_SYS_WINDOWS  
+ #ifdef XQC_SYS_WINDOWS
     // Initialize Winsock
     WSADATA wsaData;
     if ((result = WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
