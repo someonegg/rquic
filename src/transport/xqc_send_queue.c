@@ -525,7 +525,7 @@ xqc_send_queue_drop_stream_frame_packets(xqc_connection_t *conn, xqc_stream_id_t
      * impacts on congestion controllers. But, it is ok.
      */
 
-    xqc_list_for_each_safe(pos, next, &send_queue->sndq_unacked_packets[XQC_PNS_APP_DATA]) {
+    xqc_list_for_each_safe(pos, next, &send_queue->sndq_unacked_packets[XQC_PNS_APP]) {
         packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
         drop = xqc_send_ctl_stream_frame_can_drop(packet_out, stream_id);
         if (drop) {

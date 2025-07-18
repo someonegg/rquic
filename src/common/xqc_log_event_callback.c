@@ -111,19 +111,6 @@ xqc_log_CON_MTU_UPDATED_callback(xqc_log_t *log, const char *func, xqc_connectio
 }
 
 void
-xqc_log_SEC_KEY_UPDATED_callback(xqc_log_t *log, const char *func, xqc_engine_ssl_config_t ssl_config, xqc_int_t local)
-{
-    if (local == XQC_LOG_LOCAL_EVENT) {
-        xqc_qlog_implement(log, SEC_KEY_UPDATED, func,
-                          "|local|ciphers:%s|", ssl_config.ciphers);
-
-    } else {
-        xqc_qlog_implement(log, SEC_KEY_UPDATED, func,
-                          "|remote|ciphers:%s|", ssl_config.ciphers);
-    }
-}
-
-void
 xqc_log_TRA_VERSION_INFORMATION_callback(xqc_log_t *log, const char *func, uint32_t local_count,
     uint32_t *local_version, uint32_t remote_count, uint32_t *remote_version, uint32_t choose)
 {
@@ -194,11 +181,9 @@ xqc_log_TRA_PARAMETERS_SET_callback(xqc_log_t *log, const char *func, xqc_connec
     }
 
     xqc_qlog_implement(log, TRA_PARAMETERS_SET, func,
-                      "|%s|migration:%d|max_idle_timeout:%d|max_udp_payload_size:%d|"
-                      "active_connection_id_limit:%d|max_data:%d|",
-                      local == XQC_LOG_LOCAL_EVENT ? "local" : "remote", setting->disable_active_migration,
-                      setting->max_idle_timeout, setting->max_udp_payload_size,
-                      setting->active_connection_id_limit, setting->max_data);
+                      "|%s|max_idle_timeout:%d|max_udp_payload_size:%d|max_data:%d|",
+                      local == XQC_LOG_LOCAL_EVENT ? "local" : "remote",
+                      setting->max_idle_timeout, setting->max_udp_payload_size, setting->max_data);
 }
 
 void
@@ -293,13 +278,6 @@ xqc_log_TRA_FRAMES_PROCESSED_callback(xqc_log_t *log, const char *func, ...)
     va_start(args, func);
     xqc_frame_type_t frame_type = va_arg(args, xqc_frame_type_t);
     switch (frame_type) {
-    case XQC_FRAME_PADDING: {
-        uint32_t length = va_arg(args, uint32_t);
-        xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
-                          "|type:%d|length:%ui|", frame_type, length);
-        break;
-    }
-
     case XQC_FRAME_PING:
         xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
                           "|type:%d|", frame_type);
@@ -346,22 +324,6 @@ xqc_log_TRA_FRAMES_PROCESSED_callback(xqc_log_t *log, const char *func, ...)
         uint64_t err_code = va_arg(args, uint64_t);
         xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
                           "|type:%d|stream_id:%ui|err_code:%ui|", frame_type, stream_id, err_code);
-        break;
-    }
-
-    case XQC_FRAME_CRYPTO: {
-        uint64_t offset = va_arg(args, uint64_t);
-        uint64_t length = va_arg(args, uint64_t);
-        xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
-                          "|type:%d|offset:%ui|length:%ui|", frame_type, offset, length);
-        break;
-    }
-
-    case XQC_FRAME_NEW_TOKEN: {
-        uint64_t length = va_arg(args, uint64_t);
-        unsigned char *token = va_arg(args, unsigned char *);
-        xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
-                          "|type:%d|token_length:%ui|token:%s|", frame_type, length, token);
         break;
     }
 
@@ -437,18 +399,6 @@ xqc_log_TRA_FRAMES_PROCESSED_callback(xqc_log_t *log, const char *func, ...)
         break;
     }
 
-    case XQC_FRAME_NEW_CONNECTION_ID: {
-        xqc_cid_t *new_cid = va_arg(args, xqc_cid_t*);
-        uint64_t retire_prior_to = va_arg(args, uint64_t);
-        unsigned char scid_str[XQC_MAX_CID_LEN * 2 + 1];
-        xqc_hex_dump(scid_str, new_cid->cid_buf, new_cid->cid_len);
-        scid_str[new_cid->cid_len * 2] = '\0';
-        xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
-                          "|type:%d|sequence_number:%ui|retire_prior_to:%ui|connection_id_length:%d|connection_id:%s|",
-                          frame_type, new_cid->cid_seq_num, retire_prior_to, new_cid->cid_len, scid_str);
-        break;
-    }
-
     case XQC_FRAME_CONNECTION_CLOSE: {
         uint64_t err_code = va_arg(args, uint64_t);
         xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
@@ -456,13 +406,8 @@ xqc_log_TRA_FRAMES_PROCESSED_callback(xqc_log_t *log, const char *func, ...)
         break;
     }
 
-    case XQC_FRAME_HANDSHAKE_DONE:
-        xqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
-                          "|type:%d|", frame_type);
-        break;
-
     /* TODO: add log */
-    case XQC_FRAME_RETIRE_CONNECTION_ID:
+    case XQC_FRAME_PADDING:
     case XQC_FRAME_PATH_CHALLENGE:
     case XQC_FRAME_PATH_RESPONSE:
     case XQC_FRAME_Extension:

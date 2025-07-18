@@ -263,8 +263,6 @@ xqc_path_create(xqc_connection_t *conn, xqc_cid_t *scid, xqc_cid_t *dcid, uint64
     xqc_cid_set_update_state(&conn->scid_set, path_id, XQC_CID_SET_USED);
 
     path->path_create_time = xqc_monotonic_timestamp();
-    path->curr_pkt_out_size = conn->pkt_out_size;
-    path->path_max_pkt_out_size = conn->max_pkt_out_size;
 
     return path;
 

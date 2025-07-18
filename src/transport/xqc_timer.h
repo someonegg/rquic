@@ -17,8 +17,6 @@
  */
 #define XQC_PING_TIMEOUT                    15000
 
-#define XQC_PMTUD_START_DELAY               5000
-
 typedef enum xqc_timer_level {
     XQC_PATH_LEVEL_TIMER,
     XQC_CONN_LEVEL_TIMER,
@@ -29,8 +27,7 @@ typedef enum xqc_timer_type {
 
     /* path level (path->path_send_ctl->path_timer_manager->timer[XQC_TIMER_N])*/
     XQC_TIMER_ACK_INIT,
-    XQC_TIMER_ACK_HSK   = XQC_TIMER_ACK_INIT + XQC_PNS_HSK,
-    XQC_TIMER_ACK_01RTT = XQC_TIMER_ACK_INIT + XQC_PNS_APP_DATA,
+    XQC_TIMER_ACK_APP = XQC_TIMER_ACK_INIT + XQC_PNS_APP,
     XQC_TIMER_LOSS_DETECTION,
     XQC_TIMER_PACING,
     XQC_TIMER_NAT_REBINDING,
@@ -40,10 +37,7 @@ typedef enum xqc_timer_type {
     XQC_TIMER_CONN_DRAINING,
     XQC_TIMER_STREAM_CLOSE,
     XQC_TIMER_PING,
-    XQC_TIMER_RETIRE_CID,
     XQC_TIMER_LINGER_CLOSE,
-    XQC_TIMER_KEY_UPDATE,
-    XQC_TIMER_PMTUD_PROBING,
 
     XQC_TIMER_N,
 

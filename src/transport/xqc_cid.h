@@ -110,4 +110,3 @@ xqc_cid_set_inner_t* xqc_get_next_unused_path_cid_set(xqc_cid_set_t *cid_set);
 void xqc_cid_set_on_cid_acked(xqc_cid_set_t *cid_set, uint64_t path_id, uint64_t cid_seq);
 
 #endif /* _XQC_CID_H_INCLUDED_ */
-

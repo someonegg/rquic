@@ -78,7 +78,6 @@ struct xqc_stream_s {
     uint64_t                stream_send_offset;
     uint64_t                stream_max_recv_offset;
     xqc_stream_flag_t       stream_flag;
-    xqc_encrypt_level_t     stream_encrypt_level;
     xqc_stream_data_in_t    stream_data_in;
     unsigned                stream_unacked_pkt;
     int64_t                 stream_refcnt;
@@ -181,10 +180,6 @@ int xqc_stream_do_create_flow_ctl(xqc_connection_t *conn, xqc_stream_id_t stream
 
 xqc_stream_t *xqc_passive_create_stream(xqc_connection_t *conn, xqc_stream_id_t stream_id, void *user_data);
 
-xqc_stream_t *xqc_create_crypto_stream(xqc_connection_t *conn, xqc_encrypt_level_t encrypt_level, void *user_data);
-
-void xqc_destroy_crypto_stream(xqc_connection_t *conn, xqc_stream_t *stream);
-
 int xqc_crypto_stream_on_write(xqc_stream_t *stream, void *user_data);
 
 int xqc_read_crypto_stream(xqc_stream_t *stream);
@@ -207,4 +202,3 @@ void xqc_stream_closing(xqc_stream_t *stream, xqc_int_t err);
 void xqc_stream_close_discarded_stream(xqc_stream_t *stream);
 
 #endif /* _XQC_STREAM_H_INCLUDED_ */
-

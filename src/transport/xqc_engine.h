@@ -8,7 +8,6 @@
 
 #include <xquic/xquic_typedef.h>
 #include <xquic/xquic.h>
-#include "src/tls/xqc_tls.h"
 #include "src/common/xqc_list.h"
 
 typedef enum {
@@ -43,9 +42,6 @@ typedef struct xqc_engine_s {
     xqc_str_hash_table_t           *conns_hash;             /* scid */
     xqc_pq_t                       *conns_active_pq;        /* In process */
     xqc_pq_t                       *conns_wait_wakeup_pq;   /* Need wakeup after next tick time */
-
-    /* tls context */
-    xqc_tls_ctx_t                  *tls_ctx;
 
     xqc_log_t                      *log;
     xqc_random_generator_t         *rand_generator;

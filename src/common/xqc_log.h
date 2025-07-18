@@ -59,10 +59,6 @@ typedef enum {
     CON_PATH_ASSIGNED,
     CON_MTU_UPDATED,
 
-    /* security event */
-    SEC_KEY_UPDATED,
-    SEC_KEY_RETIRED,
-
     /* transport event */
     TRA_VERSION_INFORMATION,
     TRA_ALPN_INFORMATION,

@@ -17,9 +17,6 @@ struct xqc_packet_in_s {
     xqc_list_head_t         pi_list;
     const unsigned char    *buf;
     size_t                  buf_size;
-    unsigned char          *decode_payload;
-    size_t                  decode_payload_size;
-    size_t                  decode_payload_len;
     unsigned char          *pos;
     unsigned char          *last;
     xqc_usec_t              pkt_recv_time;  /* microsecond */
@@ -33,8 +30,6 @@ struct xqc_packet_in_s {
 void xqc_packet_in_init(xqc_packet_in_t *packet_in,
     const unsigned char *packet_in_buf,
     size_t packet_in_size,
-    unsigned char *decode_payload,
-    size_t decode_payload_size,
     xqc_usec_t recv_time);
 
 void xqc_packet_in_destroy(xqc_packet_in_t *packet_in, xqc_connection_t *conn);

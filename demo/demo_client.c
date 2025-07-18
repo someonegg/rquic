@@ -630,14 +630,6 @@ xqc_demo_cli_write_mmsg(void *conn_user_data, struct iovec *msg_iov, unsigned in
 }
 #endif
 
-void
-xqc_demo_cli_conn_update_cid_notify(xqc_connection_t *conn, const xqc_cid_t *retire_cid,
-    const xqc_cid_t *new_cid, void *user_data)
-{
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)user_data;
-    memcpy(&user_conn->cid, new_cid, sizeof(*new_cid));
-}
-
 /******************************************************************************
  *                       start of hq callback functions                       *
  ******************************************************************************/
@@ -1488,7 +1480,6 @@ xqc_demo_cli_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t 
 
     static xqc_transport_callbacks_t tcb = {
         .write_socket = xqc_demo_cli_write_socket,
-        .conn_update_cid_notify = xqc_demo_cli_conn_update_cid_notify,
     };
 
     *cb = callback;

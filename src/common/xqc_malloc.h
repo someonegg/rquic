@@ -108,4 +108,3 @@ static xqc_allocator_t xqc_default_allocator = {
 };
 
 #endif /*_XQC_MALLOC_H_INCLUDED_*/
-

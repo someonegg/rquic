@@ -14,12 +14,12 @@
 #include "src/transport/xqc_packet_parser.h"
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_engine.h"
-#include "src/tls/xqc_tls.h"
 
 static const char * const pkt_type_2_str[XQC_PTYPE_NUM] = {
     [XQC_PTYPE_INIT]                = "INIT",
-    [XQC_PTYPE_HSK]                 = "HSK",
-    [XQC_PTYPE_RETRY]               = "RETRY",
+    [XQC_PTYPE_RSV1]                = "RSV1",
+    [XQC_PTYPE_RSV2]                = "RSV2",
+    [XQC_PTYPE_RSV3]                = "RSV3",
     [XQC_PTYPE_SHORT_HEADER]        = "SHORT_HEADER",
     [XQC_PTYPE_VERSION_NEGOTIATION] = "VERSION_NEGOTIATION",
 };
@@ -30,31 +30,17 @@ xqc_pkt_type_2_str(xqc_pkt_type_t pkt_type)
     return pkt_type_2_str[pkt_type];
 }
 
-xqc_encrypt_level_t
-xqc_packet_type_to_enc_level(xqc_pkt_type_t pkt_type)
-{
-    switch (pkt_type) {
-    case XQC_PTYPE_INIT:
-        return XQC_ENC_LEV_INIT;
-    case XQC_PTYPE_HSK:
-        return XQC_ENC_LEV_HSK;
-    case XQC_PTYPE_SHORT_HEADER:
-        return XQC_ENC_LEV_1RTT;
-    default:
-        return XQC_ENC_LEV_INIT;
-    }
-}
-
 xqc_pkt_num_space_t
 xqc_packet_type_to_pns(xqc_pkt_type_t pkt_type)
 {
     switch (pkt_type) {
     case XQC_PTYPE_INIT:
+    case XQC_PTYPE_RSV1:
+    case XQC_PTYPE_RSV2:
+    case XQC_PTYPE_RSV3:
         return XQC_PNS_INIT;
-    case XQC_PTYPE_HSK:
-        return XQC_PNS_HSK;
     case XQC_PTYPE_SHORT_HEADER:
-        return XQC_PNS_APP_DATA;
+        return XQC_PNS_APP;
     default:
         return XQC_PNS_N;
     }
@@ -75,7 +61,7 @@ xqc_state_to_pkt_type(xqc_connection_t *conn)
     case XQC_CONN_STATE_CLIENT_HANDSHAKE_SENT:
     case XQC_CONN_STATE_SERVER_HANDSHAKE_SENT:
     case XQC_CONN_STATE_SERVER_HANDSHAKE_RECVD:
-        return XQC_PTYPE_HSK;
+        return XQC_PTYPE_INIT;
     default:
         return XQC_PTYPE_SHORT_HEADER;
     }
@@ -241,4 +227,3 @@ xqc_packet_process_single(xqc_connection_t *c,
 
     return XQC_OK;
 }
-

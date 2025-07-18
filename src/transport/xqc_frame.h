@@ -13,8 +13,6 @@ typedef enum {
     XQC_FRAME_ACK,
     XQC_FRAME_RESET_STREAM,
     XQC_FRAME_STOP_SENDING,
-    XQC_FRAME_CRYPTO,
-    XQC_FRAME_NEW_TOKEN,
     XQC_FRAME_STREAM,
     XQC_FRAME_MAX_DATA,
     XQC_FRAME_MAX_STREAM_DATA,
@@ -22,12 +20,9 @@ typedef enum {
     XQC_FRAME_DATA_BLOCKED,
     XQC_FRAME_STREAM_DATA_BLOCKED,
     XQC_FRAME_STREAMS_BLOCKED,
-    XQC_FRAME_NEW_CONNECTION_ID,
-    XQC_FRAME_RETIRE_CONNECTION_ID,
     XQC_FRAME_PATH_CHALLENGE,
     XQC_FRAME_PATH_RESPONSE,
     XQC_FRAME_CONNECTION_CLOSE,
-    XQC_FRAME_HANDSHAKE_DONE,
     XQC_FRAME_Extension,
     XQC_FRAME_NUM,
 } xqc_frame_type_t;
@@ -38,8 +33,6 @@ typedef enum {
     XQC_FRAME_BIT_ACK                   = 1ULL << XQC_FRAME_ACK,
     XQC_FRAME_BIT_RESET_STREAM          = 1ULL << XQC_FRAME_RESET_STREAM,
     XQC_FRAME_BIT_STOP_SENDING          = 1ULL << XQC_FRAME_STOP_SENDING,
-    XQC_FRAME_BIT_CRYPTO                = 1ULL << XQC_FRAME_CRYPTO,
-    XQC_FRAME_BIT_NEW_TOKEN             = 1ULL << XQC_FRAME_NEW_TOKEN,
     XQC_FRAME_BIT_STREAM                = 1ULL << XQC_FRAME_STREAM,
     XQC_FRAME_BIT_MAX_DATA              = 1ULL << XQC_FRAME_MAX_DATA,
     XQC_FRAME_BIT_MAX_STREAM_DATA       = 1ULL << XQC_FRAME_MAX_STREAM_DATA,
@@ -47,12 +40,9 @@ typedef enum {
     XQC_FRAME_BIT_DATA_BLOCKED          = 1ULL << XQC_FRAME_DATA_BLOCKED,
     XQC_FRAME_BIT_STREAM_DATA_BLOCKED   = 1ULL << XQC_FRAME_STREAM_DATA_BLOCKED,
     XQC_FRAME_BIT_STREAMS_BLOCKED       = 1ULL << XQC_FRAME_STREAMS_BLOCKED,
-    XQC_FRAME_BIT_NEW_CONNECTION_ID     = 1ULL << XQC_FRAME_NEW_CONNECTION_ID,
-    XQC_FRAME_BIT_RETIRE_CONNECTION_ID  = 1ULL << XQC_FRAME_RETIRE_CONNECTION_ID,
     XQC_FRAME_BIT_PATH_CHALLENGE        = 1ULL << XQC_FRAME_PATH_CHALLENGE,
     XQC_FRAME_BIT_PATH_RESPONSE         = 1ULL << XQC_FRAME_PATH_RESPONSE,
     XQC_FRAME_BIT_CONNECTION_CLOSE      = 1ULL << XQC_FRAME_CONNECTION_CLOSE,
-    XQC_FRAME_BIT_HANDSHAKE_DONE        = 1ULL << XQC_FRAME_HANDSHAKE_DONE,
     XQC_FRAME_BIT_Extension             = 1ULL << XQC_FRAME_Extension,
     XQC_FRAME_BIT_NUM                   = 1ULL << XQC_FRAME_NUM,
 } xqc_frame_type_bit_t;
@@ -89,8 +79,6 @@ const char *xqc_frame_type_2_str(xqc_engine_t *engine, xqc_frame_type_bit_t type
 
 unsigned int xqc_stream_frame_header_size(xqc_stream_id_t stream_id, uint64_t offset, size_t length);
 
-unsigned int xqc_crypto_frame_header_size(uint64_t offset, size_t length);
-
 xqc_int_t xqc_insert_stream_frame(xqc_connection_t *conn, xqc_stream_t *stream, xqc_stream_frame_t *new_frame);
 
 xqc_int_t xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
@@ -99,15 +87,9 @@ xqc_int_t xqc_process_padding_frame(xqc_connection_t *conn, xqc_packet_in_t *pac
 
 xqc_int_t xqc_process_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
-xqc_int_t xqc_process_crypto_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
 xqc_int_t xqc_process_ack_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_ping_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_new_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_conn_close_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
@@ -126,10 +108,6 @@ xqc_int_t xqc_process_max_data_frame(xqc_connection_t *conn, xqc_packet_in_t *pa
 xqc_int_t xqc_process_max_stream_data_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_max_streams_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_new_token_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
-
-xqc_int_t xqc_process_handshake_done_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_path_challenge_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 

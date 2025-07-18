@@ -7,29 +7,31 @@
 
 #include <xquic/xquic_typedef.h>
 #include "src/common/xqc_list.h"
-#include "src/tls/xqc_tls_defs.h"
 
-#define XQC_ACK_SPACE                       16
-#define XQC_HEADER_SPACE                    28
 #define XQC_QUIC_MIN_MSS                    1200
-/* 1500 - 40 (IPv6) - 8 (UDP) - 16 (ACK) - 16 (AEAD) */
-#define XQC_QUIC_MAX_MSS                    1420
+/* 1500 - 40 (IPv6) - 8 (UDP) - 16 (ACK) */
+#define XQC_QUIC_MAX_MSS                    1436
+#define XQC_ACK_SPACE                       16
 #define XQC_MSS                             (XQC_QUIC_MAX_MSS + XQC_ACK_SPACE)
 
-/* max buffered packet count */
-#define XQC_UNDECRYPT_PACKET_MAX            100
+#define XQC_PACKET_INITIAL_MIN_LENGTH           XQC_QUIC_MIN_MSS
+
+#define XQC_PACKET_IS_LONG_HEADER(buf)          ((buf[0] & 0x80) == 0x80)
+#define XQC_PACKET_IS_SHORT_HEADER(buf)         ((buf[0] & 0xC0) == 0x40)
+#define XQC_PACKET_LONG_HEADER_GET_TYPE(buf)    ((buf[0] & 0x30) >> 4)
+#define XQC_PACKET_HEADER_PKTNO_BYTES(buf)      ((buf[0] & 0x03) + 1)
 
 typedef enum xqc_pkt_num_space {
     XQC_PNS_INIT      = 0,
-    XQC_PNS_HSK       = 1,
-    XQC_PNS_APP_DATA  = 2,
-    XQC_PNS_N         = 3,
+    XQC_PNS_APP       = 1,
+    XQC_PNS_N         = 2,
 } xqc_pkt_num_space_t;
 
 typedef enum xqc_pkt_type {
     XQC_PTYPE_INIT  = 0,
-    XQC_PTYPE_HSK,
-    XQC_PTYPE_RETRY,
+    XQC_PTYPE_RSV1  = 1,
+    XQC_PTYPE_RSV2  = 2,
+    XQC_PTYPE_RSV3  = 3,
     XQC_PTYPE_SHORT_HEADER,
     XQC_PTYPE_VERSION_NEGOTIATION,
     XQC_PTYPE_NUM,
@@ -50,18 +52,6 @@ struct xqc_packet_s {
 
 };
 
-#define XQC_PACKET_IS_LONG_HEADER(buf)          ((buf[0] & 0x80) == 0x80)
-#define XQC_PACKET_IS_SHORT_HEADER(buf)         ((buf[0] & 0xC0) == 0x40)
-
-#define XQC_PACKET_LONG_HEADER_GET_TYPE(buf)    ((buf[0] & 0x30) >> 4)
-
-#define XQC_PACKET_VERSION_LENGTH               4
-#define XQC_PACKET_LONG_HEADER_PREFIX_LENGTH    (1 + XQC_PACKET_VERSION_LENGTH)
-#define XQC_PACKET_INITIAL_MIN_LENGTH           XQC_QUIC_MIN_MSS
-
-#define XQC_PACKET_SHORT_HEADER_PKTNO_LEN(buf)  ((buf[0] & 0x03) + 1)
-#define XQC_PACKET_SHORT_HEADER_KEY_PHASE(buf)  ((buf[0] & 0x04) >> 2)
-
 #define xqc_parse_uint16(p) ((p)[0] << 8 | (p)[1])
 #define xqc_parse_uint32(p) ((p)[0] << 24 | (p)[1] << 16 | (p)[2] << 8 | (p)[3])
 
@@ -69,19 +59,15 @@ struct xqc_packet_s {
 static inline uint8_t
 xqc_has_packet_number(xqc_packet_t *pkt)
 {
-    /* VERSION_NEGOTIATION/RETRY packet don't have packet number */
-    if (XQC_UNLIKELY(XQC_PTYPE_VERSION_NEGOTIATION == pkt->pkt_type
-                     || XQC_PTYPE_RETRY == pkt->pkt_type))
+    /* VERSION_NEGOTIATION packet don't have packet number */
+    if (XQC_UNLIKELY(XQC_PTYPE_VERSION_NEGOTIATION == pkt->pkt_type))
     {
         return XQC_FALSE;
     }
-
     return XQC_TRUE;
 }
 
 const char *xqc_pkt_type_2_str(xqc_pkt_type_t pkt_type);
-
-xqc_encrypt_level_t xqc_packet_type_to_enc_level(xqc_pkt_type_t pkt_type);
 
 xqc_pkt_num_space_t xqc_packet_type_to_pns(xqc_pkt_type_t pkt_type);
 

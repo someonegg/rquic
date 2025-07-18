@@ -122,10 +122,6 @@ xqc_qlog_event_2_level(xqc_log_type_t type)
     case REC_METRICS_UPDATED:
         return EVENT_IMPORTANCE_EXTRA;
 
-    case SEC_KEY_UPDATED:
-    case SEC_KEY_RETIRED:
-        return EVENT_IMPORTANCE_BASE;
-
     case REC_PARAMETERS_SET:
         return EVENT_IMPORTANCE_BASE;
 
@@ -187,8 +183,6 @@ xqc_log_type_str(xqc_log_type_t type)
             [CON_CONNECTION_STATE_UPDATED]      = "connection_state_updated",
             [CON_PATH_ASSIGNED]                 = "path_assigned",
             [CON_MTU_UPDATED]                   = "mtu_updated",
-            [SEC_KEY_UPDATED]                   = "key_updated",
-            [SEC_KEY_RETIRED]                   = "key_retired",
             [TRA_VERSION_INFORMATION]           = "version_information",
             [TRA_ALPN_INFORMATION]              = "alpn_information",
             [TRA_PARAMETERS_SET]                = "tra_parameters_set",
