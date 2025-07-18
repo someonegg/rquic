@@ -15,10 +15,8 @@
 #include "src/common/utils/vint/xqc_variable_len_int.h"
 #include "src/common/utils/vint/xqc_discrete_int_parser.h"
 
-
 #include <stdio.h>
 #include <stdint.h>
 #include <string.h>
-
 
 #endif

@@ -6,7 +6,6 @@
 #include "src/common/xqc_memory_pool.h"
 #include "src/transport/xqc_conn.h"
 
-
 void
 xqc_packet_in_init(xqc_packet_in_t *packet_in,
     const unsigned char *packet_in_buf,

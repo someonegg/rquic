@@ -13,12 +13,10 @@
 #include "src/transport/xqc_stream.h"
 #include "src/transport/xqc_conn.h"
 
-
 #define XQC_HQ_REQUEST_BASE_LEN             7
 #define XQC_HQ_REQUEST_MAX_LEN              512
 #define XQC_HQ_REQUEST_RESOURCE_MAX_LEN     256
 #define XQC_HQ_RESPONSE_MAX_LEN             4096
-
 
 typedef struct xqc_hq_request_s {
     /**
@@ -31,9 +29,9 @@ typedef struct xqc_hq_request_s {
      */
     void                       *user_data;
 
-    /* 
+    /*
      * quic-level stream, we will always make xqc_hq_request_t instance the user_data of
-     * xqc_stream_t. if the user_data of stream callback functions is NULL, it means 
+     * xqc_stream_t. if the user_data of stream callback functions is NULL, it means
      * xqc_hq_request_t has not been created yet.
      */
     xqc_stream_t               *stream;
@@ -60,8 +58,6 @@ typedef struct xqc_hq_request_s {
     size_t                      resource_read_offset;
     uint8_t                     fin;
 } xqc_hq_request_s;
-
-
 
 /* active create request, used by client */
 xqc_hq_request_t *
@@ -100,7 +96,6 @@ fail:
     return NULL;
 }
 
-
 /* passive create request, used by server */
 xqc_hq_request_t *
 xqc_hq_request_create_passive(xqc_stream_t *stream)
@@ -122,7 +117,6 @@ xqc_hq_request_create_passive(xqc_stream_t *stream)
 
     return hqr;
 }
-
 
 void
 xqc_hq_request_destroy(xqc_hq_request_t *hqr)
@@ -147,7 +141,6 @@ xqc_hq_request_destroy(xqc_hq_request_t *hqr)
     }
 }
 
-
 xqc_int_t
 xqc_hq_request_close(xqc_hq_request_t *hqr)
 {
@@ -160,13 +153,12 @@ xqc_hq_request_close(xqc_hq_request_t *hqr)
     return XQC_OK;
 }
 
-
 ssize_t
 xqc_hq_request_send_data(xqc_hq_request_t *hqr, const uint8_t *data, size_t len, uint8_t fin)
 {
     ssize_t ret = 0;
     while (hqr->sent_cnt < hqr->send_buf_len) {
-        ret = xqc_stream_send(hqr->stream, hqr->send_buf + hqr->sent_cnt, 
+        ret = xqc_stream_send(hqr->stream, hqr->send_buf + hqr->sent_cnt,
                               hqr->send_buf_len - hqr->sent_cnt, 1);
         if (ret < 0) {
             if (ret == -XQC_EAGAIN) {
@@ -183,7 +175,6 @@ xqc_hq_request_send_data(xqc_hq_request_t *hqr, const uint8_t *data, size_t len,
 
     return ret;
 }
-
 
 ssize_t
 xqc_hq_request_send_req(xqc_hq_request_t *hqr, const char *resource)
@@ -213,7 +204,6 @@ xqc_hq_request_send_req(xqc_hq_request_t *hqr, const char *resource)
     return strlen(resource);
 }
 
-
 ssize_t
 xqc_hq_request_send_rsp(xqc_hq_request_t *hqr, const uint8_t *res_buf, size_t res_buf_len,
     uint8_t fin)
@@ -225,7 +215,6 @@ xqc_hq_request_send_rsp(xqc_hq_request_t *hqr, const uint8_t *res_buf, size_t re
 
     return ret;
 }
-
 
 ssize_t
 xqc_hq_parse_req(xqc_hq_request_t *hqr, char *res, size_t sz, uint8_t *fin)
@@ -265,7 +254,7 @@ xqc_hq_request_recv_req(xqc_hq_request_t *hqr, char *res_buf, size_t buf_sz, uin
     *fin = 0;
     ssize_t read = 0;
     do {
-        read = xqc_stream_recv(hqr->stream, hqr->req_recv_buf + hqr->recv_cnt, 
+        read = xqc_stream_recv(hqr->stream, hqr->req_recv_buf + hqr->recv_cnt,
                                hqr->recv_buf_len - hqr->recv_cnt, &hqr->fin);
         if (read == -XQC_EAGAIN) {
             break;
@@ -282,7 +271,6 @@ xqc_hq_request_recv_req(xqc_hq_request_t *hqr, char *res_buf, size_t buf_sz, uin
         }
 
     } while (read > 0 && !hqr->fin);
-
 
     if (NULL == hqr->resource_buf) {
         hqr->resource_buf = xqc_malloc(XQC_HQ_REQUEST_RESOURCE_MAX_LEN);
@@ -340,7 +328,6 @@ xqc_hq_request_get_stats(xqc_hq_request_t *hqr)
     return xqc_stream_get_stats(hqr->stream);
 }
 
-
 int
 xqc_hq_stream_create_notify(xqc_stream_t *stream, void *strm_user_data)
 {
@@ -361,7 +348,6 @@ xqc_hq_stream_create_notify(xqc_stream_t *stream, void *strm_user_data)
     return XQC_OK;
 }
 
-
 int
 xqc_hq_stream_write_notify(xqc_stream_t *stream, void *user_data)
 {
@@ -380,7 +366,6 @@ xqc_hq_stream_write_notify(xqc_stream_t *stream, void *user_data)
     return XQC_OK;
 }
 
-
 int
 xqc_hq_stream_read_notify(xqc_stream_t *stream, void *user_data)
 {
@@ -391,7 +376,6 @@ xqc_hq_stream_read_notify(xqc_stream_t *stream, void *user_data)
 
     return XQC_OK;
 }
-
 
 int
 xqc_hq_stream_close_notify(xqc_stream_t *stream, void *user_data)

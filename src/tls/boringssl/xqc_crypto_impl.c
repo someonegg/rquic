@@ -5,7 +5,6 @@
 #include "src/tls/xqc_crypto.h"
 #include <openssl/chacha.h>
 
-
 void *
 xqc_aead_ctx_new(const xqc_pkt_protect_aead_t *pp_aead, xqc_key_type_t type,
                  const uint8_t *key, size_t noncelen)
@@ -25,7 +24,7 @@ xqc_aead_ctx_free(void *aead_ctx)
     }
 }
 
-xqc_int_t 
+xqc_int_t
 xqc_bssl_aead_encrypt(const xqc_pkt_protect_aead_t *pp_aead, void *aead_ctx,
     uint8_t *dest, size_t destcap, size_t *destlen,
     const uint8_t *plaintext, size_t plaintextlen,
@@ -84,7 +83,6 @@ xqc_bssl_aead_decrypt(const xqc_pkt_protect_aead_t *pp_aead, void *aead_ctx,
 err:
     return -XQC_TLS_DECRYPT_DATA_ERROR;
 }
-
 
 void *
 xqc_hp_ctx_new(const xqc_hdr_protect_cipher_t *hp_cipher, const uint8_t *key)

@@ -90,7 +90,7 @@ typedef struct xqc_packet_out_s {
 
     /* For BBRv2 */
     /* the inflight bytes when the packet is sent (including itself) */
-    uint64_t                po_tx_in_flight; 
+    uint64_t                po_tx_in_flight;
     /* how many packets have been lost when the packet is sent */
     uint32_t                po_lost;
 
@@ -113,7 +113,7 @@ typedef struct xqc_packet_out_s {
     uint32_t                po_new_cid_path;
 } xqc_packet_out_t;
 
-xqc_bool_t xqc_packet_out_can_attach_ack(xqc_packet_out_t *po, 
+xqc_bool_t xqc_packet_out_can_attach_ack(xqc_packet_out_t *po,
     xqc_path_ctx_t *path, xqc_pkt_type_t pkt_type);
 
 void xqc_packet_out_remove_ack_frame(xqc_packet_out_t *po);
@@ -143,7 +143,7 @@ xqc_int_t xqc_write_ack_to_packets(xqc_connection_t *conn);
 
 int xqc_write_ack_to_one_packet(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_pkt_num_space_t pns);
 
-int xqc_write_ping_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path, 
+int xqc_write_ping_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path,
     void *po_user_data, xqc_bool_t notify, xqc_ping_record_t *pr);
 
 int xqc_write_pmtud_ping_to_packet(xqc_path_ctx_t *path, size_t probing_size, xqc_pkt_type_t pkt_type);
@@ -162,7 +162,7 @@ int xqc_write_streams_blocked_to_packet(xqc_connection_t *conn, uint64_t stream_
 
 int xqc_write_max_data_to_packet(xqc_connection_t *conn, uint64_t max_data);
 
-int xqc_write_max_stream_data_to_packet(xqc_connection_t *conn, 
+int xqc_write_max_stream_data_to_packet(xqc_connection_t *conn,
 xqc_stream_id_t stream_id, uint64_t max_stream_data, xqc_pkt_type_t xqc_pkt_type);
 
 int xqc_write_max_streams_to_packet(xqc_connection_t *conn, uint64_t max_stream, int bidirectional);
@@ -185,10 +185,10 @@ xqc_int_t xqc_write_path_response_frame_to_packet(xqc_connection_t *conn, xqc_pa
 
 /**
  * @brief Get remained space size in packet out buff.
- * 
- * @param conn 
- * @param po 
- * @return size_t 
+ *
+ * @param conn
+ * @param po
+ * @return size_t
  */
 size_t xqc_get_po_remained_size(xqc_packet_out_t *po);
 size_t xqc_get_po_remained_size_with_ack_spc(xqc_packet_out_t *po);

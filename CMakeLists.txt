@@ -16,7 +16,6 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-
 # Users can use both SSL_DIR or SSL_PATH to specify the ssl path to find the ssl
 # module, if both are defined, SSL_DIR will be used.
 if(NOT SSL_DIR)
@@ -46,7 +45,6 @@ MESSAGE("-- SSL_PATH: ${SSL_PATH}")
 MESSAGE("-- SSL_LIB_PATH: ${SSL_LIB_PATH}")
 MESSAGE("-- SSL_INC_PATH: ${SSL_INC_PATH}")
 
-
 # C_FLAGS
 if(PLATFORM STREQUAL "mac32")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -m32")
@@ -64,12 +62,10 @@ if(ASAN)
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer")
 endif()
 
-
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
     add_definitions(-DXQC_SYS_WINDOWS=1)
     set(CMAKE_C_FLAGS_OPTION " ")
 endif()
-
 
 # configure file
 configure_file (
@@ -82,7 +78,6 @@ include_directories(include
     ${SSL_INC_PATH}
     ${CMAKE_SOURCE_DIR}
 )
-
 
 # print tls traffic secret in keylog
 if(XQC_PRINT_SECRET)
@@ -109,7 +104,6 @@ if(GCOV STREQUAL "on")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif()
 
-
 # Transport source
 set(
     TRANSPORT_SOURCES
@@ -134,7 +128,6 @@ set(
     "src/transport/xqc_transport_params.c"
     "src/transport/xqc_timer.c"
 )
-
 
 # TLS source
 set (
@@ -178,7 +171,6 @@ if(XQC_ENABLE_BBR2)
     )
 endif()
 
-
 # xquic source
 set (
     XQC_SOURCE
@@ -189,14 +181,12 @@ set (
     ${CONGESTION_CONTROL_SOURCES}
 )
 
-
 # target
 add_library(
     xquic
     STATIC
     ${XQC_SOURCE}
 )
-
 
 # testing
 if(XQC_ENABLE_TESTING)

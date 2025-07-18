@@ -14,13 +14,12 @@
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_packet_parser.h"
 
-
 ssize_t
 xqc_gen_stream_frame(xqc_packet_out_t *packet_out,
     xqc_stream_id_t stream_id, uint64_t offset, uint8_t fin,
     const unsigned char *payload, size_t size, size_t *written_size)
 {
-    /* 
+    /*
      * 0b00001XXX
      *  0x4     OFF
      *  0x2     LEN
@@ -110,7 +109,7 @@ new_frame:
 
         n_avail = dst_buf_len - (p + stream_id_len + offset_len - dst_buf);
 
-        /* 
+        /*
          * If we cannot fill remaining buffer, we need to include data
          * length.
          */
@@ -265,7 +264,6 @@ xqc_parse_stream_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn,
     return XQC_OK;
 }
 
-
 /*
  *
     0                   1                   2                   3
@@ -373,7 +371,7 @@ xqc_gen_padding_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out)
 
     if (conn->enable_pmtud) {
         if ((packet_out->po_frame_types & (XQC_FRAME_BIT_PATH_CHALLENGE | XQC_FRAME_BIT_PATH_RESPONSE))
-            || (packet_out->po_flag & XQC_POF_PMTUD_PROBING)) 
+            || (packet_out->po_flag & XQC_POF_PMTUD_PROBING))
         {
             total_len = packet_out->po_buf_size + XQC_ACK_SPACE;
         }
@@ -461,8 +459,8 @@ xqc_parse_ping_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn)
     Gap 1 Ack Range 2
  */
 ssize_t
-xqc_gen_ack_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_usec_t now, 
-    int ack_delay_exponent, xqc_recv_record_t *recv_record, xqc_usec_t largest_pkt_recv_time, 
+xqc_gen_ack_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out, xqc_usec_t now,
+    int ack_delay_exponent, xqc_recv_record_t *recv_record, xqc_usec_t largest_pkt_recv_time,
     int *has_gap, xqc_packet_number_t *largest_ack)
 {
     unsigned char *dst_buf = packet_out->po_buf + packet_out->po_used_size;
@@ -596,9 +594,9 @@ xqc_parse_ack_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn, xqc_ack_
 
     unsigned n_ranges = 0;      /* the range cnt stored */
 
-    /* 
-     * mpquic draft-04: If the multipath extension has been successfully 
-     * negotiated, ACK frames in 1-RTT packets acknowledge packets sent 
+    /*
+     * mpquic draft-04: If the multipath extension has been successfully
+     * negotiated, ACK frames in 1-RTT packets acknowledge packets sent
      * with the Connection ID having sequence number 0.
      */
     ack_info->path_id = 0;
@@ -655,7 +653,7 @@ xqc_parse_ack_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn, xqc_ack_
         }
     }
 
-    /* 
+    /*
      * if the actual ack_range_count plus first ack_range is larger than
      * the XQC_MAX_ACK_RANGE_CNT, ack_info don't have enough space to store
      *  all the ack_ranges
@@ -672,7 +670,6 @@ xqc_parse_ack_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn, xqc_ack_
     return XQC_OK;
 }
 
-
 /*
  *
     0                   1                   2                   3
@@ -688,7 +685,7 @@ xqc_parse_ack_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn, xqc_ack_
    +-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+-+
  */
 ssize_t
-xqc_gen_conn_close_frame(xqc_packet_out_t *packet_out, 
+xqc_gen_conn_close_frame(xqc_packet_out_t *packet_out,
     uint64_t err_code, int is_app, int frame_type)
 {
     unsigned char *dst_buf = packet_out->po_buf + packet_out->po_used_size;
@@ -739,7 +736,6 @@ xqc_gen_conn_close_frame(xqc_packet_out_t *packet_out,
 
     return dst_buf - begin;
 }
-
 
 xqc_int_t
 xqc_parse_conn_close_frame(xqc_packet_in_t *packet_in, uint64_t *err_code, xqc_connection_t *conn)
@@ -831,7 +827,6 @@ xqc_gen_reset_stream_frame(xqc_packet_out_t *packet_out, xqc_stream_id_t stream_
     return dst_buf - begin;
 }
 
-
 xqc_int_t
 xqc_parse_reset_stream_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t *stream_id,
     uint64_t *err_code, uint64_t *final_size, xqc_connection_t *conn)
@@ -908,7 +903,6 @@ xqc_gen_stop_sending_frame(xqc_packet_out_t *packet_out, xqc_stream_id_t stream_
 
     return dst_buf - begin;
 }
-
 
 xqc_int_t
 xqc_parse_stop_sending_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t *stream_id,
@@ -987,7 +981,6 @@ xqc_parse_data_blocked_frame(xqc_packet_in_t *packet_in, uint64_t *data_limit, x
     return XQC_OK;
 }
 
-
 /*
  *     0                   1                   2                   3
     0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1 2 3 4 5 6 7 8 9 0 1
@@ -1018,7 +1011,6 @@ xqc_gen_stream_data_blocked_frame(xqc_packet_out_t *packet_out, xqc_stream_id_t 
 
     return dst_buf - begin;
 }
-
 
 xqc_int_t
 xqc_parse_stream_data_blocked_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t *stream_id, uint64_t *stream_data_limit, xqc_connection_t *conn)
@@ -1078,7 +1070,6 @@ xqc_gen_streams_blocked_frame(xqc_packet_out_t *packet_out, uint64_t stream_limi
     return dst_buf - begin;
 }
 
-
 xqc_int_t
 xqc_parse_streams_blocked_frame(xqc_packet_in_t *packet_in, uint64_t *stream_limit, int *bidirectional, xqc_connection_t *conn)
 {
@@ -1134,7 +1125,6 @@ xqc_gen_max_data_frame(xqc_packet_out_t *packet_out, uint64_t max_data)
     return dst_buf - begin;
 }
 
-
 xqc_int_t
 xqc_parse_max_data_frame(xqc_packet_in_t *packet_in, uint64_t *max_data, xqc_connection_t *conn)
 {
@@ -1188,7 +1178,6 @@ xqc_gen_max_stream_data_frame(xqc_packet_out_t *packet_out, xqc_stream_id_t stre
 
     return dst_buf - begin;
 }
-
 
 xqc_int_t
 xqc_parse_max_stream_data_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t *stream_id, uint64_t *max_stream_data, xqc_connection_t *conn)
@@ -1248,7 +1237,6 @@ xqc_gen_max_streams_frame(xqc_packet_out_t *packet_out, uint64_t max_streams, in
 
     return dst_buf - begin;
 }
-
 
 xqc_int_t
 xqc_parse_max_streams_frame(xqc_packet_in_t *packet_in, uint64_t *max_streams, int *bidirectional, xqc_connection_t *conn)
@@ -1316,7 +1304,6 @@ xqc_gen_new_token_frame(xqc_packet_out_t *packet_out, const unsigned char *token
     return dst_buf - begin;
 }
 
-
 xqc_int_t
 xqc_parse_new_token_frame(xqc_packet_in_t *packet_in, unsigned char *token, unsigned *token_len, xqc_connection_t *conn)
 {
@@ -1354,24 +1341,22 @@ xqc_parse_new_token_frame(xqc_packet_in_t *packet_in, unsigned char *token, unsi
     return XQC_OK;
 }
 
-
 ssize_t
 xqc_gen_handshake_done_frame(xqc_packet_out_t *packet_out)
 {
     unsigned char *dst_buf = packet_out->po_buf + packet_out->po_used_size;
     const unsigned char *begin = dst_buf;
     unsigned need = 1; /* only need 1 byte */
-    
+
     if (need > xqc_get_po_remained_size(packet_out)) {
         return -XQC_ENOBUF;
     }
     *dst_buf++ = 0x1e;
-    
+
     packet_out->po_frame_types |= XQC_FRAME_BIT_HANDSHAKE_DONE;
 
     return dst_buf - begin;
 }
-
 
 xqc_int_t
 xqc_parse_handshake_done_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn)
@@ -1414,7 +1399,7 @@ xqc_gen_new_conn_id_frame(xqc_packet_out_t *packet_out, xqc_cid_t *new_cid, uint
         return -XQC_EPARAM;
     }
 
-    xqc_vint_write(dst_buf, new_cid->cid_seq_num, 
+    xqc_vint_write(dst_buf, new_cid->cid_seq_num,
                    sequence_number_bits, xqc_vint_len(sequence_number_bits));
     dst_buf += xqc_vint_len(sequence_number_bits);
 
@@ -1520,7 +1505,6 @@ xqc_gen_retire_conn_id_frame(xqc_packet_out_t *packet_out, uint64_t seq_num)
     return dst_buf - begin;
 }
 
-
 xqc_int_t
 xqc_parse_retire_conn_id_frame(xqc_packet_in_t *packet_in, uint64_t *seq_num)
 {
@@ -1542,7 +1526,6 @@ xqc_parse_retire_conn_id_frame(xqc_packet_in_t *packet_in, uint64_t *seq_num)
 
     return XQC_OK;
 }
-
 
 /*
  * https://datatracker.ietf.org/doc/html/rfc9000#section-19.17

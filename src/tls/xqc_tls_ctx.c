@@ -8,7 +8,6 @@
 #include "xqc_ssl_if.h"
 #include "src/common/xqc_malloc.h"
 
-
 typedef struct xqc_tls_ctx_s {
     xqc_tls_type_t                  type;
 
@@ -30,8 +29,6 @@ typedef struct xqc_tls_ctx_s {
     size_t                          alpn_list_len;
 } xqc_tls_ctx_t;
 
-
-
 xqc_int_t
 xqc_create_client_ssl_ctx(xqc_tls_ctx_t *ctx)
 {
@@ -47,13 +44,13 @@ xqc_create_client_ssl_ctx(xqc_tls_ctx_t *ctx)
     SSL_CTX_set_max_proto_version(ssl_ctx, TLS1_3_VERSION);
 
     if (SSL_CTX_set1_curves_list(ssl_ctx, ctx->cfg.groups) != XQC_SSL_SUCCESS) {
-        xqc_log(ctx->log, XQC_LOG_ERROR, "|SSL_CTX_set1_groups_list failed| error info:%s|", 
+        xqc_log(ctx->log, XQC_LOG_ERROR, "|SSL_CTX_set1_groups_list failed| error info:%s|",
                 ERR_error_string(ERR_get_error(), NULL));
         goto fail;
     }
 
     /* enable session cache */
-    SSL_CTX_set_session_cache_mode(ssl_ctx, 
+    SSL_CTX_set_session_cache_mode(ssl_ctx,
         SSL_SESS_CACHE_CLIENT | SSL_SESS_CACHE_NO_INTERNAL_STORE);
 
     /* set session ticket callback */
@@ -69,7 +66,6 @@ fail:
     SSL_CTX_free(ssl_ctx);
     return -XQC_TLS_INTERNAL;
 }
-
 
 xqc_int_t
 xqc_create_server_ssl_ctx(xqc_tls_ctx_t *ctx)
@@ -143,7 +139,6 @@ fail:
     return -XQC_TLS_INTERNAL;
 }
 
-
 xqc_int_t
 xqc_tls_ctx_set_config(xqc_tls_ctx_t *ctx, const xqc_engine_ssl_config_t *src)
 {
@@ -186,7 +181,7 @@ xqc_tls_ctx_set_config(xqc_tls_ctx_t *ctx, const xqc_engine_ssl_config_t *src)
         if (dst->groups == NULL) {
             xqc_log(ctx->log, XQC_LOG_ERROR, "|groups malloc error|");
             return -XQC_EMALLOC;
-        } 
+        }
         memcpy(dst->groups, XQC_TLS_GROUPS, len);
     }
 
@@ -224,7 +219,6 @@ xqc_tls_ctx_set_config(xqc_tls_ctx_t *ctx, const xqc_engine_ssl_config_t *src)
 
     return XQC_OK;
 }
-
 
 xqc_tls_ctx_t *
 xqc_tls_ctx_create(xqc_tls_type_t type, const xqc_engine_ssl_config_t *cfg,
@@ -281,7 +275,6 @@ fail:
     return NULL;
 }
 
-
 void
 xqc_tls_ctx_free_cfg(xqc_tls_ctx_t *ctx)
 {
@@ -302,7 +295,6 @@ xqc_tls_ctx_free_cfg(xqc_tls_ctx_t *ctx)
         xqc_free(cfg->cert_file);
     }
 }
-
 
 void
 xqc_tls_ctx_destroy(xqc_tls_ctx_t *ctx)
@@ -330,13 +322,11 @@ xqc_tls_ctx_get_ssl_ctx(xqc_tls_ctx_t *ctx)
     return ctx->ssl_ctx;
 }
 
-
 xqc_tls_type_t
 xqc_tls_ctx_get_type(xqc_tls_ctx_t *ctx)
 {
     return ctx->type;
 }
-
 
 void
 xqc_tls_ctx_get_tls_callbacks(xqc_tls_ctx_t *ctx, xqc_tls_callbacks_t **tls_cbs)
@@ -344,13 +334,11 @@ xqc_tls_ctx_get_tls_callbacks(xqc_tls_ctx_t *ctx, xqc_tls_callbacks_t **tls_cbs)
     *tls_cbs = &ctx->tls_cbs;
 }
 
-
 void
 xqc_tls_ctx_get_cfg(xqc_tls_ctx_t *ctx, xqc_engine_ssl_config_t **cfg)
 {
     *cfg = &ctx->cfg;
 }
-
 
 xqc_int_t
 xqc_tls_ctx_register_alpn(xqc_tls_ctx_t *ctx, const char *alpn, size_t alpn_len)
@@ -389,7 +377,6 @@ xqc_tls_ctx_register_alpn(xqc_tls_ctx_t *ctx, const char *alpn, size_t alpn_len)
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_tls_ctx_unregister_alpn(xqc_tls_ctx_t *ctx, const char *alpn, size_t alpn_len)
 {
@@ -419,7 +406,6 @@ xqc_tls_ctx_unregister_alpn(xqc_tls_ctx_t *ctx, const char *alpn, size_t alpn_le
 
     return -XQC_EALPN_NOT_REGISTERED;
 }
-
 
 void
 xqc_tls_ctx_get_alpn_list(xqc_tls_ctx_t *ctx, unsigned char **alpn_list, size_t *alpn_list_len)

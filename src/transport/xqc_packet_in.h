@@ -28,7 +28,6 @@ struct xqc_packet_in_s {
     xqc_stream_id_t         stream_id;
 };
 
-
 #define XQC_BUFF_LEFT_SIZE(pos, last) ((last) > (pos) ? (last) - (pos) : 0)
 
 void xqc_packet_in_init(xqc_packet_in_t *packet_in,
@@ -39,6 +38,5 @@ void xqc_packet_in_init(xqc_packet_in_t *packet_in,
     xqc_usec_t recv_time);
 
 void xqc_packet_in_destroy(xqc_packet_in_t *packet_in, xqc_connection_t *conn);
-
 
 #endif /* _XQC_PACKET_IN_H_INCLUDED_ */

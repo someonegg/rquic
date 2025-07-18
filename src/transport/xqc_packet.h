@@ -35,7 +35,6 @@ typedef enum xqc_pkt_type {
     XQC_PTYPE_NUM,
 } xqc_pkt_type_t;
 
-
 struct xqc_packet_s {
     xqc_packet_number_t     pkt_num;
     xqc_pkt_num_space_t     pkt_pns;
@@ -50,7 +49,6 @@ struct xqc_packet_s {
     size_t                  pkt_num_offset;
 
 };
-
 
 #define XQC_PACKET_IS_LONG_HEADER(buf)          ((buf[0] & 0x80) == 0x80)
 #define XQC_PACKET_IS_SHORT_HEADER(buf)         ((buf[0] & 0xC0) == 0x40)
@@ -93,6 +91,5 @@ xqc_pkt_type_t xqc_state_to_pkt_type(xqc_connection_t *conn);
  * process a single QUIC packet from packet_in
  */
 xqc_int_t xqc_packet_process_single(xqc_connection_t *c, xqc_packet_in_t *packet_in);
-
 
 #endif /* _XQC_PACKET_H_INCLUDED_ */

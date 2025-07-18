@@ -18,8 +18,6 @@
 #include "src/transport/xqc_utils.h"
 #include "src/tls/xqc_tls.h"
 
-
-
 static const char * const frame_type_2_str[XQC_FRAME_NUM] = {
     [XQC_FRAME_PADDING]              = "PADDING",
     [XQC_FRAME_PING]                 = "PING",
@@ -141,7 +139,7 @@ xqc_insert_stream_frame(xqc_connection_t *conn, xqc_stream_t *stream, xqc_stream
         xqc_list_for_each_from(pos, &stream->stream_data_in.frames_tailq) {
             frame = xqc_list_entry(pos, xqc_stream_frame_t, sf_list);
             if (stream->stream_data_in.merged_offset_end >= frame->data_offset) {
-                stream->stream_data_in.merged_offset_end = xqc_max(frame->data_offset + frame->data_length, 
+                stream->stream_data_in.merged_offset_end = xqc_max(frame->data_offset + frame->data_length,
                                                                    stream->stream_data_in.merged_offset_end);
             } else {
                 /* There is a hole, break */
@@ -152,7 +150,6 @@ xqc_insert_stream_frame(xqc_connection_t *conn, xqc_stream_t *stream, xqc_stream
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
@@ -237,7 +234,7 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         case 0x15:
             ret = xqc_process_stream_data_blocked_frame(conn, packet_in);
             break;
-        case 0x16: 
+        case 0x16:
         case 0x17:
             ret = xqc_process_streams_blocked_frame(conn, packet_in);
             break;
@@ -303,7 +300,6 @@ xqc_process_padding_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_process_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
@@ -372,7 +368,7 @@ xqc_process_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 
     if (stream_frame->fin) {
         if (stream->stream_data_in.stream_determined
-            && stream->stream_data_in.stream_length != stream_frame->data_offset + stream_frame->data_length) 
+            && stream->stream_data_in.stream_length != stream_frame->data_offset + stream_frame->data_length)
         {
             xqc_log(conn->log, XQC_LOG_ERROR, "|final size changed|stream_id:%ui|", stream_id);
             XQC_CONN_ERR(conn, TRA_FINAL_SIZE_ERROR);
@@ -444,7 +440,7 @@ xqc_process_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
     }
 
     if (stream->stream_data_in.stream_determined
-        && stream->stream_data_in.stream_length == stream->stream_data_in.merged_offset_end) 
+        && stream->stream_data_in.stream_length == stream->stream_data_in.merged_offset_end)
     {
         if (stream->stream_state_recv == XQC_RECV_STREAM_ST_SIZE_KNOWN) {
             xqc_stream_recv_state_update(stream, XQC_RECV_STREAM_ST_DATA_RECVD);
@@ -470,7 +466,7 @@ xqc_int_t
 xqc_check_crypto_frame_data_buffer_exceed(xqc_stream_t *stream, xqc_stream_frame_t *stream_frame, uint64_t threshold)
 {
     if (stream_frame->data_offset + stream_frame->data_length > stream->stream_data_in.next_read_offset + threshold) {
-        return -XQC_ELIMIT; 
+        return -XQC_ELIMIT;
     }
 
     return XQC_OK;
@@ -507,7 +503,6 @@ xqc_insert_crypto_frame(xqc_connection_t *conn, xqc_stream_t *stream, xqc_stream
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_process_crypto_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 {
@@ -529,7 +524,7 @@ xqc_process_crypto_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         }
     }
 
-    if (conn->conn_state == XQC_CONN_STATE_SERVER_INIT 
+    if (conn->conn_state == XQC_CONN_STATE_SERVER_INIT
         && !(conn->conn_flag & XQC_CONN_FLAG_INIT_RECVD))
     {
         conn->conn_flag |= XQC_CONN_FLAG_INIT_RECVD;
@@ -552,7 +547,6 @@ xqc_process_crypto_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         xqc_destroy_stream_frame(stream_frame);
         return ret;
     }
-
 
     xqc_encrypt_level_t encrypt_level = xqc_packet_type_to_enc_level(packet_in->pi_pkt.pkt_type);
     if (conn->crypto_stream[encrypt_level] == NULL) {
@@ -578,7 +572,6 @@ xqc_process_crypto_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         return ret;
     }
     xqc_stream_ready_to_read(stream);
-
 
     if (conn->conn_type == XQC_CONN_TYPE_SERVER
         && encrypt_level == XQC_ENC_LEV_INIT && conn->crypto_stream[XQC_ENC_LEV_HSK] == NULL)
@@ -630,14 +623,14 @@ xqc_int_t
 xqc_process_ping_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 {
     xqc_int_t ret;
-   
+
     /* ping frame should not be the first frame in the first initial packet */
     if (conn->conn_state == XQC_CONN_STATE_SERVER_INIT
-        && !(conn->conn_flag & XQC_CONN_FLAG_INIT_RECVD)) 
+        && !(conn->conn_flag & XQC_CONN_FLAG_INIT_RECVD))
     {
         xqc_log(conn->log, XQC_LOG_ERROR,
                 "|xqc_process_ping_frame error: ping frame shoud not be the first frame|");
-        return XQC_ERROR; 
+        return XQC_ERROR;
     }
     ret = xqc_parse_ping_frame(packet_in, conn);
     if (ret != XQC_OK) {
@@ -648,7 +641,6 @@ xqc_process_ping_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_process_new_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
@@ -733,18 +725,17 @@ xqc_process_new_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in
         return XQC_OK;
     }
 
-    ret = xqc_cid_set_insert_cid(&conn->dcid_set, &new_conn_cid, 
-                                 XQC_CID_UNUSED, 
-                                 conn->local_settings.active_connection_id_limit, 
+    ret = xqc_cid_set_insert_cid(&conn->dcid_set, &new_conn_cid,
+                                 XQC_CID_UNUSED,
+                                 conn->local_settings.active_connection_id_limit,
                                  XQC_INITIAL_PATH_ID);
     if (ret != XQC_OK) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_cid_set_insert_cid error|limit:%ui|unused:%i|used:%i|",
-                conn->local_settings.active_connection_id_limit, 
-                xqc_cid_set_get_unused_cnt(&conn->dcid_set, XQC_INITIAL_PATH_ID), 
+                conn->local_settings.active_connection_id_limit,
+                xqc_cid_set_get_unused_cnt(&conn->dcid_set, XQC_INITIAL_PATH_ID),
                 xqc_cid_set_get_used_cnt(&conn->dcid_set, XQC_INITIAL_PATH_ID));
         return ret;
     }
-
 
     return XQC_OK;
 }
@@ -771,7 +762,7 @@ xqc_process_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet
     }
 
     if (seq_num > largest_scid_seq_num) {
-        /* 
+        /*
          * Receipt of a RETIRE_CONNECTION_ID frame containing a sequence number
          * greater than any previously sent to the peer MUST be treated as a
          * connection error of type PROTOCOL_VIOLATION.
@@ -791,7 +782,7 @@ xqc_process_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet
     }
 
     if (XQC_OK == xqc_cid_is_equal(&inner_cid->cid, &packet_in->pi_pkt.pkt_dcid)) {
-        /* 
+        /*
          * The sequence number specified in a RETIRE_CONNECTION_ID frame MUST NOT refer to
          * the Destination Connection ID field of the packet in which the frame is contained.
          * The peer MAY treat this as a connection error of type PROTOCOL_VIOLATION.
@@ -818,7 +809,6 @@ xqc_process_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_process_conn_close_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
@@ -907,7 +897,7 @@ xqc_process_reset_stream_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_i
     if (stream->stream_state_recv < XQC_RECV_STREAM_ST_RESET_RECVD) {
         xqc_stream_recv_state_update(stream, XQC_RECV_STREAM_ST_RESET_RECVD);
         if (stream->stream_stats.peer_reset_time == 0) {
-            stream->stream_stats.peer_reset_time = xqc_monotonic_timestamp(); 
+            stream->stream_stats.peer_reset_time = xqc_monotonic_timestamp();
         }
         conn->conn_flow_ctl.fc_data_recved += (int64_t)final_size - (int64_t)stream->stream_max_recv_offset;
         conn->conn_flow_ctl.fc_data_read += (int64_t)final_size - (int64_t)stream->stream_data_in.next_read_offset;
@@ -962,7 +952,6 @@ xqc_process_stop_sending_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_i
 
     return XQC_OK;
 }
-
 
 xqc_int_t
 xqc_process_data_blocked_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
@@ -1222,7 +1211,6 @@ xqc_process_new_token_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_process_handshake_done_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 {
@@ -1243,7 +1231,6 @@ xqc_process_handshake_done_frame(xqc_connection_t *conn, xqc_packet_in_t *packet
 
     return ret;
 }
-
 
 xqc_int_t
 xqc_process_path_challenge_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
@@ -1271,7 +1258,6 @@ xqc_process_path_challenge_frame(xqc_connection_t *conn, xqc_packet_in_t *packet
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_process_path_response_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 {
@@ -1286,7 +1272,7 @@ xqc_process_path_response_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_
 
     xqc_path_ctx_t *path = conn->the_path;
 
-    /* 
+    /*
      * If the content of a PATH_RESPONSE frame does not match the content of
      * a PATH_CHALLENGE frame previously sent by the endpoint, the endpoint
      * MAY generate a connection error of type PROTOCOL_VIOLATION.

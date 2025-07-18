@@ -214,7 +214,7 @@ xqc_get_ack_frequency(xqc_connection_t *conn, xqc_path_ctx_t *path)
         return xqc_max(conn->conn_settings.ack_frequency, 10);
     }
 
-    return conn->conn_settings.ack_frequency; 
+    return conn->conn_settings.ack_frequency;
 }
 
 void

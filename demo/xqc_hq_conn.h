@@ -10,7 +10,7 @@
 typedef struct xqc_hq_conn_s {
 
     xqc_hq_conn_callbacks_t     hqc_cbs;
-    xqc_hq_request_callbacks_t  hqr_cbs; 
+    xqc_hq_request_callbacks_t  hqr_cbs;
 
     xqc_connection_t           *conn;
 

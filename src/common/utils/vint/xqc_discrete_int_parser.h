@@ -17,7 +17,6 @@ typedef struct {
     size_t      left;   /* bytes needs to be read to finish the discrete int */
 } xqc_discrete_int_pctx_t;
 
-
 /**
  * @brief reset parse context
  */

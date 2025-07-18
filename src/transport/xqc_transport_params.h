@@ -23,7 +23,6 @@
 /* max buffer length of encoded transport parameter */
 #define XQC_MAX_TRANSPORT_PARAM_BUF_LEN         512
 
-
 /**
  * @brief transport parameter type
  */
@@ -35,7 +34,6 @@ typedef enum {
     XQC_TP_TYPE_ENCRYPTED_EXTENSIONS
 
 } xqc_transport_params_type_t;
-
 
 /**
  * @brief definition of transport parameter types
@@ -68,7 +66,6 @@ typedef enum {
     XQC_TRANSPORT_PARAM_PMTUD_OPTIONS                       = 0x0e08a234ff112300,
 } xqc_transport_param_id_t;
 
-
 typedef struct {
     uint8_t                 ipv4[4];
     uint16_t                ipv4_port;
@@ -76,7 +73,6 @@ typedef struct {
     uint16_t                ipv6_port;
     xqc_cid_t               cid;
 } xqc_preferred_addr_t;
-
 
 /* transport parameters */
 typedef struct {
@@ -118,7 +114,7 @@ typedef struct {
 } xqc_transport_params_t;
 
 /**
- * encode transport parameters. 
+ * encode transport parameters.
  * @param params input transport parameter structure
  * @param exttype the occasion of transport parameter
  * @param out pointer of destination buffer
@@ -129,9 +125,8 @@ typedef struct {
 xqc_int_t xqc_encode_transport_params(const xqc_transport_params_t *params,
     xqc_transport_params_type_t exttype, uint8_t *out, size_t out_cap, size_t *out_len);
 
-
 /**
- * decode transport parameters. 
+ * decode transport parameters.
  * @param params output transport parameter structure
  * @param exttype the occasion of transport parameter
  * @param in encoded transport parameter buf
@@ -141,7 +136,6 @@ xqc_int_t xqc_encode_transport_params(const xqc_transport_params_t *params,
 xqc_int_t xqc_decode_transport_params(xqc_transport_params_t *params,
     xqc_transport_params_type_t exttype, const uint8_t *in, size_t in_len);
 
-
 xqc_int_t xqc_read_transport_params(char *tp_data, size_t tp_data_len,
     xqc_transport_params_t *params);
 
@@ -149,6 +143,5 @@ ssize_t xqc_write_transport_params(char *tp_buf, size_t cap,
     const xqc_transport_params_t *params);
 
 void xqc_init_transport_params(xqc_transport_params_t *params);
-
 
 #endif /* XQC_TRANSPORT_PARAMS_H_ */

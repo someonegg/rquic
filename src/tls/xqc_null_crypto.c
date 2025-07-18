@@ -4,7 +4,6 @@
 
 #include "src/tls/xqc_crypto.h"
 
-
 static xqc_int_t
 xqc_null_aead_encrypt(const xqc_pkt_protect_aead_t *pp_aead, void *aead_ctx,
     uint8_t *dest, size_t destcap, size_t *destlen,
@@ -65,7 +64,6 @@ xqc_null_hp_mask(const xqc_hdr_protect_cipher_t *hp_cipher, void *hp_ctx,
 
     return XQC_OK;
 }
-
 
 void
 xqc_aead_init_null(xqc_pkt_protect_aead_t *pp_aead, size_t taglen)

@@ -44,7 +44,6 @@ xqc_send_ctl_indirectly_ack_or_drop_po(xqc_connection_t *conn, xqc_packet_out_t 
     return XQC_FALSE;
 }
 
-
 xqc_send_ctl_t *
 xqc_send_ctl_create(xqc_path_ctx_t *path)
 {
@@ -186,7 +185,7 @@ xqc_send_ctl_reset(xqc_send_ctl_t *send_ctl)
     /*
      * Move all sent/unsent packets to the send queue for resending
      * Initial packets with new packet header.
-     * 
+     *
      * TODO: Refactoring packet generation: generate packet header before sent.
      * Then all we need to do is move the packets from the unack queue to the
      * send queue, and the rest of the queues will send normally.
@@ -255,13 +254,11 @@ xqc_pn_ctl_destroy(xqc_pn_ctl_t *pn_ctl)
     }
 }
 
-
 xqc_pn_ctl_t *
 xqc_get_pn_ctl(xqc_connection_t *conn, xqc_path_ctx_t *path)
 {
     return path->path_pn_ctl;
 }
-
 
 /*
  * QUIC's congestion control is based on TCP NewReno [RFC6582].  NewReno
@@ -299,7 +296,7 @@ xqc_send_ctl_can_send(xqc_send_ctl_t *send_ctl, xqc_packet_out_t *packet_out, ui
 }
 
 xqc_bool_t
-xqc_send_packet_cwnd_allows(xqc_send_ctl_t *send_ctl, 
+xqc_send_packet_cwnd_allows(xqc_send_ctl_t *send_ctl,
     xqc_packet_out_t *packet_out, uint32_t schedule_bytes, xqc_usec_t now)
 {
     xqc_connection_t *conn = send_ctl->ctl_conn;
@@ -318,7 +315,7 @@ xqc_send_packet_cwnd_allows(xqc_send_ctl_t *send_ctl,
 }
 
 xqc_bool_t
-xqc_send_packet_pacer_allows(xqc_send_ctl_t *send_ctl, 
+xqc_send_packet_pacer_allows(xqc_send_ctl_t *send_ctl,
     xqc_packet_out_t *packet_out, uint32_t schedule_bytes, xqc_usec_t now)
 {
     xqc_connection_t *conn = send_ctl->ctl_conn;
@@ -326,8 +323,8 @@ xqc_send_packet_pacer_allows(xqc_send_ctl_t *send_ctl,
     if (XQC_CAN_IN_FLIGHT(packet_out->po_frame_types)) {
 
         if (xqc_pacing_is_on(&send_ctl->ctl_pacing)) {
-            if (!xqc_pacing_can_write(&send_ctl->ctl_pacing, 
-                    schedule_bytes + packet_out->po_used_size)) 
+            if (!xqc_pacing_can_write(&send_ctl->ctl_pacing,
+                    schedule_bytes + packet_out->po_used_size))
             {
                 if (packet_out->po_send_pacing_blk_ts == 0) {
                     packet_out->po_send_pacing_blk_ts = now;
@@ -341,13 +338,12 @@ xqc_send_packet_pacer_allows(xqc_send_ctl_t *send_ctl,
 }
 
 xqc_bool_t
-xqc_send_packet_check_cc(xqc_send_ctl_t *send_ctl, 
+xqc_send_packet_check_cc(xqc_send_ctl_t *send_ctl,
     xqc_packet_out_t *po, uint32_t schedule_bytes, xqc_usec_t now)
 {
     return xqc_send_packet_cwnd_allows(send_ctl, po, schedule_bytes, now)
            && xqc_send_packet_pacer_allows(send_ctl, po, schedule_bytes, now);
 }
-
 
 void
 xqc_send_queue_maybe_remove_unacked(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue, xqc_path_ctx_t *path)
@@ -442,8 +438,7 @@ xqc_send_ctl_on_pns_discard(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t pns)
     xqc_send_ctl_set_loss_detection_timer(send_ctl);
 }
 
-
-static void 
+static void
 xqc_send_ctl_update_cwnd_limited(xqc_send_ctl_t *send_ctl, xqc_usec_t now)
 {
     if (send_ctl->ctl_bytes_in_flight > send_ctl->ctl_max_bytes_in_flight) {
@@ -460,7 +455,6 @@ xqc_send_ctl_update_cwnd_limited(xqc_send_ctl_t *send_ctl, xqc_usec_t now)
         send_ctl->ctl_cwndlim_update_idx = (send_ctl->ctl_cwndlim_update_idx + 1) % 3;
     }
 }
-
 
 /**
  * OnPacketSent
@@ -521,7 +515,7 @@ xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_
 
         if (XQC_IS_ACK_ELICITING(packet_out->po_frame_types)
             /* do not set loss detection timer for PMTUD probing */
-            && !(packet_out->po_flag & XQC_POF_PMTUD_PROBING)) 
+            && !(packet_out->po_flag & XQC_POF_PMTUD_PROBING))
         {
             xqc_send_ctl_set_loss_detection_timer(send_ctl);
         }
@@ -532,7 +526,7 @@ xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_
             packet_out->po_flag &= ~XQC_POF_LOST;
 
         }
-        
+
         if (packet_out->po_flag & XQC_POF_TLP) {
             ++send_ctl->ctl_tlp_count;
             send_ctl->ctl_recent_lost_count[0]++;
@@ -570,7 +564,6 @@ xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_
         send_ctl->ctl_recent_send_count[0] = 0;
     }
 }
-
 
 /**
  * OnAckReceived
@@ -674,11 +667,10 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
             }
 
             xqc_send_ctl_on_packet_acked(send_ctl, packet_out, ack_recv_time, 1);
-            
+
             if (packet_out->po_used_size > conn->max_acked_po_size) {
                 conn->max_acked_po_size = packet_out->po_used_size + XQC_TLS_AEAD_OVERHEAD_MAX_LEN;
             }
-            
 
             xqc_send_queue_maybe_remove_unacked(packet_out, send_queue, NULL);
 
@@ -730,7 +722,7 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
 
     /* Clear app-limited field if the bubble is gone. */
     /* @NOTE: we need to clear it for Cubic/Reno as well. */
-    if (send_ctl->ctl_app_limited 
+    if (send_ctl->ctl_app_limited
         && send_ctl->ctl_delivered > send_ctl->ctl_app_limited)
     {
         send_ctl->ctl_app_limited = 0;
@@ -820,7 +812,6 @@ xqc_send_ctl_latest_rtt_tracking(xqc_send_ctl_t *send_ctl, xqc_usec_t *latest_rt
     send_ctl->ctl_latest_rtt_square_sum += sample * sample;
 }
 
-
 /**
  * UpdateRtt
  */
@@ -848,7 +839,7 @@ xqc_send_ctl_update_rtt(xqc_send_ctl_t *send_ctl, xqc_usec_t *latest_rtt, xqc_us
         /* Adjust for ack delay if it's plausible. */
         xqc_usec_t adjusted_rtt = *latest_rtt;
         if (adjusted_rtt > ack_delay
-            && (adjusted_rtt + 1000) >= (send_ctl->ctl_minrtt + ack_delay)) 
+            && (adjusted_rtt + 1000) >= (send_ctl->ctl_minrtt + ack_delay))
         {
             adjusted_rtt -= ack_delay;
         }
@@ -894,7 +885,6 @@ xqc_send_ctl_on_spurious_loss_detected(xqc_send_ctl_t *send_ctl,
     }
     send_ctl->ctl_reordering_packet_threshold = xqc_max(send_ctl->ctl_reordering_packet_threshold,
                                                         xqc_send_ctl_get_pkt_num_gap(send_ctl, pns, spurious_loss_pktnum, largest_ack) + 1);
-
 
     /* Adjust Time Threshold */
     if (ack_recv_time < spurious_loss_sent_time) {
@@ -962,7 +952,7 @@ xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue,
             if (po->po_flag & XQC_POF_IN_FLIGHT) {
                 xqc_send_ctl_decrease_inflight(conn, po);
 
-                if (XQC_NEED_REPAIR(po->po_frame_types) 
+                if (XQC_NEED_REPAIR(po->po_frame_types)
                     || (po->po_flag & XQC_POF_NOTIFY))
                 {
                     xqc_send_queue_copy_to_lost(po, send_queue, XQC_TRUE);
@@ -1074,7 +1064,6 @@ xqc_send_ctl_congestion_event(xqc_send_ctl_t *send_ctl, xqc_usec_t sent_time)
     }
 }
 
-
 /**
  * IsAppLimited
  */
@@ -1139,7 +1128,7 @@ xqc_send_ctl_cc_on_ack(xqc_send_ctl_t *send_ctl, xqc_packet_out_t *acked_packet,
 }
 
 void
-xqc_send_ctl_on_pmtud_ping_acked(xqc_send_ctl_t *send_ctl, 
+xqc_send_ctl_on_pmtud_ping_acked(xqc_send_ctl_t *send_ctl,
     xqc_packet_out_t *po)
 {
     xqc_connection_t *conn = send_ctl->ctl_conn;
@@ -1210,11 +1199,9 @@ xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl,
             }
         }
 
-        
         if (packet_out->po_frame_types & (XQC_FRAME_BIT_NEW_CONNECTION_ID)) {
             xqc_cid_set_on_cid_acked(&conn->scid_set, packet_out->po_new_cid_path, packet_out->po_new_cid_seq);
         }
-        
 
         if (do_cc) {
             xqc_send_ctl_cc_on_ack(send_ctl, packet_out, now);
@@ -1226,7 +1213,6 @@ xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl,
         packet_out->po_origin->po_acked = 1;
     }
 }
-
 
 xqc_usec_t
 xqc_send_ctl_get_pto_time_and_space(xqc_send_ctl_t *send_ctl, xqc_usec_t now, xqc_pkt_num_space_t *pns_ret)
@@ -1251,13 +1237,13 @@ xqc_send_ctl_get_pto_time_and_space(xqc_send_ctl_t *send_ctl, xqc_usec_t now, xq
 
     /* RTT has not been measured yet*/
     if (send_ctl->ctl_first_rtt_sample_time == 0
-        && c->conn_settings.initial_pto_duration != 0) 
+        && c->conn_settings.initial_pto_duration != 0)
     {
         duration = c->conn_settings.initial_pto_duration;
     }
 
     duration *= backoff;
-    
+
     if (send_ctl->ctl_bytes_in_flight == 0) {
         /* assert(!PeerCompletedAddressValidation()) */
         if (xqc_conn_peer_complete_address_validation(c)) {
@@ -1299,7 +1285,6 @@ xqc_send_ctl_get_pto_time_and_space(xqc_send_ctl_t *send_ctl, xqc_usec_t now, xq
 
     return pto_timeout;
 }
-
 
 /**
  * SetLossDetectionTimer
@@ -1344,7 +1329,6 @@ xqc_send_ctl_set_loss_detection_timer(xqc_send_ctl_t *send_ctl)
     xqc_timer_set(&send_ctl->path_timer_manager, XQC_TIMER_LOSS_DETECTION, now, interval);
 }
 
-
 /**
  * GetLossTimeAndSpace
  */
@@ -1363,7 +1347,6 @@ xqc_send_ctl_get_earliest_loss_time(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_
     }
     return time;
 }
-
 
 xqc_usec_t
 xqc_send_ctl_get_srtt(xqc_send_ctl_t *send_ctl)
@@ -1393,7 +1376,6 @@ xqc_send_ctl_get_spurious_loss_rate(xqc_send_ctl_t *send_ctl)
     }
 }
 
-
 xqc_bool_t
 xqc_send_ctl_check_anti_amplification(xqc_send_ctl_t *send_ctl, size_t send_bytes)
 {
@@ -1419,7 +1401,6 @@ xqc_send_ctl_check_anti_amplification(xqc_send_ctl_t *send_ctl, size_t send_byte
     return limit;
 }
 
-
 void
 xqc_send_ctl_rearm_ld_timer(xqc_send_ctl_t *send_ctl)
 {
@@ -1428,7 +1409,6 @@ xqc_send_ctl_rearm_ld_timer(xqc_send_ctl_t *send_ctl)
         xqc_send_ctl_set_loss_detection_timer(send_ctl);
     }
 }
-
 
 xqc_bool_t
 xqc_send_ctl_ack_received_in_pns(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t pns)
@@ -1457,7 +1437,7 @@ xqc_send_ctl_get_pkt_num_gap(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t pns, 
     return back - front;
 }
 
-uint64_t 
+uint64_t
 xqc_send_ctl_get_est_bw(xqc_send_ctl_t *send_ctl)
 {
     if (send_ctl->ctl_cong && send_ctl->ctl_cong_callback) {
@@ -1470,7 +1450,7 @@ xqc_send_ctl_get_est_bw(xqc_send_ctl_t *send_ctl)
             return (cwnd * 1000000) / srtt;
         }
     }
-    
+
     return 0;
 }
 
@@ -1479,9 +1459,8 @@ xqc_send_ctl_get_pacing_rate(xqc_send_ctl_t *send_ctl) {
     return xqc_pacing_rate_calc(&send_ctl->ctl_pacing);
 }
 
-
-void 
-xqc_send_ctl_set_next_pn_for_packet(xqc_connection_t *conn, xqc_pn_ctl_t *pn_ctl,  
+void
+xqc_send_ctl_set_next_pn_for_packet(xqc_connection_t *conn, xqc_pn_ctl_t *pn_ctl,
     xqc_packet_out_t *packet_out, xqc_usec_t current_time)
 {
     packet_out->po_pkt.pkt_num = pn_ctl->ctl_packet_number[packet_out->po_pkt.pkt_pns]++;

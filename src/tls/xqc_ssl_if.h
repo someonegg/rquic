@@ -20,7 +20,6 @@ typedef enum xqc_ssl_handshake_res_s {
     XQC_SSL_HSK_RES_FIN     = 1,
 } xqc_ssl_handshake_res_t;
 
-
 void xqc_ssl_ctx_set_timeout(SSL_CTX *ctx, uint32_t timeout);
 
 xqc_int_t xqc_ssl_ctx_set_cipher_suites(SSL_CTX *ctx, const char *ciphers);

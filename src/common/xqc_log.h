@@ -28,7 +28,6 @@
 /* max length for log buffer */
 #define XQC_MAX_LOG_LEN 2048
 
-
 #define XQC_LOG_REMOTE_EVENT    0
 #define XQC_LOG_LOCAL_EVENT     1
 
@@ -59,7 +58,6 @@ typedef enum {
     CON_CONNECTION_STATE_UPDATED,
     CON_PATH_ASSIGNED,
     CON_MTU_UPDATED,
-
 
     /* security event */
     SEC_KEY_UPDATED,
@@ -100,7 +98,6 @@ typedef enum {
     GEN_INFO,
     GEN_DEBUG,
 } xqc_log_type_t;
-
 
 typedef struct xqc_log_s {
     xqc_log_level_t                 log_level;
@@ -208,7 +205,6 @@ xqc_qlog_implement(xqc_log_t *log, xqc_log_type_t type, const char *func, const 
 #define xqc_conn_log(conn, level, fmt, ...) \
     xqc_log(conn->log, level, "|%s " fmt, xqc_conn_addr_str(conn), ##__VA_ARGS__ )
 
-
 #define xqc_log_fatal(log, ...) \
     do {\
         if ((log)->log_level >= XQC_LOG_FATAL) { \
@@ -243,7 +239,5 @@ xqc_qlog_implement(xqc_log_t *log, xqc_log_type_t type, const char *func, const 
             xqc_log_implement(log, xqc_log_event_type(XQC_LOG_DEBUG), __FUNCTION__, __VA_ARGS__); \
         } \
     } while (0)
-
-
 
 #endif /*_XQC_H_LOG_INCLUDED_*/

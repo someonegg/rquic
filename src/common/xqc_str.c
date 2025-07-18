@@ -91,7 +91,6 @@ xqc_vsprintf(unsigned char *buf, unsigned char *last, const char *fmt, va_list a
                 break;
             }
 
-
             switch (*fmt) {
 
             case 'V':

@@ -9,7 +9,7 @@ xqc_int_t
 xqc_hkdf_expand_label(uint8_t *dest, size_t destlen,
     const uint8_t *secret, size_t secretlen,
     const uint8_t *label, size_t labellen,
-    const xqc_digest_t *md) 
+    const xqc_digest_t *md)
 {
     unsigned char        info[256];
     static const uint8_t LABEL[] = "tls13 ";

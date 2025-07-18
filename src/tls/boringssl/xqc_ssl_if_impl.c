@@ -8,7 +8,6 @@
 #include "src/tls/xqc_tls_common.h"
 #include "src/transport/xqc_conn.h"
 
-
 void
 xqc_ssl_ctx_set_timeout(SSL_CTX *ctx, uint32_t timeout)
 {
@@ -18,13 +17,11 @@ xqc_ssl_ctx_set_timeout(SSL_CTX *ctx, uint32_t timeout)
     SSL_CTX_set_session_psk_dhe_timeout(ctx, timeout);
 }
 
-
 void
 xqc_ssl_ctx_enable_max_early_data(SSL_CTX *ctx)
 {
     /* for encapsulation, BoringSSL has no interface to enable max_early_data on SSL_CTX */
 }
-
 
 xqc_int_t
 xqc_ssl_ctx_set_cipher_suites(SSL_CTX *ctx, const char *ciphers)
@@ -33,21 +30,17 @@ xqc_ssl_ctx_set_cipher_suites(SSL_CTX *ctx, const char *ciphers)
     return XQC_OK;
 }
 
-
-
 xqc_bool_t
 xqc_ssl_session_is_early_data_enabled(SSL_SESSION *session)
 {
     return SSL_SESSION_early_data_capable(session);
 }
 
-
 void
 xqc_ssl_enable_max_early_data(SSL *ssl)
 {
-    SSL_set_early_data_enabled(ssl, 1); 
+    SSL_set_early_data_enabled(ssl, 1);
 }
-
 
 xqc_int_t
 xqc_ssl_get_certs_array(SSL *ssl, X509_STORE_CTX *store_ctx, unsigned char **certs_array,
@@ -75,13 +68,11 @@ xqc_ssl_free_certs_array(unsigned char **certs_array, size_t certs_array_len)
 {
 }
 
-
 xqc_bool_t
 xqc_ssl_is_early_data_accepted(SSL *ssl)
 {
     return SSL_early_data_accepted(ssl) ? XQC_TRUE : XQC_FALSE;
 }
-
 
 xqc_ssl_handshake_res_t
 xqc_ssl_do_handshake(SSL *ssl, xqc_connection_t *conn, xqc_log_t *log)

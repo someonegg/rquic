@@ -8,7 +8,6 @@
 #include "src/transport/xqc_packet_out.h"
 #include "src/transport/xqc_packet.h"
 
-
 void xqc_init_sample_before_ack(xqc_sample_t *sampler)
 {
     xqc_send_ctl_t *ctl = sampler->send_ctl;
@@ -20,16 +19,16 @@ void xqc_init_sample_before_ack(xqc_sample_t *sampler)
  * see https://tools.ietf.org/html/draft-cheng-iccrg-delivery-rate-estimation-00#section-3.3
  */
 /* Upon receiving ACK, fill in delivery rate sample rs. */
-xqc_sample_type_t 
-xqc_generate_sample(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl, 
+xqc_sample_type_t
+xqc_generate_sample(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl,
     xqc_usec_t now)
 {
-    
+
     /* we do NOT have a valid sample yet. */
     /* the ACK acks nothing */
     if (sampler->prior_time == 0) {
         sampler->interval = 0;
-        xqc_log(send_ctl->ctl_conn->log, XQC_LOG_WARN, 
+        xqc_log(send_ctl->ctl_conn->log, XQC_LOG_WARN,
                 "|sampler_prior_time_is_zero!|");
         return XQC_RATE_SAMPLE_ACK_NOTHING;
     }
@@ -41,9 +40,9 @@ xqc_generate_sample(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl,
     /* This is for BBRv2 */
     sampler->lost_pkts = send_ctl->ctl_lost_pkts_number - sampler->prior_lost;
 
-    /* 
-     * Even if the interval is too small, 
-     * we need to update these data for Copa. 
+    /*
+     * Even if the interval is too small,
+     * we need to update these data for Copa.
      */
     sampler->now = now;
     sampler->rtt = send_ctl->ctl_latest_rtt;
@@ -53,7 +52,7 @@ xqc_generate_sample(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl,
     sampler->total_acked = send_ctl->ctl_delivered;
     sampler->total_lost_pkts = send_ctl->ctl_lost_pkts_number;
 
-    /* 
+    /*
      * Normally we expect interval >= MinRTT.
      * Note that rate may still be over-estimated when a spuriously
      * retransmitted skb was first (s)acked because "interval"
@@ -74,7 +73,7 @@ xqc_generate_sample(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl,
 }
 
 /* Update rs when packet is SACKed or ACKed. */
-void 
+void
 xqc_update_sample(xqc_sample_t *sampler, xqc_packet_out_t *packet,
     xqc_send_ctl_t *send_ctl, xqc_usec_t now)
 {
@@ -89,7 +88,7 @@ xqc_update_sample(xqc_sample_t *sampler, xqc_packet_out_t *packet,
     /* if it's the ACKs from the first RTT round, we use the sample anyway */
 
     if ((sampler->prior_delivered == 0)
-        || (packet->po_delivered > sampler->prior_delivered)) 
+        || (packet->po_delivered > sampler->prior_delivered))
     {
         sampler->prior_lost = packet->po_lost;
         sampler->tx_in_flight = packet->po_tx_in_flight;
@@ -102,10 +101,10 @@ xqc_update_sample(xqc_sample_t *sampler, xqc_packet_out_t *packet,
         } else {
             sampler->is_app_limited = 1;
         }
-        
-        sampler->send_elapse = packet->po_sent_time - 
+
+        sampler->send_elapse = packet->po_sent_time -
                                packet->po_first_sent_time;
-        sampler->ack_elapse = send_ctl->ctl_delivered_time - 
+        sampler->ack_elapse = send_ctl->ctl_delivered_time -
                               packet->po_delivered_time;
         send_ctl->ctl_first_sent_time = packet->po_sent_time;
         sampler->lagest_ack_time = now;
@@ -113,7 +112,7 @@ xqc_update_sample(xqc_sample_t *sampler, xqc_packet_out_t *packet,
 
     /* always keep it updated with the largest acked packet */
     sampler->po_sent_time = packet->po_sent_time;
-    /* 
+    /*
      * Mark the packet as delivered once it's SACKed to
      * avoid being used again when it's cumulatively acked.
      */
@@ -126,10 +125,10 @@ xqc_sample_check_app_limited(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl, xq
     uint32_t cwnd_bytes = send_ctl->ctl_cong_callback->
                           xqc_cong_ctl_get_cwnd(send_ctl->ctl_cong);
     uint32_t actual_mss = xqc_conn_get_mss(send_ctl->ctl_conn);
-    xqc_bool_t not_cwnd_limited = send_ctl->ctl_bytes_in_flight + actual_mss <= 
+    xqc_bool_t not_cwnd_limited = send_ctl->ctl_bytes_in_flight + actual_mss <=
                                   cwnd_bytes;
-    /* @FIXME: We should find a better way to adapt it to multipath. 
-     * The current implemetation is problematic. As even if we have pkts 
+    /* @FIXME: We should find a better way to adapt it to multipath.
+     * The current implemetation is problematic. As even if we have pkts
      * in snd/lost/pto list, they may not be scheduled on the path. Therefore,
      * if the path buffer is empty, there might be some "bubbles" in the pipe.
      * However, we have no better idea to handle this problem at this moment.
@@ -149,9 +148,9 @@ xqc_sample_check_app_limited(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl, xq
         && xqc_list_empty(&send_queue->sndq_pto_probe_packets)
         && all_path_buffer_empty)
     {
-        send_ctl->ctl_app_limited = (send_ctl->ctl_delivered + 
+        send_ctl->ctl_app_limited = (send_ctl->ctl_delivered +
                                     send_ctl->ctl_bytes_in_flight) ?
-                                    (send_ctl->ctl_delivered + 
+                                    (send_ctl->ctl_delivered +
                                     send_ctl->ctl_bytes_in_flight)
                                     : 1;
         if (send_ctl->ctl_app_limited > 0) {
@@ -163,8 +162,8 @@ xqc_sample_check_app_limited(xqc_sample_t *sampler, xqc_send_ctl_t *send_ctl, xq
     return XQC_FALSE;
 }
 
-void 
-xqc_sample_on_sent(xqc_packet_out_t *packet_out, xqc_send_ctl_t *send_ctl, 
+void
+xqc_sample_on_sent(xqc_packet_out_t *packet_out, xqc_send_ctl_t *send_ctl,
     xqc_usec_t now)
 {
     if (send_ctl->ctl_bytes_in_flight == 0) {
@@ -175,6 +174,6 @@ xqc_sample_on_sent(xqc_packet_out_t *packet_out, xqc_send_ctl_t *send_ctl,
     packet_out->po_delivered = send_ctl->ctl_delivered;
     packet_out->po_is_app_limited = send_ctl->ctl_app_limited > 0 ? XQC_TRUE : XQC_FALSE;
     packet_out->po_lost = send_ctl->ctl_lost_pkts_number;
-    packet_out->po_tx_in_flight = send_ctl->ctl_bytes_in_flight + 
+    packet_out->po_tx_in_flight = send_ctl->ctl_bytes_in_flight +
                                   packet_out->po_used_size;
 }

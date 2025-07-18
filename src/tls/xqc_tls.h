@@ -11,22 +11,19 @@
 #include "src/tls/xqc_tls_defs.h"
 #include "src/transport/xqc_packet.h"
 
-
-
 #ifdef XQC_SYS_WINDOWS
 // wincrypt.h defines macros which conflict with OpenSSL's types. This header
 // includes wincrypt and undefines the OpenSSL macros which conflict.
 #define WIN32_LEAN_AND_MEAN
 #include <windows.h>
 #include <wincrypt.h>
-// Undefine the macros which conflict with OpenSSL and define replacements. 
+// Undefine the macros which conflict with OpenSSL and define replacements.
 // See http://msdn.microsoft.com/en-us/library/windows/desktop/aa378145(v=vs.85).aspx
 #undef PKCS7_SIGNER_INFO
 #undef X509_CERT_PAIR
 #undef X509_EXTENSIONS
 #undef X509_NAME
 #endif
-
 
 /**
  * @brief init tls context. MUST be called before any creation of xqc_tls_t
@@ -49,11 +46,9 @@ xqc_int_t xqc_tls_ctx_register_alpn(xqc_tls_ctx_t *ctx, const char *alpn, size_t
  */
 xqc_int_t xqc_tls_ctx_unregister_alpn(xqc_tls_ctx_t *ctx, const char *alpn, size_t alpn_len);
 
-
-
 /**
  * @brief create and initiate a tls instance
- * 
+ *
  * @param cfg config for initiating tls instance
  * @param user_data callback user_data for callback functions in xqc_tls_callbacks_t
  * @return XQC_OK for success, others for failure
@@ -64,7 +59,7 @@ xqc_tls_t *xqc_tls_create(xqc_tls_ctx_t *ctx, xqc_tls_config_t *cfg, xqc_log_t *
 /**
  * @brief initiate tls, need only call once after create a tls instance. for client, this will
  * trigger generating ClientHello.
- * 
+ *
  * @param version version of quic, with different versions comes the different
  * quic_transport_parameters extension codepoint in ClientHello and ServerHello.
  * @param odcid original dcid, used to generate initial secret
@@ -74,7 +69,7 @@ xqc_int_t xqc_tls_init(xqc_tls_t *tls, xqc_proto_version_t version, const xqc_ci
 
 /**
  * @brief reset initial keys, this might be called after Retry or Version Negotiation
- * 
+ *
  * @param version new version, which is related to Initial Salt
  * @param odcid new destination connection id
  * @return XQC_OK for success, others for failure
@@ -88,9 +83,9 @@ xqc_int_t xqc_tls_reset_initial(xqc_tls_t *tls, xqc_proto_version_t version,
 void xqc_tls_destroy(xqc_tls_t *tls);
 
 /**
- * @brief handle tls handshake data from peer's QUIC CRYPTO frame. during processing, events in 
+ * @brief handle tls handshake data from peer's QUIC CRYPTO frame. during processing, events in
  * xqc_tls_callbacks_t might be triggered.
- * 
+ *
  * @param level level of CRYPTO data, which shall be translated form QUIC packet type
  * @return XQC_OK for success, others for failure
  */
@@ -100,12 +95,12 @@ xqc_int_t xqc_tls_process_crypto_data(xqc_tls_t *tls, xqc_encrypt_level_t level,
 /**
  * @brief apply header protection, will generate header protection mask, and modify the first byte
  * on header and bytes of pktno. MUST be called after calling xqc_tls_encrypt_payload.
- * 
- * @param header header to be protected with subsequent encrypted payload buffer, after header 
+ *
+ * @param header header to be protected with subsequent encrypted payload buffer, after header
  * protection, the first byte and packet number will be modified and protected with mask.
  * @param pktno position of packet number
  * @param end end position of buffer, which is used to validate pktno and packet number length
- * @return XQC_OK for success, others for failure 
+ * @return XQC_OK for success, others for failure
  */
 xqc_int_t xqc_tls_encrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level,
     xqc_pkt_type_t pkt_type, uint8_t *header, uint8_t *pktno, uint8_t *end);
@@ -113,19 +108,19 @@ xqc_int_t xqc_tls_encrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level,
 /**
  * @brief remove header protection, will generate header protection mask, and modify the first byte
  * on header and bytes of pktno. MUST be called before calling xqc_tls_decrypt_payload.
- * 
- * @param header header buffer to be remove header protection, after remove, the first byte and 
+ *
+ * @param header header buffer to be remove header protection, after remove, the first byte and
  * packet number will be modified and restored
  * @param pktno position of packet number
  * @param end end position of buffer, which is used to validate pktno and packet number length
- * @return XQC_OK for success, others for failure 
+ * @return XQC_OK for success, others for failure
  */
 xqc_int_t xqc_tls_decrypt_header(xqc_tls_t *tls, xqc_encrypt_level_t level,
     xqc_pkt_type_t pkt_type, uint8_t *header, uint8_t *pktno, uint8_t *end);
 
 /**
  * @brief encrypt packet payload
- * 
+ *
  * @param pktno packet number, MUST be the original uncoded packet number
  * @param path_id path identifier, to calculate the nonce
  * @param header position of packet header, will be used as ad, MUST be plaintext
@@ -144,7 +139,7 @@ xqc_int_t xqc_tls_encrypt_payload(xqc_tls_t *tls, xqc_encrypt_level_t level,
 
 /**
  * @brief decrypt packet payload
- * 
+ *
  * @param pktno packet number, MUST be the original uncoded packet number
  * @param path_id path identifier, to calculate the nonce
  * @param header position of packet header, will be used as ad, MUST be plaintext
@@ -222,6 +217,5 @@ xqc_int_t xqc_tls_update_tp(xqc_tls_t *tls, uint8_t *tp_buf, size_t tp_len);
  * @brief get SSL handler
  */
 void *xqc_tls_get_ssl(xqc_tls_t *tls);
-
 
 #endif

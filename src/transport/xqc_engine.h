@@ -6,18 +6,15 @@
 #ifndef _XQC_ENGINE_H_INCLUDED_
 #define _XQC_ENGINE_H_INCLUDED_
 
-
 #include <xquic/xquic_typedef.h>
 #include <xquic/xquic.h>
 #include "src/tls/xqc_tls.h"
 #include "src/common/xqc_list.h"
 
-
 typedef enum {
     XQC_ENG_FLAG_RUNNING    = 1 << 0,
     XQC_ENG_FLAG_NO_DESTROY = 1 << 1,
 } xqc_engine_flag_t;
-
 
 typedef struct xqc_alpn_registration_s {
     xqc_list_head_t             head;
@@ -34,7 +31,6 @@ typedef struct xqc_alpn_registration_s {
     void                       *alp_ctx;
 
 } xqc_alpn_registration_t;
-
 
 typedef struct xqc_engine_s {
     /* for engine itself */
@@ -74,10 +70,7 @@ typedef struct xqc_engine_s {
 
 } xqc_engine_t;
 
-
-
 xqc_usec_t xqc_engine_wakeup_after(xqc_engine_t *engine);
-
 
 /**
  * Create engine config.
@@ -86,7 +79,6 @@ xqc_usec_t xqc_engine_wakeup_after(xqc_engine_t *engine);
 xqc_config_t *xqc_engine_config_create(xqc_engine_type_t engine_type);
 
 void xqc_engine_config_destroy(xqc_config_t *config);
-
 
 /**
  * @return > 0 : user should call xqc_engine_main_logic after N ms

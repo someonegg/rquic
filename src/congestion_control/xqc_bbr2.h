@@ -111,8 +111,8 @@ typedef struct xqc_bbr2_s {
     /* If TRUE, use a CWND of 0.75*BDP during probe_rtt instead of 4 packets. */
     bool                probe_rtt_based_on_bdp;
     /**
-     * If TRUE, skip probe_rtt and update the timestamp of the existing min_rtt 
-     * to now if min_rtt over the last cycle is within 12.5% of the current 
+     * If TRUE, skip probe_rtt and update the timestamp of the existing min_rtt
+     * to now if min_rtt over the last cycle is within 12.5% of the current
      * min_rtt.
      */
     bool                probe_rtt_skipped_if_similar_rtt;

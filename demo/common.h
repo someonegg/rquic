@@ -17,7 +17,6 @@
 #define AUTHORITY_LEN       128
 #define URL_LEN             1024
 
-
 /* request method */
 typedef enum request_method_e {
     REQUEST_METHOD_GET,
@@ -25,7 +24,7 @@ typedef enum request_method_e {
 } REQUEST_METHOD;
 
 char method_s[][16] = {
-    {"GET"}, 
+    {"GET"},
     {"POST"}
 };
 
@@ -36,10 +35,8 @@ static size_t READ_FILE_BUF_LEN = 2 *1024 * 1024;
 #define DEBUG ;
 // #define DEBUG printf("%s:%d (%s)\n",__FILE__, __LINE__ ,__FUNCTION__);
 
-
 extern long xqc_random(void);
 extern xqc_usec_t xqc_now();
-
 
 int
 xqc_demo_read_file_data(char * data, size_t data_len, char *filename)

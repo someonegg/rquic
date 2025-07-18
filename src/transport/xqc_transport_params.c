@@ -11,7 +11,6 @@
 #include <stdlib.h>
 #include <inttypes.h>
 
-
 #define XQC_PREFERRED_ADDR_IPV4_LEN         4
 #define XQC_PREFERRED_ADDR_IPV4_PORT_LEN    2
 #define XQC_PREFERRED_ADDR_IPV6_LEN         16
@@ -28,76 +27,75 @@ xqc_get_uint16(const uint8_t *p)
     return ntohs(n);
 }
 
-
-static ssize_t 
+static ssize_t
 xqc_transport_params_calc_length(const xqc_transport_params_t *params,
-    xqc_transport_params_type_t exttype) 
+    xqc_transport_params_type_t exttype)
 {
     size_t len = 0;
     size_t preferred_addrlen = 0;
 
     if (params->original_dest_connection_id_present) {
         len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_ORIGINAL_DEST_CONNECTION_ID) +
-               xqc_put_varint_len(params->original_dest_connection_id.cid_len) + 
+               xqc_put_varint_len(params->original_dest_connection_id.cid_len) +
                params->original_dest_connection_id.cid_len;
     }
 
     if (params->max_idle_timeout) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_IDLE_TIMEOUT) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_IDLE_TIMEOUT) +
                xqc_put_varint_len(xqc_put_varint_len(params->max_idle_timeout)) +
                xqc_put_varint_len(params->max_idle_timeout);
     }
 
     if (params->max_udp_payload_size != XQC_DEFAULT_MAX_UDP_PAYLOAD_SIZE) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE) +
                xqc_put_varint_len(xqc_put_varint_len(params->max_udp_payload_size)) +
                xqc_put_varint_len(params->max_udp_payload_size);
     }
 
     if (params->initial_max_data) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_DATA) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_DATA) +
                xqc_put_varint_len(xqc_put_varint_len(params->initial_max_data)) +
                xqc_put_varint_len(params->initial_max_data);
     }
 
     if (params->initial_max_stream_data_bidi_local) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_LOCAL) +
                xqc_put_varint_len(xqc_put_varint_len(params->initial_max_stream_data_bidi_local)) +
                xqc_put_varint_len(params->initial_max_stream_data_bidi_local);
     }
 
     if (params->initial_max_stream_data_bidi_remote) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_BIDI_REMOTE) +
                xqc_put_varint_len(xqc_put_varint_len(params->initial_max_stream_data_bidi_remote)) +
                xqc_put_varint_len(params->initial_max_stream_data_bidi_remote);
     }
 
     if (params->initial_max_stream_data_uni) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_UNI) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAM_DATA_UNI) +
                xqc_put_varint_len(xqc_put_varint_len(params->initial_max_stream_data_uni)) +
                xqc_put_varint_len(params->initial_max_stream_data_uni);
     }
 
     if (params->initial_max_streams_bidi) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_BIDI) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_BIDI) +
                xqc_put_varint_len(xqc_put_varint_len(params->initial_max_streams_bidi)) +
                xqc_put_varint_len(params->initial_max_streams_bidi);
     }
 
     if (params->initial_max_streams_uni) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI) +
                xqc_put_varint_len(xqc_put_varint_len(params->initial_max_streams_uni)) +
                xqc_put_varint_len(params->initial_max_streams_uni);
     }
 
     if (params->ack_delay_exponent != XQC_DEFAULT_ACK_DELAY_EXPONENT) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT) +
                xqc_put_varint_len(xqc_put_varint_len(params->ack_delay_exponent)) +
                xqc_put_varint_len(params->ack_delay_exponent);
     }
 
     if (params->max_ack_delay != XQC_DEFAULT_MAX_ACK_DELAY) {
-        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_ACK_DELAY) + 
+        len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_ACK_DELAY) +
                xqc_put_varint_len(xqc_put_varint_len(params->max_ack_delay)) +
                xqc_put_varint_len(params->max_ack_delay);
     }
@@ -156,7 +154,6 @@ xqc_transport_params_calc_length(const xqc_transport_params_t *params,
     return len;
 }
 
-
 /**
  * put variant int value param into buf
  */
@@ -179,7 +176,6 @@ xqc_put_zero_length_param(uint8_t* p, xqc_transport_param_id_t id)
     p = xqc_put_varint(p, 0);   /* put length, which is 0 */
     return p;
 }
-
 
 xqc_int_t
 xqc_encode_transport_params(const xqc_transport_params_t *params,
@@ -206,17 +202,17 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
     }
 
     if (params->max_idle_timeout) {
-        p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_MAX_IDLE_TIMEOUT, 
+        p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_MAX_IDLE_TIMEOUT,
                                  params->max_idle_timeout);
     }
 
     if (params->max_udp_payload_size != XQC_DEFAULT_MAX_UDP_PAYLOAD_SIZE) {
-        p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE, 
+        p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_MAX_UDP_PAYLOAD_SIZE,
                                  params->max_udp_payload_size);
     }
 
     if (params->initial_max_data) {
-        p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_INITIAL_MAX_DATA, 
+        p = xqc_put_varint_param(p, XQC_TRANSPORT_PARAM_INITIAL_MAX_DATA,
                                  params->initial_max_data);
     }
 
@@ -259,15 +255,15 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
         p = xqc_put_zero_length_param(p, XQC_TRANSPORT_PARAM_DISABLE_ACTIVE_MIGRATION);
     }
 
-    if (exttype == XQC_TP_TYPE_ENCRYPTED_EXTENSIONS 
+    if (exttype == XQC_TP_TYPE_ENCRYPTED_EXTENSIONS
         && params->preferred_address_present
         && params->preferred_address.cid.cid_len > 0)   /* cid MUST NOT be zero-length */
     {
-        preferred_addrlen = sizeof(params->preferred_address.ipv4) + 
-                            sizeof(params->preferred_address.ipv4_port) + 
-                            sizeof(params->preferred_address.ipv6) + 
+        preferred_addrlen = sizeof(params->preferred_address.ipv4) +
+                            sizeof(params->preferred_address.ipv4_port) +
+                            sizeof(params->preferred_address.ipv6) +
                             sizeof(params->preferred_address.ipv6_port) +
-                            sizeof(params->preferred_address.cid.cid_len) + 
+                            sizeof(params->preferred_address.cid.cid_len) +
                             params->preferred_address.cid.cid_len;
 
         p = xqc_put_varint(p, XQC_TRANSPORT_PARAM_PREFERRED_ADDRESS);
@@ -314,7 +310,6 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
     return XQC_OK;
 }
 
-
 /* dst should be destination value point */
 #define XQC_DECODE_VINT_VALUE(dst, p, end)                  \
     do {                                                    \
@@ -323,8 +318,7 @@ xqc_encode_transport_params(const xqc_transport_params_t *params,
             return -XQC_TLS_MALFORMED_TRANSPORT_PARAM;      \
         }                                                   \
         return XQC_OK;                                      \
-    } while(0) 
-
+    } while(0)
 
 static xqc_int_t
 xqc_decode_original_dest_cid(xqc_transport_params_t *params, xqc_transport_params_type_t exttype,
@@ -541,7 +535,7 @@ typedef enum {
     XQC_TP_DECODER_RETRY_SOURCE_CONNECTION_ID          ,
     XQC_TP_DECODER_NO_CRYPTO                           ,
     XQC_TP_DECODER_PMTUD_OPTIONS                       ,
-    XQC_TP_DECODER_UNKNOWN                             
+    XQC_TP_DECODER_UNKNOWN
 } xqc_tp_decoder_index_t;
 
 /* decode value from p, and store value in the input params */
@@ -570,10 +564,9 @@ xqc_trans_param_decode_func xqc_trans_param_decode_func_list[] = {
     xqc_decode_enable_pmtud,
 };
 
-
 /* convert param_type to param's index in xqc_trans_param_decode_func_list */
-uint64_t 
-xqc_trans_param_get_index(uint64_t param_type) 
+uint64_t
+xqc_trans_param_get_index(uint64_t param_type)
 {
     switch (param_type) {
 
@@ -605,9 +598,8 @@ xqc_trans_param_get_index(uint64_t param_type)
         break;
     }
 
-    return XQC_TP_DECODER_UNKNOWN; 
+    return XQC_TP_DECODER_UNKNOWN;
 }
-
 
 /**
  * decode one param
@@ -634,9 +626,9 @@ xqc_decode_one_transport_param(xqc_transport_params_t *params,
     }
     p += nread;
 
-    /* 
+    /*
      * read param value, note: some parameters are allowed to be zero-length,
-     * for example, disable_active_migration. 
+     * for example, disable_active_migration.
      */
     uint64_t param_index = xqc_trans_param_get_index(param_type);
     if (param_index != XQC_TP_DECODER_UNKNOWN) {
@@ -705,7 +697,6 @@ xqc_decode_transport_params(xqc_transport_params_t *params,
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_read_transport_params(char *tp_data, size_t tp_data_len, xqc_transport_params_t *params)
 {
@@ -766,7 +757,6 @@ xqc_read_transport_params(char *tp_data, size_t tp_data_len, xqc_transport_param
     return XQC_OK;
 }
 
-
 ssize_t
 xqc_write_transport_params(char *tp_buf, size_t cap, const xqc_transport_params_t *params)
 {
@@ -786,7 +776,6 @@ xqc_write_transport_params(char *tp_buf, size_t cap, const xqc_transport_params_
                                    params->initial_max_stream_data_uni,
                                    params->initial_max_data,
                                    params->max_ack_delay);
-                                   
     if (tp_data_len < 0) {
         return -XQC_ESYS;
     }
@@ -794,7 +783,7 @@ xqc_write_transport_params(char *tp_buf, size_t cap, const xqc_transport_params_
     return tp_data_len;
 }
 
-void 
+void
 xqc_init_transport_params(xqc_transport_params_t *params)
 {
     xqc_memzero(params, sizeof(xqc_transport_params_t));

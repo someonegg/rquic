@@ -20,7 +20,6 @@ find_library(CRYPTO_LIBRARY         NAMES crypto
     PATH_SUFFIXES lib64 lib build build/crypto
     NO_DEFAULT_PATH)
 
-
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
     set(SSL_LIBRARY_STATIC_NAME     ssl.lib)
     set(CRYPTO_LIBRARY_STATIC_NAME  crypto.lib)

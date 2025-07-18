@@ -41,7 +41,6 @@ if(LIBEVENT_INCLUDE_DIR)
     unset(_version_regex)
 endif()
 
-
 include (FindPackageHandleStandardArgs)
 set (LIBEVENT_INCLUDE_DIRS ${LIBEVENT_INCLUDE_DIR})
 
@@ -79,7 +78,6 @@ if(NOT ${LIBEVENT_THREAD} MATCHES "LIBEVENT_THREAD-NOTFOUND")
         ${LIBEVENT_THREAD}
     )
 endif()
-
 
 find_package_handle_standard_args(LibEvent
     REQUIRED_VARS

@@ -24,7 +24,7 @@ typedef struct xqc_siphash_ctx {
     uint64_t v3;
     int hash_size; /* save sizeof(hash), only 8 or 16 */
     /*  SipHash-2-4  */
-    int crounds; 
+    int crounds;
     int drounds;
 } xqc_siphash_ctx_t;
 
@@ -64,7 +64,7 @@ typedef struct xqc_siphash_ctx {
         v2 = ROTL(v2, 32);                                                     \
     } while (0)
 
-static inline int 
+static inline int
 xqc_siphash_init(xqc_siphash_ctx_t *ctx, const unsigned char *k, size_t key_len,
     size_t hash_size, int crounds, int drounds)
 {
@@ -78,7 +78,7 @@ xqc_siphash_init(xqc_siphash_ctx_t *ctx, const unsigned char *k, size_t key_len,
     }
     k0 = U8TO64_LE(k);
     k1 = U8TO64_LE(k + 8);
-    
+
     ctx->v0 = 0x736f6d6570736575ULL ^ k0;
     ctx->v1 = 0x646f72616e646f6dULL ^ k1;
     ctx->v2 = 0x6c7967656e657261ULL ^ k0;
@@ -102,10 +102,9 @@ xqc_siphash_init(xqc_siphash_ctx_t *ctx, const unsigned char *k, size_t key_len,
     return XQC_OK;
 }
 
-
 /*
     Computes a SipHash value
-    *ctx: point to siphash context 
+    *ctx: point to siphash context
     *in: pointer to input data (read-only)
     inlen: input data length in bytes (any size_t value)
     *out: pointer to output data (write-only), outlen bytes must be allocated
@@ -132,7 +131,7 @@ xqc_siphash(xqc_siphash_ctx_t *ctx, const uint8_t *in, size_t inlen, uint8_t *ou
         m = U8TO64_LE(pi);
         v3 ^= m;
         for (i = 0; i < ctx->crounds; i++) {
-            SIPROUND; 
+            SIPROUND;
         }
         v0 ^= m;
     }
@@ -183,8 +182,5 @@ xqc_siphash(xqc_siphash_ctx_t *ctx, const uint8_t *in, size_t inlen, uint8_t *ou
     U64TO8_LE(out + 8, b);
     return XQC_OK;
 }
-
-
-
 
 #endif /* _XQC_SIPHASH_H_INCLUDED_ */

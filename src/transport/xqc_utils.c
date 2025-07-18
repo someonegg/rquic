@@ -49,7 +49,7 @@ xqc_conns_pq_pop_top_conn(xqc_pq_t *pq)
     return conn;
 }
 
-void 
+void
 xqc_conns_pq_remove(xqc_pq_t *pq, xqc_connection_t *conn)
 {
     xqc_pq_remove(pq, conn->wakeup_pq_index);
@@ -59,7 +59,7 @@ int
 xqc_insert_conns_hash(xqc_str_hash_table_t *conns_hash, xqc_connection_t *conn,
     const uint8_t *data, size_t len)
 {
-    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, data, len); 
+    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, data, len);
     xqc_str_hash_element_t c = {
         .str    = {
             .data = (unsigned char *)data,
@@ -68,7 +68,7 @@ xqc_insert_conns_hash(xqc_str_hash_table_t *conns_hash, xqc_connection_t *conn,
         .hash   = hash,
         .value  = conn
     };
-    
+
     if (xqc_str_hash_add(conns_hash, c) != XQC_OK) {
         return -XQC_EMALLOC;
     }
@@ -80,7 +80,7 @@ int
 xqc_remove_conns_hash(xqc_str_hash_table_t *conns_hash, xqc_connection_t *conn,
     const uint8_t *data, size_t len)
 {
-    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, data, len); 
+    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, data, len);
     xqc_str_t str = {
         .data   = (unsigned char *)data,
         .len    = len,
@@ -97,7 +97,7 @@ int
 xqc_insert_conns_addr_hash(xqc_str_hash_table_t *conns_hash, xqc_connection_t *conn,
     const struct sockaddr *addr, socklen_t addrlen)
 {
-    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, (const uint8_t *)addr, addrlen); 
+    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, (const uint8_t *)addr, addrlen);
     xqc_str_hash_element_t c = {
         .str    = {
             .data = (unsigned char *)addr,
@@ -113,12 +113,11 @@ xqc_insert_conns_addr_hash(xqc_str_hash_table_t *conns_hash, xqc_connection_t *c
     return 0;
 }
 
-
 void *
 xqc_find_conns_hash(xqc_str_hash_table_t *conns_hash, xqc_connection_t *conn,
     const uint8_t *data, size_t len)
 {
-    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, data, len); 
+    uint64_t hash = xqc_siphash_get_hash(&conns_hash->siphash_ctx, data, len);
     xqc_str_t str = {
         .data   = (unsigned char *)data,
         .len    = len,

@@ -154,7 +154,7 @@ xqc_destroy_pool(xqc_memory_pool_t *pool)
             xqc_mempool_free_protected(p, pool->page_size);
 
         } else {
-            xqc_free(p); 
+            xqc_free(p);
         }
 #else
         xqc_free(p);
@@ -168,9 +168,9 @@ xqc_destroy_pool(xqc_memory_pool_t *pool)
 #ifdef XQC_PROTECT_POOL_MEM
         if (pool->protect_block) {
             xqc_mempool_free_protected(p, pool->page_size);
-            
+
         } else {
-            xqc_free(p); 
+            xqc_free(p);
         }
 #else
         xqc_free(p);
@@ -180,9 +180,9 @@ xqc_destroy_pool(xqc_memory_pool_t *pool)
 #ifdef XQC_PROTECT_POOL_MEM
     if (pool->protect_block) {
         xqc_mempool_free_protected(pool, pool->page_size);
-        
+
     } else {
-        xqc_free(pool); 
+        xqc_free(pool);
     }
 #else
         xqc_free(pool);
@@ -196,7 +196,7 @@ xqc_palloc_large(xqc_memory_pool_t *pool, size_t size)
     xqc_memory_large_t *p;
     if (pool->protect_block) {
         p = xqc_mempool_malloc_protected(size + sizeof(xqc_memory_large_t), pool->page_size);
-        
+
     } else {
         p = xqc_malloc(size + sizeof(xqc_memory_large_t));
     }
@@ -227,14 +227,14 @@ xqc_palloc_block(xqc_memory_pool_t *pool, size_t size)
     char *m;
     if (pool->protect_block) {
         m = xqc_mempool_malloc_protected(psize, pool->page_size);
-        
+
     } else {
         m = xqc_malloc(psize);
     }
 #else
     char *m = xqc_malloc(psize);
 #endif
-    
+
     if (m == NULL) {
         return NULL;
     }

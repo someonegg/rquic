@@ -11,12 +11,10 @@
 #include "src/common/xqc_common.h"
 #include "src/common/xqc_memory_pool.h"
 
-
 typedef struct xqc_id_hash_element_s {
     uint64_t                    hash;
     void                       *value;
 } xqc_id_hash_element_t;
-
 
 typedef struct xqc_id_hash_node_s {
     struct xqc_id_hash_node_s  *next;
@@ -29,7 +27,6 @@ typedef struct xqc_id_hash_table_s {
     size_t                      mask;
     xqc_allocator_t             allocator;
 } xqc_id_hash_table_t;
-
 
 static inline xqc_int_t
 xqc_id_hash_init(xqc_id_hash_table_t *hash_tab,  xqc_allocator_t allocator, size_t bucket_num)
@@ -45,7 +42,6 @@ xqc_id_hash_init(xqc_id_hash_table_t *hash_tab,  xqc_allocator_t allocator, size
     hash_tab->mask  = bucket_num - 1;
     return XQC_OK;
 }
-
 
 static inline void
 xqc_id_hash_release(xqc_id_hash_table_t *hash_tab)
@@ -64,7 +60,6 @@ xqc_id_hash_release(xqc_id_hash_table_t *hash_tab)
     }
     a->free(a->opaque, hash_tab->list);
 }
-
 
 static inline void *
 xqc_id_hash_find(xqc_id_hash_table_t *hash_tab, uint64_t hash)
@@ -85,7 +80,6 @@ xqc_id_hash_find(xqc_id_hash_table_t *hash_tab, uint64_t hash)
 
     return NULL;
 }
-
 
 static inline xqc_int_t
 xqc_id_hash_add(xqc_id_hash_table_t *hash_tab, xqc_id_hash_element_t e)
@@ -108,7 +102,6 @@ xqc_id_hash_add(xqc_id_hash_table_t *hash_tab, xqc_id_hash_element_t e)
 
     return XQC_OK;
 }
-
 
 #define XQC_ID_HASH_LOOP -9
 

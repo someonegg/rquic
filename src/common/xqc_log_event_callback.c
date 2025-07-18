@@ -8,8 +8,8 @@
 #include "src/transport/xqc_send_ctl.h"
 #include "src/congestion_control/xqc_bbr_common.h"
 
-void 
-xqc_log_CON_SERVER_LISTENING_callback(xqc_log_t *log, const char *func, const struct sockaddr *peer_addr, 
+void
+xqc_log_CON_SERVER_LISTENING_callback(xqc_log_t *log, const char *func, const struct sockaddr *peer_addr,
     socklen_t peer_addrlen)
 {
     struct sockaddr_in *sa_peer = (struct sockaddr_in *)peer_addr;
@@ -66,12 +66,12 @@ xqc_log_CON_CONNECTION_CLOSED_callback(xqc_log_t *log, const char *func, xqc_con
             }
         }
         xqc_qlog_implement(log, CON_CONNECTION_CLOSED, func,
-                            "|err_code:%d|mtu_updatad_count:%d|pkt_dropped:%d|recent_congestion:%s|", 
+                            "|err_code:%d|mtu_updatad_count:%d|pkt_dropped:%d|recent_congestion:%s|",
                             conn->conn_err, conn->MTU_updated_count, conn->packet_dropped_count, log_buf);
     }
     else{
         xqc_qlog_implement(log, CON_CONNECTION_CLOSED, func,
-                            "|err_code:%d|mtu_updatad_count:%d|pkt_dropped:%d|", 
+                            "|err_code:%d|mtu_updatad_count:%d|pkt_dropped:%d|",
                             conn->conn_err, conn->MTU_updated_count, conn->packet_dropped_count);
     }
 }
@@ -93,7 +93,7 @@ xqc_log_CON_CONNECTION_STATE_UPDATED_callback(xqc_log_t *log, const char *func, 
                       "|new:%s|", xqc_conn_state_2_str(conn->conn_state));
 }
 
-void 
+void
 xqc_log_CON_PATH_ASSIGNED_callback(xqc_log_t *log, const char *func,
     xqc_path_ctx_t *path, xqc_connection_t *conn)
 {
@@ -103,7 +103,7 @@ xqc_log_CON_PATH_ASSIGNED_callback(xqc_log_t *log, const char *func,
                      xqc_dcid_str(log->engine, &path->path_dcid), xqc_scid_str(log->engine, &path->path_scid));
 }
 
-void 
+void
 xqc_log_CON_MTU_UPDATED_callback(xqc_log_t *log, const char *func, xqc_connection_t *conn, int32_t is_done)
 {
     xqc_qlog_implement(log, CON_MTU_UPDATED, func,
@@ -150,7 +150,7 @@ xqc_log_TRA_VERSION_INFORMATION_callback(xqc_log_t *log, const char *func, uint3
 }
 
 void
-xqc_log_TRA_ALPN_INFORMATION_callback(xqc_log_t *log, const char *func, const unsigned char * server_alpn_list, 
+xqc_log_TRA_ALPN_INFORMATION_callback(xqc_log_t *log, const char *func, const unsigned char * server_alpn_list,
     unsigned int server_alpn_list_len, const unsigned char *client_alpn_list, unsigned int client_alpn_list_len,
     const char *selected_alpn, size_t selected_alpn_len)
 {
@@ -160,7 +160,7 @@ xqc_log_TRA_ALPN_INFORMATION_callback(xqc_log_t *log, const char *func, const un
     p = xqc_sprintf(p, last, "client_alpn:");
 
     uint8_t alpn_len;
-    size_t alpn_write_len; 
+    size_t alpn_write_len;
 
     for (unsigned i = 0; i < client_alpn_list_len;) {
         alpn_len = client_alpn_list[i];
@@ -227,15 +227,15 @@ xqc_log_TRA_PACKET_SENT_callback(xqc_log_t *log, const char *func, xqc_connectio
         xqc_qlog_implement(log, TRA_PACKET_SENT, func,
                         "|<==|conn:%p|path_id:%ui|pkt_pns:%d|pkt_type:%s|pkt_num:%ui|size:%d|frame_flag:%s|"
                         "sent:%z|inflight:%ud|now:%ui|stream_id:%ui|stream_offset:%ui|",
-                        conn, path->path_id, packet_out->po_pkt.pkt_pns, 
+                        conn, path->path_id, packet_out->po_pkt.pkt_pns,
                         xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type), packet_out->po_pkt.pkt_num,
                         packet_out->po_used_size, xqc_frame_type_2_str(log->engine, packet_out->po_frame_types),
-                        sent, path->path_send_ctl->ctl_bytes_in_flight, send_time, 
+                        sent, path->path_send_ctl->ctl_bytes_in_flight, send_time,
                         packet_out->po_stream_id, packet_out->po_stream_offset);
     } else {
         xqc_qlog_implement(log, TRA_PACKET_SENT, func,
                        "|<==|conn:%p|path_id:%ui|pkt_type:%s|pkt_pns:%d|frame_flag:%s|size:%ud|sent:%z|",
-                       conn, path->path_id, xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type), packet_out->po_pkt.pkt_pns, 
+                       conn, path->path_id, xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type), packet_out->po_pkt.pkt_pns,
                        xqc_frame_type_2_str(log->engine, packet_out->po_frame_types), packet_out->po_used_size, sent);
     }
 }
@@ -474,8 +474,7 @@ xqc_log_TRA_FRAMES_PROCESSED_callback(xqc_log_t *log, const char *func, ...)
     va_end(args);
 }
 
-
-void 
+void
 xqc_log_TRA_STREAM_DATA_MOVED_callback(xqc_log_t *log, const char *func, xqc_stream_t *stream,
                                         xqc_bool_t is_recv, size_t read_or_write_size, size_t recv_buf_size,
                                         uint8_t fin, int ret, int pkt_type, int buff_1rtt, size_t offset)
@@ -500,7 +499,7 @@ xqc_log_TRA_STREAM_DATA_MOVED_callback(xqc_log_t *log, const char *func, xqc_str
     }
 }
 
-void 
+void
 xqc_log_TRA_DATAGRAM_DATA_MOVED_callback(xqc_log_t *log, const char *func, xqc_stream_t *stream,
                                         size_t moved_data_len, const char *from, const char *to)
 {
@@ -583,7 +582,7 @@ xqc_log_REC_LOSS_TIMER_UPDATED_callback(xqc_log_t *log, const char *func,
 }
 
 void
-xqc_log_REC_PACKET_LOST_callback(xqc_log_t *log, const char *func, xqc_packet_out_t *packet_out, 
+xqc_log_REC_PACKET_LOST_callback(xqc_log_t *log, const char *func, xqc_packet_out_t *packet_out,
                                 xqc_packet_number_t lost_pn, xqc_usec_t lost_send_time, xqc_usec_t loss_delay)
 {
     xqc_qlog_implement(log, REC_PACKET_LOST, func,

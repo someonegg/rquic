@@ -40,7 +40,6 @@ xqc_generate_cid(xqc_engine_t *engine, xqc_cid_t *ori_cid, xqc_cid_t *cid,
     return XQC_OK;
 }
 
-
 xqc_int_t
 xqc_cid_is_equal(const xqc_cid_t *dst, const xqc_cid_t *src)
 {
@@ -125,7 +124,7 @@ xqc_init_cid_set(xqc_cid_set_t *cid_set)
     xqc_init_list_head(&cid_set->cid_set_list);
 }
 
-void 
+void
 xqc_cid_set_inner_init(xqc_cid_set_inner_t *cid_set_inner)
 {
     xqc_memzero(cid_set_inner, sizeof(xqc_cid_set_inner_t));
@@ -133,7 +132,7 @@ xqc_cid_set_inner_init(xqc_cid_set_inner_t *cid_set_inner)
     xqc_init_list_head(&cid_set_inner->next);
 }
 
-void 
+void
 xqc_cid_set_inner_destroy(xqc_cid_set_inner_t *cid_set_inner)
 {
     xqc_cid_inner_t *cid = NULL;
@@ -164,7 +163,7 @@ xqc_destroy_cid_set(xqc_cid_set_t *cid_set)
     xqc_init_cid_set(cid_set);
 }
 
-xqc_cid_set_inner_t* 
+xqc_cid_set_inner_t*
 xqc_get_path_cid_set(xqc_cid_set_t *cid_set, uint64_t path_id)
 {
     xqc_cid_set_inner_t *cid_set_inner = NULL;
@@ -180,7 +179,7 @@ xqc_get_path_cid_set(xqc_cid_set_t *cid_set, uint64_t path_id)
     return NULL;
 }
 
-xqc_cid_set_inner_t* 
+xqc_cid_set_inner_t*
 xqc_get_next_unused_path_cid_set(xqc_cid_set_t *cid_set)
 {
     xqc_cid_set_inner_t *cid_set_inner = NULL;
@@ -194,9 +193,9 @@ xqc_get_next_unused_path_cid_set(xqc_cid_set_t *cid_set)
     }
 
     return NULL;
-} 
+}
 
-int64_t 
+int64_t
 xqc_cid_set_get_unused_cnt(xqc_cid_set_t *cid_set, uint64_t path_id)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -207,7 +206,7 @@ xqc_cid_set_get_unused_cnt(xqc_cid_set_t *cid_set, uint64_t path_id)
     return XQC_ERROR;
 }
 
-int64_t 
+int64_t
 xqc_cid_set_get_used_cnt(xqc_cid_set_t *cid_set, uint64_t path_id)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -218,7 +217,7 @@ xqc_cid_set_get_used_cnt(xqc_cid_set_t *cid_set, uint64_t path_id)
     return XQC_ERROR;
 }
 
-int64_t 
+int64_t
 xqc_cid_set_get_retired_cnt(xqc_cid_set_t *cid_set, uint64_t path_id)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -229,7 +228,7 @@ xqc_cid_set_get_retired_cnt(xqc_cid_set_t *cid_set, uint64_t path_id)
     return XQC_ERROR;
 }
 
-int64_t 
+int64_t
 xqc_cid_set_get_largest_seq_or_rpt(xqc_cid_set_t *cid_set, uint64_t path_id)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -240,7 +239,7 @@ xqc_cid_set_get_largest_seq_or_rpt(xqc_cid_set_t *cid_set, uint64_t path_id)
     return XQC_ERROR;
 }
 
-xqc_int_t 
+xqc_int_t
 xqc_cid_set_set_largest_seq_or_rpt(xqc_cid_set_t *cid_set, uint64_t path_id, uint64_t val)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -277,7 +276,7 @@ xqc_cid_set_insert_cid(xqc_cid_set_t *cid_set,
     inner_cid->retired_ts = XQC_MAX_UINT64_VALUE;
 
     xqc_init_list_head(&inner_cid->list);
-    xqc_list_add_tail(&inner_cid->list, &inner_set->cid_list); 
+    xqc_list_add_tail(&inner_cid->list, &inner_set->cid_list);
 
     if (state == XQC_CID_UNUSED) {
         inner_set->unused_cnt++;
@@ -331,7 +330,7 @@ xqc_cid_set_delete_cid(xqc_cid_set_t *cid_set, xqc_cid_t *cid, uint64_t path_id)
     return XQC_ERROR;
 }
 xqc_cid_inner_t *
-xqc_cid_set_search_cid(xqc_cid_set_t *cid_set, 
+xqc_cid_set_search_cid(xqc_cid_set_t *cid_set,
     xqc_cid_t *cid)
 {
     xqc_cid_inner_t *inner_cid;
@@ -380,7 +379,6 @@ xqc_cid_in_cid_set(xqc_cid_set_t *cid_set, xqc_cid_t *cid, uint64_t path_id)
 
     return NULL;
 }
-
 
 xqc_int_t
 xqc_cid_switch_to_next_state(xqc_cid_set_t *cid_set, xqc_cid_inner_t *cid, xqc_cid_state_t next_state, uint64_t path_id)
@@ -432,7 +430,7 @@ xqc_cid_switch_to_next_state(xqc_cid_set_t *cid_set, xqc_cid_inner_t *cid, xqc_c
 
 xqc_int_t
 xqc_get_unused_cid(xqc_cid_set_t *cid_set, xqc_cid_t *cid, uint64_t path_id)
-{    
+{
     xqc_cid_set_inner_t *inner_set;
     inner_set = xqc_get_path_cid_set(cid_set, path_id);
 
@@ -483,7 +481,7 @@ xqc_get_inner_cid_by_seq(xqc_cid_set_t *cid_set, uint64_t seq_num, uint64_t path
     return NULL;
 }
 
-xqc_int_t 
+xqc_int_t
 xqc_cid_set_add_path(xqc_cid_set_t *cid_set, uint64_t path_id)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -506,8 +504,8 @@ xqc_cid_set_add_path(xqc_cid_set_t *cid_set, uint64_t path_id)
     return XQC_OK;
 }
 
-void 
-xqc_cid_set_update_state(xqc_cid_set_t *cid_set, 
+void
+xqc_cid_set_update_state(xqc_cid_set_t *cid_set,
     uint64_t path_id, xqc_cid_set_state_t state)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -520,8 +518,8 @@ xqc_cid_set_update_state(xqc_cid_set_t *cid_set,
     }
 }
 
-void 
-xqc_cid_set_on_cid_acked(xqc_cid_set_t *cid_set, uint64_t path_id, 
+void
+xqc_cid_set_on_cid_acked(xqc_cid_set_t *cid_set, uint64_t path_id,
     uint64_t cid_seq)
 {
     xqc_cid_set_inner_t *inner_set;
@@ -533,7 +531,7 @@ xqc_cid_set_on_cid_acked(xqc_cid_set_t *cid_set, uint64_t path_id,
         xqc_list_for_each_safe(pos, next, &inner_set->cid_list) {
             inner_cid = xqc_list_entry(pos, xqc_cid_inner_t, list);
             if (inner_cid->cid.cid_seq_num == cid_seq) {
-                if (inner_cid->acked == XQC_CID_UNACKED 
+                if (inner_cid->acked == XQC_CID_UNACKED
                     && inner_cid->state == XQC_CID_UNUSED)
                 {
                     inner_set->acked_unused++;

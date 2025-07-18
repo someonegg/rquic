@@ -10,9 +10,7 @@
 
 #include "src/common/xqc_common.h"
 
-
-
-static inline uint64_t 
+static inline uint64_t
 xqc_hash_string(const u_char *data, size_t len)
 {
     uint64_t hash_value = 0;
@@ -22,8 +20,7 @@ xqc_hash_string(const u_char *data, size_t len)
     return hash_value;
 }
 
-
-static inline uint32_t 
+static inline uint32_t
 xqc_murmur_hash2(u_char *data, size_t len)
 {
     uint32_t  h, k;
@@ -63,7 +60,6 @@ xqc_murmur_hash2(u_char *data, size_t len)
 
     return h;
 }
-
 
 typedef struct xqc_md5_s {
     uint64_t  bytes;
@@ -180,7 +176,6 @@ xqc_md5_final(u_char result[16], xqc_md5_t *ctx)
     (a) += f((b), (c), (d)) + (x) + (t);                                      \
     (a) = (((a) << (s)) | (((a) & 0xffffffff) >> (32 - (s))));                \
     (a) += (b)
-
 
 /*
  * SET() reads 4 input bytes in little-endian byte order and stores them
@@ -325,11 +320,11 @@ xqc_md5_body(xqc_md5_t *ctx, const u_char *data, size_t size)
     return p;
 }
 
-/* 
+/*
  * hash function optimization
  * this function for performance, hash effect may be not good
  */
-static inline uint64_t 
+static inline uint64_t
 xqc_hash_optimize(const u_char *data, size_t len)
 {
     uint64_t *pos = (uint64_t *)data;
@@ -343,14 +338,11 @@ xqc_hash_optimize(const u_char *data, size_t len)
     }
     size_t left_len = len % (sizeof(uint64_t));
     if (left_len) {
-        h = h ^ xqc_hash_string((const u_char *)end, left_len); 
+        h = h ^ xqc_hash_string((const u_char *)end, left_len);
     }
 
     return h;
 }
-
-
-
 
 #endif /* _XQC_HASH_H_INCLUDED_ */
 

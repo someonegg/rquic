@@ -8,7 +8,6 @@
 #include <stdlib.h>
 #include <stdio.h>
 
-
 #ifdef PRINT_MALLOC
 extern FILE *g_malloc_info_fp;
 #include <unistd.h>
@@ -20,7 +19,6 @@ do { \
     g_malloc_info_fp = fopen(buff, "w+");\
 } while(0)
 #endif
-
 
 #ifdef PRINT_MALLOC
 #define xqc_malloc(size) ({\
@@ -79,7 +77,6 @@ xqc_free(void *ptr)
 #endif
     free(ptr);
 }
-
 
 typedef void *(*xqc_malloc_wrap_t)(void *opaque, size_t size);
 typedef void (*xqc_free_wrap_t)(void *opaque, void *ptr);

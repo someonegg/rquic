@@ -94,7 +94,7 @@ xqc_qlog_event_2_level(xqc_log_type_t type)
 
     case TRA_PARAMETERS_RESTORED:
         return EVENT_IMPORTANCE_BASE;
-    
+
     case TRA_PACKET_SENT:
     case TRA_PACKET_RECEIVED:
         return EVENT_IMPORTANCE_CORE;
@@ -108,10 +108,10 @@ xqc_qlog_event_2_level(xqc_log_type_t type)
     case TRA_DATAGRAMS_SENT:
     case TRA_DATAGRAMS_RECEIVED:
         return EVENT_IMPORTANCE_EXTRA;
-    
+
     case TRA_STREAM_STATE_UPDATED:
         return EVENT_IMPORTANCE_BASE;
-        
+
     case TRA_FRAMES_PROCESSED:
         return EVENT_IMPORTANCE_EXTRA;
 
@@ -169,7 +169,7 @@ qlog_importance_2_log_level(xqc_log_type_t type){
     case TRA_PACKET_DROPPED:
     case TRA_PACKET_BUFFERED:
         return XQC_LOG_DEBUG;
-    
+
     default:
         return XQC_LOG_INFO;
     }
@@ -221,7 +221,6 @@ xqc_log_type_str(xqc_log_type_t type)
     };
     return event_type2str[type];
 }
-
 
 void
 xqc_log_implement(xqc_log_t *log, xqc_log_type_t type, const char *func, const char *fmt, ...)
@@ -348,7 +347,6 @@ xqc_qlog_implement(xqc_log_t *log, xqc_log_type_t type, const char *func, const 
         log->log_callbacks->xqc_qlog_event_write(event_imp, buf, p - buf, log->user_data);
     }
 }
-
 
 void
 xqc_log_time(char *buf, size_t buf_len)

@@ -5,11 +5,11 @@
 #include "src/congestion_control/xqc_window_filter.h"
 
 /**
- * As time advances, update the 3 estimate value 
+ * As time advances, update the 3 estimate value
  * Check the third value was in the window on entry
  */
 
-static uint64_t 
+static uint64_t
 xqc_win_filter_update(xqc_win_filter_t *w, uint64_t win,
                           struct xqc_win_sample *nsample)
 {
@@ -36,7 +36,7 @@ xqc_win_filter_update(xqc_win_filter_t *w, uint64_t win,
 }
 
 uint64_t
-xqc_win_filter_max(xqc_win_filter_t *w, uint64_t win, 
+xqc_win_filter_max(xqc_win_filter_t *w, uint64_t win,
                        uint64_t t, uint64_t nval)
 {
     struct xqc_win_sample nsample = {.t = t, .val = nval};
@@ -56,8 +56,8 @@ xqc_win_filter_max(xqc_win_filter_t *w, uint64_t win,
 }
 
 uint64_t
-xqc_win_filter_min(xqc_win_filter_t *w, uint64_t win, 
-                       uint64_t t, uint64_t nval) 
+xqc_win_filter_min(xqc_win_filter_t *w, uint64_t win,
+                       uint64_t t, uint64_t nval)
 {
     struct xqc_win_sample nsample = {.t = t, .val = nval};
 

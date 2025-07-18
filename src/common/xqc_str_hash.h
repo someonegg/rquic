@@ -160,7 +160,7 @@ xqc_str_hash_add(xqc_str_hash_table_t *hash_tab, xqc_str_hash_element_t e)
     }
     xqc_memcpy(node->element.str.data, e.str.data, e.str.len);
     node->element.str.len = e.str.len;
-    
+
     node->next = hash_tab->list[index];
     hash_tab->list[index] = node;
     hash_tab->conflict_stat[index] += 1;
