@@ -472,9 +472,9 @@ xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_
         pn_ctl->ctl_largest_sent[pns] = packet_out->po_pkt.pkt_num;
     }
 
-    send_ctl->ctl_bytes_send += packet_out->po_enc_size;
+    send_ctl->ctl_bytes_send += packet_out->po_used_size;
     if (packet_out->po_frame_types & XQC_FRAME_BIT_STREAM) {
-        send_ctl->ctl_app_bytes_send += packet_out->po_enc_size;
+        send_ctl->ctl_app_bytes_send += packet_out->po_used_size;
     }
 
     if (packet_out->po_largest_ack > 0) {
@@ -513,9 +513,7 @@ xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_
             xqc_conn_increase_unacked_stream_ref(send_ctl->ctl_conn, packet_out);
         }
 
-        if (XQC_IS_ACK_ELICITING(packet_out->po_frame_types)
-            /* do not set loss detection timer for PMTUD probing */
-            && !(packet_out->po_flag & XQC_POF_PMTUD_PROBING))
+        if (XQC_IS_ACK_ELICITING(packet_out->po_frame_types))
         {
             xqc_send_ctl_set_loss_detection_timer(send_ctl);
         }
@@ -579,7 +577,7 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
     xqc_pkt_num_space_t pns = ack_info->pns;
 
     /* 标记ack info里是否有这条路径发出的包 */
-    unsigned char has_acked = 0, update_largest_ack = 0, ignore_rtt = 0;
+    unsigned char has_acked = 0, update_largest_ack = 0;
     unsigned char has_ack_eliciting = 0, spurious_loss_detected = 0;
     xqc_packet_number_t frame_largest_ack = ack_info->ranges[0].high;
     xqc_packet_number_t spurious_loss_pktnum = 0;
@@ -638,12 +636,8 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
                 send_ctl->ctl_largest_acked[pns] == XQC_MAX_UINT64_VALUE)
 			{
                 update_largest_ack = 1;
-                ignore_rtt = 0;
                 send_ctl->ctl_largest_acked[pns] = packet_out->po_pkt.pkt_num;
                 send_ctl->ctl_largest_acked_sent_time[pns] = packet_out->po_sent_time;
-                if (packet_out->po_flag & XQC_POF_PMTUD_PROBING) {
-                    ignore_rtt = 1;
-                }
             }
 
             // 更新 largest_ack_both
@@ -669,7 +663,7 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
             xqc_send_ctl_on_packet_acked(send_ctl, packet_out, ack_recv_time, 1);
 
             if (packet_out->po_used_size > conn->max_acked_po_size) {
-                conn->max_acked_po_size = packet_out->po_used_size + XQC_TLS_AEAD_OVERHEAD_MAX_LEN;
+                conn->max_acked_po_size = packet_out->po_used_size;
             }
 
             xqc_send_queue_maybe_remove_unacked(packet_out, send_queue, NULL);
@@ -686,12 +680,10 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
     }
 
     if (update_largest_ack && has_ack_eliciting) {
-        if (!ignore_rtt) {
-            /* 更新 ctl_latest_rtt */
-            send_ctl->ctl_latest_rtt = ack_recv_time - send_ctl->ctl_largest_acked_sent_time[pns];
-            /* 更新rtt */
-            xqc_send_ctl_update_rtt(send_ctl, &send_ctl->ctl_latest_rtt, ack_info->ack_delay);
-        }
+        /* 更新 ctl_latest_rtt */
+        send_ctl->ctl_latest_rtt = ack_recv_time - send_ctl->ctl_largest_acked_sent_time[pns];
+        /* 更新rtt */
+        xqc_send_ctl_update_rtt(send_ctl, &send_ctl->ctl_latest_rtt, ack_info->ack_delay);
     }
 
     /* TODO: ECN */
@@ -1092,57 +1084,6 @@ xqc_send_ctl_cc_on_ack(xqc_send_ctl_t *send_ctl, xqc_packet_out_t *acked_packet,
     if (send_ctl->ctl_cong_callback->xqc_cong_ctl_on_ack) {
         send_ctl->ctl_cong_callback->xqc_cong_ctl_on_ack(send_ctl->ctl_cong, acked_packet, now);
     }
-    /* For CUBIC debug */
-#if 0
-    // xqc_cubic_t *c = (xqc_cubic_t*)(send_ctl->ctl_cong);
-    // xqc_log(send_ctl->ctl_conn->log, XQC_LOG_WARN, "|cubic|time: %ui, sent_time: %ui, rtt: %ui|acked: %ud|"
-    //         "cwnd: %ud, ssthresh: %ud, recovery: 0, cwnd_limited: 0, in_lss: 0|",
-    //         now, acked_packet->po_sent_time, now - acked_packet->po_sent_time,
-    //         acked_packet->po_used_size,
-    //         c->cwnd/1200, c->ssthresh/1200);
-    xqc_cubic_kernel_t *c = (xqc_cubic_kernel_t*)(send_ctl->ctl_cong);
-    xqc_log(send_ctl->ctl_conn->log, XQC_LOG_ERROR, "|pathid:%ui|cubic|time: %ui, sent_time: %ui, rtt: %ui|acked: %ud|"
-            "cwnd: %ud, ssthresh: %ud, delay_min: %ui, "
-            "tcp_cwnd: %ud, cnt: %ud, last_max_cwnd: %ud,"
-            "last_cwnd: %ud, last_time: %ui, orig_point: %ud,"
-            "K: %ud, epoch_start: %ui, ack_cnt: %ud, "
-            "cwnd_cnt: %ud, init_cwnd: %ud, recovery: %ui|cwnd_limited: %ud|"
-            "hystart++|"
-            "prev_delivered: %ui, next_deliverd: %ui, po_delivered: %ui, "
-            "curr_mrtt: %ui, last_mrtt: %ui, rtt_cnt: %ud, "
-            "in_lss: %ud, lss_bytes: %ud, total_delivered: %ui|pktnum: %ui, PNS: %ud|",
-            send_ctl->ctl_path->path_id,
-            now, acked_packet->po_sent_time, now - acked_packet->po_sent_time,
-            acked_packet->po_used_size,
-            c->cwnd, c->ssthresh, c->delay_min,
-            c->tcp_cwnd, c->cnt, c->last_max_cwnd,
-            c->last_cwnd, c->last_time, c->bic_origin_point, c->bic_K,
-            c->epoch_start, c->ack_cnt, c->cwnd_cnt, c->init_cwnd,
-            c->recovery_start_time,
-            send_ctl->ctl_is_cwnd_limited,
-            c->prev_round_delivered, c->next_round_delivered, acked_packet->po_delivered,
-            c->current_round_mrtt, c->last_round_mrtt, c->rtt_sample_cnt,
-            c->in_lss, c->lss_accumulated_bytes, c->ctl_ctx->ctl_delivered,
-            acked_packet->po_pkt.pkt_num, acked_packet->po_pkt.pkt_pns);
-#endif
-}
-
-void
-xqc_send_ctl_on_pmtud_ping_acked(xqc_send_ctl_t *send_ctl,
-    xqc_packet_out_t *po)
-{
-    xqc_connection_t *conn = send_ctl->ctl_conn;
-    xqc_path_ctx_t *path = conn->the_path;
-    if (path == NULL) {
-        return;
-    }
-
-    if (po->po_buf_size > path->curr_pkt_out_size) {
-        /* update path MTU */
-        path->curr_pkt_out_size = po->po_buf_size;
-        path->path_max_pkt_out_size = po->po_max_pkt_out_size;
-        xqc_conn_try_to_update_mss(conn);
-    }
 }
 
 /**
@@ -1193,14 +1134,6 @@ xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl,
                 }
 
             }
-            /* PTMUD probing success */
-            if (packet_out->po_flag & XQC_POF_PMTUD_PROBING) {
-                xqc_send_ctl_on_pmtud_ping_acked(send_ctl, packet_out);
-            }
-        }
-
-        if (packet_out->po_frame_types & (XQC_FRAME_BIT_NEW_CONNECTION_ID)) {
-            xqc_cid_set_on_cid_acked(&conn->scid_set, packet_out->po_new_cid_path, packet_out->po_new_cid_seq);
         }
 
         if (do_cc) {
@@ -1262,11 +1195,11 @@ xqc_send_ctl_get_pto_time_and_space(xqc_send_ctl_t *send_ctl, xqc_usec_t now, xq
     } else {
         *pns_ret = XQC_PNS_INIT;
 
-        for (xqc_pkt_num_space_t pns = XQC_PNS_INIT; pns <= XQC_PNS_APP_DATA; ++pns) {
+        for (xqc_pkt_num_space_t pns = XQC_PNS_INIT; pns <= XQC_PNS_APP; ++pns) {
             /* skip if no bytes inflight in pns */
             if (send_ctl->ctl_bytes_ack_eliciting_inflight[pns] > 0) {
                 /* Skip Application Data until handshake confirmed. */
-                if (pns == XQC_PNS_APP_DATA) {
+                if (pns == XQC_PNS_APP) {
                     if (!xqc_conn_is_handshake_confirmed(send_ctl->ctl_conn)) {
                         break;
                     }
@@ -1316,7 +1249,7 @@ xqc_send_ctl_set_loss_detection_timer(xqc_send_ctl_t *send_ctl)
     /* Don't arm timer if there are no ack-eliciting packets in flight. */
     if (0 == send_ctl->ctl_bytes_ack_eliciting_inflight[XQC_PNS_INIT]
         && 0 == send_ctl->ctl_bytes_ack_eliciting_inflight[XQC_PNS_HSK]
-        && 0 == send_ctl->ctl_bytes_ack_eliciting_inflight[XQC_PNS_APP_DATA]
+        && 0 == send_ctl->ctl_bytes_ack_eliciting_inflight[XQC_PNS_APP]
         && xqc_conn_peer_complete_address_validation(conn))
     {
         xqc_timer_unset(&send_ctl->path_timer_manager, XQC_TIMER_LOSS_DETECTION);
@@ -1337,7 +1270,7 @@ xqc_send_ctl_get_earliest_loss_time(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_
 {
     xqc_usec_t time = send_ctl->ctl_loss_time[XQC_PNS_INIT];
     *pns_ret = XQC_PNS_INIT;
-    for (xqc_pkt_num_space_t pns = XQC_PNS_HSK; pns <= XQC_PNS_APP_DATA; ++pns) {
+    for (xqc_pkt_num_space_t pns = XQC_PNS_HSK; pns <= XQC_PNS_APP; ++pns) {
         if (send_ctl->ctl_loss_time[pns] != 0
             && (time == 0 || send_ctl->ctl_loss_time[pns] < time))
         {

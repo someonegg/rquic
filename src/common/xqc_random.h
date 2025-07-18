@@ -38,4 +38,3 @@ void xqc_random_generator_destroy(xqc_random_generator_t *rand_gen);
 long xqc_random(void);
 
 #endif /* _XQC_RANDOM_H_INCLUDED_ */
-

@@ -25,11 +25,6 @@ ssize_t xqc_gen_stream_frame(xqc_packet_out_t *packet_out,
 xqc_int_t xqc_parse_stream_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn,
     xqc_stream_frame_t *frame, xqc_stream_id_t *stream_id);
 
-ssize_t xqc_gen_crypto_frame(xqc_packet_out_t *packet_out, uint64_t offset,
-    const unsigned char *payload, uint64_t payload_size, size_t *written_size);
-
-xqc_int_t xqc_parse_crypto_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn, xqc_stream_frame_t * frame);
-
 void xqc_gen_padding_frame(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
 
 xqc_int_t xqc_parse_padding_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn);
@@ -82,22 +77,6 @@ xqc_int_t xqc_parse_max_stream_data_frame(xqc_packet_in_t *packet_in, xqc_stream
 ssize_t xqc_gen_max_streams_frame(xqc_packet_out_t *packet_out, uint64_t max_streams, int bidirectional);
 
 xqc_int_t xqc_parse_max_streams_frame(xqc_packet_in_t *packet_in, uint64_t *max_streams, int *bidirectional, xqc_connection_t *conn);
-
-ssize_t xqc_gen_new_token_frame(xqc_packet_out_t *packet_out, const unsigned char *token, unsigned token_len);
-
-xqc_int_t xqc_parse_new_token_frame(xqc_packet_in_t *packet_in, unsigned char *token, unsigned *token_len, xqc_connection_t *conn);
-
-ssize_t xqc_gen_handshake_done_frame(xqc_packet_out_t *packet_out);
-
-xqc_int_t xqc_parse_handshake_done_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn);
-
-ssize_t xqc_gen_new_conn_id_frame(xqc_packet_out_t *packet_out, xqc_cid_t *new_cid, uint64_t retire_prior_to);
-
-xqc_int_t xqc_parse_new_conn_id_frame(xqc_packet_in_t *packet_in, xqc_cid_t *new_cid, uint64_t *retire_prior_to, xqc_connection_t *conn);
-
-ssize_t xqc_gen_retire_conn_id_frame(xqc_packet_out_t *packet_out, uint64_t seq_num);
-
-xqc_int_t xqc_parse_retire_conn_id_frame(xqc_packet_in_t *packet_in, uint64_t *seq_num);
 
 ssize_t xqc_gen_path_challenge_frame(xqc_packet_out_t *packet_out, unsigned char *data);
 

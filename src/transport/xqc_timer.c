@@ -9,8 +9,7 @@ static const char * const timer_type_2_str[XQC_TIMER_N] = {
 
     /* path level (path->path_send_ctl->path_timer_manager->timer[XQC_TIMER_N])*/
     [XQC_TIMER_ACK_INIT]        = "ACK_INIT",
-    [XQC_TIMER_ACK_HSK]         = "ACK_HSK",
-    [XQC_TIMER_ACK_01RTT]       = "ACK_01RTT",
+    [XQC_TIMER_ACK_APP]         = "ACK_APP",
     [XQC_TIMER_LOSS_DETECTION]  = "LOSS_DETECTION",
     [XQC_TIMER_PACING]          = "PACING",
     [XQC_TIMER_NAT_REBINDING]   = "NAT_REBINDING",
@@ -20,10 +19,7 @@ static const char * const timer_type_2_str[XQC_TIMER_N] = {
     [XQC_TIMER_CONN_DRAINING]   = "CONN_DRAINING",
     [XQC_TIMER_STREAM_CLOSE]    = "STREAM_CLOSE",
     [XQC_TIMER_PING]            = "PING",
-    [XQC_TIMER_RETIRE_CID]      = "RETIRE_CID",
     [XQC_TIMER_LINGER_CLOSE]    = "LINGER_CLOSE",
-    [XQC_TIMER_KEY_UPDATE]      = "KEY_UPDATE",
-    [XQC_TIMER_PMTUD_PROBING]   = "PMTUD_PROBING",
 };
 
 const char *
@@ -40,7 +36,7 @@ xqc_timer_ack_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
 
     xqc_connection_t *conn = send_ctl->ctl_conn;
     xqc_pkt_num_space_t pns = type - XQC_TIMER_ACK_INIT;
-    send_ctl->ctl_path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK << pns;
+    send_ctl->ctl_path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK_INIT << pns;
     conn->ack_flag |= (1 << (pns + send_ctl->ctl_path->path_id * XQC_PNS_N));
 }
 
@@ -80,15 +76,8 @@ xqc_timer_loss_detection_timeout(xqc_timer_type_t type, xqc_usec_t now, void *us
             return;
         }
 
-        /* Client sends an anti-deadlock packet */
-        if (xqc_conn_has_hsk_keys(conn)) {
-            /* send Handshake packet proves address ownership. */
-            xqc_conn_send_one_ack_eliciting_pkt(conn, XQC_PNS_HSK);
-
-        } else {
-            /* send Initial to earn more anti-amplification credit */
-            xqc_conn_send_one_ack_eliciting_pkt(conn, XQC_PNS_INIT);
-        }
+        /* send Initial to earn more anti-amplification credit */
+        xqc_conn_send_one_ack_eliciting_pkt(conn, XQC_PNS_INIT);
     }
 
     send_ctl->ctl_pto_count++;
@@ -173,58 +162,6 @@ xqc_timer_ping_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
 }
 
 void
-xqc_timer_retire_cid_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
-{
-    xqc_connection_t *conn = (xqc_connection_t *)user_data;
-
-    xqc_cid_inner_t *inner_cid;
-    xqc_list_head_t *pos, *next;
-
-    xqc_int_t ret;
-    xqc_usec_t next_time = XQC_MAX_UINT64_VALUE;
-    xqc_usec_t interval = 0;
-
-    xqc_cid_set_inner_t *inner_set;
-    xqc_list_head_t *pos_set, *next_set;
-    uint32_t to_be_retired_cnt = 0;
-
-    xqc_list_for_each_safe(pos_set, next_set, &conn->scid_set.cid_set_list) {
-        inner_set = xqc_list_entry(pos_set, xqc_cid_set_inner_t, next);
-
-        xqc_list_for_each_safe(pos, next, &inner_set->cid_list) {
-            inner_cid = xqc_list_entry(pos, xqc_cid_inner_t, list);
-
-            if (inner_cid->state == XQC_CID_RETIRED) {
-
-                if (inner_cid->retired_ts < now) {
-                    /* CID related resources will be released when the connection is destroyed */
-                    ret = xqc_cid_switch_to_next_state(&conn->scid_set, inner_cid, XQC_CID_REMOVED, inner_cid->cid.path_id);
-                    if (ret != XQC_OK) {
-                        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_cid_switch_to_next_state error|");
-                        continue;
-                    }
-                } else {
-                    /* record the earliest time that has not yet expired */
-                    if (inner_cid->retired_ts < next_time) {
-                        next_time = inner_cid->retired_ts;
-                    }
-                    to_be_retired_cnt++;
-                }
-            }
-        }
-    }
-
-    if (to_be_retired_cnt > 0) {
-        if (next_time == XQC_MAX_UINT64_VALUE) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|next_time is not assigned a value|");
-            return;
-        }
-        interval = (next_time > now) ? (next_time - now) : 0;
-        xqc_timer_set(&conn->conn_timer_manager, XQC_TIMER_RETIRE_CID, now, interval);
-    }
-}
-
-void
 xqc_timer_linger_close_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
 {
     xqc_connection_t *conn = (xqc_connection_t *)user_data;
@@ -238,21 +175,6 @@ xqc_timer_linger_close_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user
     }
 }
 
-void
-xqc_timer_key_update_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
-{
-    xqc_connection_t *conn = (xqc_connection_t *)user_data;
-
-    xqc_tls_discard_old_1rtt_keys(conn->tls);
-}
-
-void
-xqc_timer_pmtud_probing_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
-{
-    xqc_connection_t *conn = (xqc_connection_t *)user_data;
-    conn->conn_flag |= XQC_CONN_FLAG_PMTUD_PROBING;
-}
-
 /* timer callbacks end */
 
 void
@@ -264,7 +186,7 @@ xqc_timer_init(xqc_timer_manager_t *manager, xqc_log_t *log, void *user_data)
     xqc_timer_t *timer;
     for (xqc_timer_type_t type = 0; type < XQC_TIMER_N; ++type) {
         timer = &manager->timer[type];
-        if (type == XQC_TIMER_ACK_INIT || type == XQC_TIMER_ACK_HSK || type == XQC_TIMER_ACK_01RTT) {
+        if (type == XQC_TIMER_ACK_INIT || type == XQC_TIMER_ACK_APP) {
             timer->timeout_cb = xqc_timer_ack_timeout;
             timer->user_data = user_data;
 
@@ -296,21 +218,10 @@ xqc_timer_init(xqc_timer_manager_t *manager, xqc_log_t *log, void *user_data)
             timer->timeout_cb = xqc_timer_ping_timeout;
             timer->user_data = user_data;
 
-        } else if (type == XQC_TIMER_RETIRE_CID) {
-            timer->timeout_cb = xqc_timer_retire_cid_timeout;
-            timer->user_data = user_data;
-
         } else if (type == XQC_TIMER_LINGER_CLOSE) {
             timer->timeout_cb = xqc_timer_linger_close_timeout;
             timer->user_data = user_data;
 
-        } else if (type == XQC_TIMER_KEY_UPDATE) {
-            timer->timeout_cb = xqc_timer_key_update_timeout;
-            timer->user_data = user_data;
-
-        } else if (type == XQC_TIMER_PMTUD_PROBING) {
-            timer->timeout_cb = xqc_timer_pmtud_probing_timeout;
-            timer->user_data = user_data;
         }
     }
 

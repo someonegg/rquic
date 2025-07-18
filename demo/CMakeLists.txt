@@ -50,14 +50,12 @@ include_directories(
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
     set(APP_DEPEND_LIBS
         xquic
-        ${SSL_LIB_PATH}
         ${LIBEVENT_LIBRARY}
         -lm
     )
 else()
     set(APP_DEPEND_LIBS
         xquic
-        ${SSL_LIB_PATH}
         ${LIBEVENT_LIBRARY}
         m
         dl

@@ -323,4 +323,3 @@ xqc_pcalloc(xqc_memory_pool_t *pool, size_t size)
 /* TODO: xqc_pfree is needed */
 
 #endif /*_XQC_MEMORY_POOL_H_INCLUDED_*/
-

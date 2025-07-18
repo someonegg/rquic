@@ -16,7 +16,6 @@
 #include "src/transport/xqc_multipath.h"
 #include "src/transport/xqc_defs.h"
 #include "src/transport/xqc_utils.h"
-#include "src/tls/xqc_tls.h"
 
 static const char * const frame_type_2_str[XQC_FRAME_NUM] = {
     [XQC_FRAME_PADDING]              = "PADDING",
@@ -24,8 +23,6 @@ static const char * const frame_type_2_str[XQC_FRAME_NUM] = {
     [XQC_FRAME_ACK]                  = "ACK",
     [XQC_FRAME_RESET_STREAM]         = "RESET_STREAM",
     [XQC_FRAME_STOP_SENDING]         = "STOP_SENDING",
-    [XQC_FRAME_CRYPTO]               = "CRYPTO",
-    [XQC_FRAME_NEW_TOKEN]            = "NEW_TOKEN",
     [XQC_FRAME_STREAM]               = "STREAM",
     [XQC_FRAME_MAX_DATA]             = "MAX_DATA",
     [XQC_FRAME_MAX_STREAM_DATA]      = "MAX_STREAM_DATA",
@@ -33,12 +30,9 @@ static const char * const frame_type_2_str[XQC_FRAME_NUM] = {
     [XQC_FRAME_DATA_BLOCKED]         = "DATA_BLOCKED",
     [XQC_FRAME_STREAM_DATA_BLOCKED]  = "STREAM_DATA_BLOCKED",
     [XQC_FRAME_STREAMS_BLOCKED]      = "STREAMS_BLOCKED",
-    [XQC_FRAME_NEW_CONNECTION_ID]    = "NEW_CONNECTION_ID",
-    [XQC_FRAME_RETIRE_CONNECTION_ID] = "RETIRE_CONNECTION_ID",
     [XQC_FRAME_PATH_CHALLENGE]       = "PATH_CHALLENGE",
     [XQC_FRAME_PATH_RESPONSE]        = "PATH_RESPONSE",
     [XQC_FRAME_CONNECTION_CLOSE]     = "CONNECTION_CLOSE",
-    [XQC_FRAME_HANDSHAKE_DONE]       = "HANDSHAKE_DONE",
     [XQC_FRAME_Extension]            = "Extension",
 };
 
@@ -67,15 +61,6 @@ xqc_stream_frame_header_size(xqc_stream_id_t stream_id, uint64_t offset, size_t 
     return 1 + xqc_vint_len_by_val(stream_id) +
             offset ? xqc_vint_len_by_val(offset) : 0 +
             xqc_vint_len_by_val(length);
-}
-
-unsigned int
-xqc_crypto_frame_header_size(uint64_t offset, size_t length)
-{
-    return 1 +
-           xqc_vint_len_by_val(offset) +
-           xqc_vint_len_by_val(length);
-
 }
 
 xqc_int_t
@@ -202,12 +187,6 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         case 0x05:
             ret = xqc_process_stop_sending_frame(conn, packet_in);
             break;
-        case 0x06:
-            ret = xqc_process_crypto_frame(conn, packet_in);
-            break;
-        case 0x07:
-            ret = xqc_process_new_token_frame(conn, packet_in);
-            break;
         case 0x08:
         case 0x09:
         case 0x0a:
@@ -238,12 +217,6 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         case 0x17:
             ret = xqc_process_streams_blocked_frame(conn, packet_in);
             break;
-        case 0x18:
-            ret = xqc_process_new_conn_id_frame(conn, packet_in);
-            break;
-        case 0x19:
-            ret = xqc_process_retire_conn_id_frame(conn, packet_in);
-            break;
         case 0x1a:
             ret = xqc_process_path_challenge_frame(conn, packet_in);
             break;
@@ -253,9 +226,6 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         case 0x1c:
         case 0x1d:
             ret = xqc_process_conn_close_frame(conn, packet_in);
-            break;
-        case 0x1e:
-            ret = xqc_process_handshake_done_frame(conn, packet_in);
             break;
 
         default:
@@ -463,132 +433,6 @@ free:
 }
 
 xqc_int_t
-xqc_check_crypto_frame_data_buffer_exceed(xqc_stream_t *stream, xqc_stream_frame_t *stream_frame, uint64_t threshold)
-{
-    if (stream_frame->data_offset + stream_frame->data_length > stream->stream_data_in.next_read_offset + threshold) {
-        return -XQC_ELIMIT;
-    }
-
-    return XQC_OK;
-}
-
-xqc_int_t
-xqc_insert_crypto_frame(xqc_connection_t *conn, xqc_stream_t *stream, xqc_stream_frame_t *stream_frame)
-{
-    unsigned char inserted = 0;
-    xqc_list_head_t *pos;
-    xqc_stream_frame_t *frame;
-    xqc_int_t ret;
-    ret = xqc_check_crypto_frame_data_buffer_exceed(stream, stream_frame, XQC_CONN_MAX_CRYPTO_DATA_TOTAL_LEN);
-    if (ret != XQC_OK) {
-        XQC_CONN_ERR(conn, TRA_CRYPTO_BUFFER_EXCEEDED);
-        xqc_log(conn->log, XQC_LOG_ERROR,
-                "|crypto frame data buffer exceed|");
-        return ret;
-    }
-    xqc_list_for_each_reverse(pos, &stream->stream_data_in.frames_tailq) {
-        frame = xqc_list_entry(pos, xqc_stream_frame_t, sf_list);
-
-        if (stream_frame->data_offset >= frame->data_offset ) {
-            xqc_list_add(&stream_frame->sf_list, pos);
-            inserted = 1;
-            break;
-        }
-    }
-
-    if (!inserted) {
-        xqc_list_add(&stream_frame->sf_list, &stream->stream_data_in.frames_tailq);
-    }
-
-    return XQC_OK;
-}
-
-xqc_int_t
-xqc_process_crypto_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    xqc_int_t ret;
-
-    /* ack even if the token check fail */
-    packet_in->pi_frame_types |= XQC_FRAME_BIT_CRYPTO;
-
-    /* check token, only validate token with Initial/CRYPTO packet, but not with Initial/ACK */
-    if (!(conn->conn_flag & XQC_CONN_FLAG_TOKEN_OK)
-        && conn->conn_type == XQC_CONN_TYPE_SERVER
-        && packet_in->pi_pkt.pkt_type == XQC_PTYPE_INIT)
-    {
-        if (xqc_conn_check_token(conn, conn->conn_token, conn->conn_token_len) == XQC_OK) {
-            conn->conn_flag |= XQC_CONN_FLAG_TOKEN_OK;
-
-        } else {
-            xqc_log(conn->log, XQC_LOG_INFO, "|check_token fail|conn:%p|%s|", conn, xqc_conn_addr_str(conn));
-        }
-    }
-
-    if (conn->conn_state == XQC_CONN_STATE_SERVER_INIT
-        && !(conn->conn_flag & XQC_CONN_FLAG_INIT_RECVD))
-    {
-        conn->conn_flag |= XQC_CONN_FLAG_INIT_RECVD;
-
-    } else if (conn->conn_state == XQC_CONN_STATE_CLIENT_INITIAL_SENT
-               && !(conn->conn_flag & XQC_CONN_FLAG_INIT_RECVD))
-    {
-        conn->conn_flag |= XQC_CONN_FLAG_INIT_RECVD;
-    }
-
-    xqc_stream_frame_t *stream_frame = xqc_calloc(1, sizeof(xqc_stream_frame_t));
-    if (stream_frame == NULL) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_calloc error|");
-        return -XQC_EMALLOC;
-    }
-
-    ret = xqc_parse_crypto_frame(packet_in, conn, stream_frame);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_parse_crypto_frame error|");
-        xqc_destroy_stream_frame(stream_frame);
-        return ret;
-    }
-
-    xqc_encrypt_level_t encrypt_level = xqc_packet_type_to_enc_level(packet_in->pi_pkt.pkt_type);
-    if (conn->crypto_stream[encrypt_level] == NULL) {
-        conn->crypto_stream[encrypt_level] = xqc_create_crypto_stream(conn, encrypt_level, NULL);
-        if (conn->crypto_stream[encrypt_level] == NULL) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_create_crypto_stream error|");
-            xqc_destroy_stream_frame(stream_frame);
-            return -XQC_EMALLOC;
-        }
-    }
-
-    xqc_stream_t *stream = conn->crypto_stream[encrypt_level];
-
-    ret = xqc_insert_crypto_frame(conn, stream, stream_frame);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_insert_crypto_frame error|");
-        xqc_destroy_stream_frame(stream_frame);
-        return ret;
-    }
-
-    ret = xqc_read_crypto_stream(stream);
-    if (ret < 0) {
-        return ret;
-    }
-    xqc_stream_ready_to_read(stream);
-
-    if (conn->conn_type == XQC_CONN_TYPE_SERVER
-        && encrypt_level == XQC_ENC_LEV_INIT && conn->crypto_stream[XQC_ENC_LEV_HSK] == NULL)
-    {
-        conn->crypto_stream[XQC_ENC_LEV_HSK] = xqc_create_crypto_stream(conn, XQC_ENC_LEV_HSK, NULL);
-    }
-
-    if (conn->conn_type == XQC_CONN_TYPE_SERVER
-        && encrypt_level == XQC_ENC_LEV_HSK && conn->crypto_stream[XQC_ENC_LEV_1RTT] == NULL)
-    {
-        conn->crypto_stream[XQC_ENC_LEV_1RTT] = xqc_create_crypto_stream(conn, XQC_ENC_LEV_1RTT, NULL);
-    }
-
-    return XQC_OK;
-}
-
-xqc_int_t
 xqc_process_ack_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 {
     xqc_int_t ret;
@@ -637,174 +481,6 @@ xqc_process_ping_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
         xqc_log(conn->log, XQC_LOG_ERROR,
                 "|xqc_parse_ping_frame error|");
         return ret;
-    }
-
-    return XQC_OK;
-}
-
-xqc_int_t
-xqc_process_new_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    xqc_int_t ret = XQC_ERROR;
-    xqc_cid_t new_conn_cid;
-    uint64_t retire_prior_to, curr_rpi;
-
-    xqc_cid_inner_t *inner_cid;
-    xqc_list_head_t *pos, *next;
-    xqc_cid_set_inner_t *inner_set;
-
-    ret = xqc_parse_new_conn_id_frame(packet_in, &new_conn_cid, &retire_prior_to, conn);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR,
-                "|xqc_parse_new_conn_id_frame error|");
-        return ret;
-    }
-
-    if (retire_prior_to > new_conn_cid.cid_seq_num) {
-        /*
-         * The Retire Prior To field MUST be less than or equal to the Sequence Number field.
-         * Receiving a value greater than the Sequence Number MUST be treated as a connection
-         * error of type FRAME_ENCODING_ERROR.
-         */
-        xqc_log(conn->log, XQC_LOG_ERROR, "|retire_prior_to:%ui greater than seq_num:%ui|",
-                retire_prior_to, new_conn_cid.cid_seq_num);
-        XQC_CONN_ERR(conn, TRA_FRAME_ENCODING_ERROR);
-        return -XQC_EPROTO;
-    }
-
-    curr_rpi = xqc_cid_set_get_largest_seq_or_rpt(&conn->dcid_set, XQC_INITIAL_PATH_ID);
-    if (curr_rpi < 0) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|current retire_prior_to error:%i|",
-                curr_rpi);
-        XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
-        return -XQC_EPROTO;
-    }
-
-    if (new_conn_cid.cid_seq_num < curr_rpi) {
-        /*
-         * An endpoint that receives a NEW_CONNECTION_ID frame with a sequence number smaller
-         * than the Retire Prior To field of a previously received NEW_CONNECTION_ID frame
-         * MUST send a corresponding RETIRE_CONNECTION_ID frame that retires the newly received
-         * connection ID, unless it has already done so for that sequence number.
-         */
-        ret = xqc_write_retire_conn_id_frame_to_packet(conn, new_conn_cid.cid_seq_num);
-        if (ret != XQC_OK) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_retire_conn_id_frame_to_packet error|");
-            return ret;
-        }
-
-        return XQC_OK;
-    }
-
-    if (retire_prior_to > curr_rpi) {
-        /*
-         * Upon receipt of an increased Retire Prior To field, the peer MUST stop using the
-         * corresponding connection IDs and retire them with RETIRE_CONNECTION_ID frames before
-         * adding the newly provided connection ID to the set of active connection IDs.
-         */
-        inner_set = xqc_get_path_cid_set(&conn->dcid_set, XQC_INITIAL_PATH_ID);
-        xqc_list_for_each_safe(pos, next, &inner_set->cid_list) {
-            inner_cid = xqc_list_entry(pos, xqc_cid_inner_t, list);
-            uint64_t seq_num = inner_cid->cid.cid_seq_num;
-            if ((inner_cid->state == XQC_CID_UNUSED || inner_cid->state == XQC_CID_USED)
-                 && (seq_num >= curr_rpi && seq_num < retire_prior_to))
-            {
-                ret = xqc_write_retire_conn_id_frame_to_packet(conn, seq_num);
-                if (ret != XQC_OK) {
-                    xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_retire_conn_id_frame_to_packet error|");
-                    return ret;
-                }
-            }
-        }
-
-        xqc_cid_set_set_largest_seq_or_rpt(&conn->dcid_set, XQC_INITIAL_PATH_ID, retire_prior_to);
-    }
-
-    /* store dcid & add unused_dcid_count */
-    if (xqc_cid_in_cid_set(&conn->dcid_set, &new_conn_cid, XQC_INITIAL_PATH_ID) != NULL) {
-        return XQC_OK;
-    }
-
-    ret = xqc_cid_set_insert_cid(&conn->dcid_set, &new_conn_cid,
-                                 XQC_CID_UNUSED,
-                                 conn->local_settings.active_connection_id_limit,
-                                 XQC_INITIAL_PATH_ID);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_cid_set_insert_cid error|limit:%ui|unused:%i|used:%i|",
-                conn->local_settings.active_connection_id_limit,
-                xqc_cid_set_get_unused_cnt(&conn->dcid_set, XQC_INITIAL_PATH_ID),
-                xqc_cid_set_get_used_cnt(&conn->dcid_set, XQC_INITIAL_PATH_ID));
-        return ret;
-    }
-
-    return XQC_OK;
-}
-
-xqc_int_t
-xqc_process_retire_conn_id_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    xqc_int_t ret = XQC_ERROR;
-    uint64_t seq_num = 0, largest_scid_seq_num = 0;
-
-    ret = xqc_parse_retire_conn_id_frame(packet_in, &seq_num);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR,
-                "|xqc_parse_retire_conn_id_frame error|");
-        return ret;
-    }
-
-    largest_scid_seq_num = xqc_cid_set_get_largest_seq_or_rpt(&conn->scid_set, XQC_INITIAL_PATH_ID);
-    if (largest_scid_seq_num < 0) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|current largest_scid_seq_num error:%i|",
-                largest_scid_seq_num);
-        XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
-        return -XQC_EPROTO;
-    }
-
-    if (seq_num > largest_scid_seq_num) {
-        /*
-         * Receipt of a RETIRE_CONNECTION_ID frame containing a sequence number
-         * greater than any previously sent to the peer MUST be treated as a
-         * connection error of type PROTOCOL_VIOLATION.
-         */
-        xqc_log(conn->log, XQC_LOG_ERROR, "|no match seq_num|seq:%ui|", seq_num);
-        XQC_CONN_ERR(conn, TRA_PROTOCOL_VIOLATION);
-        return -XQC_EPROTO;
-    }
-
-    xqc_cid_inner_t *inner_cid = xqc_get_inner_cid_by_seq(&conn->scid_set, seq_num, XQC_INITIAL_PATH_ID);
-    if (inner_cid == NULL) {
-        return XQC_OK;
-    }
-
-    if (inner_cid->state >= XQC_CID_RETIRED) {
-        return XQC_OK;
-    }
-
-    if (XQC_OK == xqc_cid_is_equal(&inner_cid->cid, &packet_in->pi_pkt.pkt_dcid)) {
-        /*
-         * The sequence number specified in a RETIRE_CONNECTION_ID frame MUST NOT refer to
-         * the Destination Connection ID field of the packet in which the frame is contained.
-         * The peer MAY treat this as a connection error of type PROTOCOL_VIOLATION.
-         */
-        xqc_log(conn->log, XQC_LOG_ERROR, "|seq_num refer to pkt_dcid|");
-        XQC_CONN_ERR(conn, TRA_PROTOCOL_VIOLATION);
-        return -XQC_EPROTO;
-    }
-
-    ret = xqc_conn_set_cid_retired_ts(conn, inner_cid);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_conn_set_cid_retired_ts error|");
-        return ret;
-    }
-
-    /* update SCID */
-    if (XQC_OK == xqc_cid_is_equal(&conn->scid_set.user_scid, &inner_cid->cid)) {
-        ret = xqc_conn_update_user_scid(conn);
-        if (ret != XQC_OK) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|conn don't have other used scid, can't retire user_scid|");
-            return ret;
-        }
     }
 
     return XQC_OK;
@@ -1190,46 +866,6 @@ xqc_process_max_streams_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in
     }
 
     return XQC_OK;
-}
-
-xqc_int_t
-xqc_process_new_token_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    xqc_int_t ret;
-    if (XQC_CONN_TYPE_SERVER == conn->conn_type) {
-        return -XQC_EPROTO;
-    }
-
-    conn->conn_token_len = XQC_MAX_TOKEN_LEN;
-    ret = xqc_parse_new_token_frame(packet_in, conn->conn_token, &conn->conn_token_len, conn);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR,
-                "|xqc_parse_new_token_frame error|");
-        return ret;
-    }
-
-    return XQC_OK;
-}
-
-xqc_int_t
-xqc_process_handshake_done_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
-{
-    if (XQC_CONN_TYPE_SERVER == conn->conn_type) {
-        xqc_log(conn->log, XQC_LOG_ERROR,
-                "|xqc_process_handshake_done_frame error, server recv HANDSHAKE_DONE|");
-        XQC_CONN_ERR(conn, TRA_PROTOCOL_VIOLATION);
-        return -XQC_EPROTO;
-    }
-
-    xqc_int_t ret = xqc_parse_handshake_done_frame(packet_in, conn);
-    if (ret != XQC_OK) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_process_handshake_done_frame error|");
-        return ret;
-    }
-
-    conn->conn_flag |= XQC_CONN_FLAG_HANDSHAKE_DONE_RECVD;
-
-    return ret;
 }
 
 xqc_int_t

@@ -980,7 +980,7 @@ xqc_read_crypto_stream(xqc_stream_t *stream)
 
         if (ret != XQC_OK) {
             xqc_log(stream->stream_conn->log, XQC_LOG_ERROR, "|xqc_tls_process_crypto_data error: %d|", ret);
-            return -XQC_EILLEGAL_FRAME;
+            return -XQC_EILLFRAME;
         }
     }
 

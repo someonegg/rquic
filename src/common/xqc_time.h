@@ -30,4 +30,3 @@ extern xqc_timestamp_pt xqc_realtime_timestamp;
 extern xqc_timestamp_pt xqc_monotonic_timestamp;
 
 #endif /* _XQC_TIME_H_INCLUDED_ */
-

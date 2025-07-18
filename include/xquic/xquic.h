@@ -63,9 +63,6 @@ typedef enum xqc_proto_version_s {
 
 #define XQC_SUPPORT_VERSION_MAX         64
 
-#define XQC_TLS_CIPHERS "TLS_AES_128_GCM_SHA256:TLS_AES_256_GCM_SHA384:TLS_CHACHA20_POLY1305_SHA256"
-#define XQC_TLS_GROUPS "P-256:X25519:P-384:P-521"
-
 /**
  * the max message count of iovec in sendmmsg
  */
@@ -101,22 +98,6 @@ typedef void (*xqc_set_event_timer_pt)(xqc_usec_t wake_after, void *engine_user_
  */
 typedef ssize_t (*xqc_cid_generate_pt)(const xqc_cid_t *ori_cid, uint8_t *cid_buf,
     size_t cid_buflen, void *engine_user_data);
-
-/**
- * @brief engine secret log callback. will only be effective when build with XQC_PRINT_SECRET
- *
- * this callback will be invoked everytime when TLS layer generates a secret, and will be triggered
- * multiple times during handshake. keylog could be used in wireshark to parse QUIC packets
- */
-typedef void (*xqc_eng_keylog_pt)(const xqc_cid_t *scid, const char *line, void *engine_user_data);
-
-/**
- * @brief tls secret log callback. will only be effective when build with XQC_PRINT_SECRET
- *
- * this callback will be invoked everytime when TLS layer generates a secret, and will be triggered
- * multiple times during handshake. keylog could be used in wireshark to parse QUIC packets
- */
-typedef void (*xqc_keylog_pt)(const char *line, void *engine_user_data);
 
 /**
  * @brief log callback functions
@@ -210,8 +191,7 @@ typedef int (*xqc_conn_notify_pt)(xqc_connection_t *conn, const xqc_cid_t *cid,
 /**
  * @brief handshake finished callback function
  *
- * this will be trigger when the QUIC connection handshake is completed, that is, when the TLS
- * stack has both sent a Finished message and verified the peer's Finished message
+ * this will be trigger when the QUIC connection handshake is completed
  */
 typedef void (*xqc_handshake_finished_pt)(xqc_connection_t *conn, void *conn_user_data,
     void *conn_proto_data);
@@ -226,31 +206,6 @@ typedef void (*xqc_handshake_finished_pt)(xqc_connection_t *conn, void *conn_use
  */
 typedef void (*xqc_conn_ping_ack_notify_pt)(xqc_connection_t *conn, const xqc_cid_t *cid,
     void *ping_user_data, void *conn_user_data, void *conn_proto_data);
-
-/**
- * @brief cid update callback function.
- *
- * this function will be trigger after receive peer's RETIRE_CONNECTION_ID frame and the SCID of
- * endpoint is changed. cid change might be essential if load balance or some other mechanism
- * related with cid is introduced, applications shall update the CID after the callback is triggered
- *
- * @param conn connection handler
- * @param retire_cid cid that was retired by peer
- * @param new_cid cid that would be used
- * @param conn_user_data connection level user_data
- */
-typedef void (*xqc_conn_update_cid_notify_pt)(xqc_connection_t *conn, const xqc_cid_t *retire_cid,
-    const xqc_cid_t *new_cid, void *conn_user_data);
-
-/**
- * @brief client certificate verify callback
- *
- * @param certs[] X509 certificates in DER format
- * @param cert_len[] lengths of X509 certificates in DER format
- * @return 0 for success, -1 for verify failed and xquic will close the connection
- */
-typedef int (*xqc_cert_verify_pt)(const unsigned char *certs[], const size_t cert_len[],
-    size_t certs_len, void *conn_user_data);
 
 /**
  * @brief server peer addr changed notify
@@ -314,12 +269,6 @@ typedef ssize_t (*xqc_send_mmsg_pt)(const struct iovec *msg_iov, unsigned int vl
 typedef ssize_t (*xqc_conn_pkt_filter_callback_pt)(const unsigned char *buf,
     size_t size, const struct sockaddr *peer_addr, socklen_t peer_addrlen,
     void *cb_user_data);
-
-/**
- * @brief get chain certs and key by sin
- */
-typedef xqc_int_t (*xqc_conn_cert_cb_pt)(const char *sni,
-    void **chain, void **crt, void **key, void *user_data);
 
 /**
  * @brief general callback function definition for stream create, close, read and write.
@@ -398,16 +347,6 @@ typedef struct xqc_transport_callbacks_s {
     xqc_send_mmsg_pt                write_mmsg;
 
     /**
-     * QUIC connection cid update callback, REQUIRED for both server and client
-     */
-    xqc_conn_update_cid_notify_pt   conn_update_cid_notify;
-
-    /**
-     * tls certificate verify callback. REQUIRED for client
-     */
-    xqc_cert_verify_pt              cert_verify_cb;
-
-    /**
      * connection closing callback function. OPTIONAL for both client and server
      */
     xqc_conn_closing_notify_pt      conn_closing;
@@ -416,11 +355,6 @@ typedef struct xqc_transport_callbacks_s {
      * QUIC connection peer addr changed callback, REQUIRED for server.
      */
     xqc_conn_peer_addr_changed_nofity_pt    conn_peer_addr_changed_notify;
-
-    /**
-     * @brief cert callback
-     */
-    xqc_conn_cert_cb_pt                     conn_cert_cb;
 
 } xqc_transport_callbacks_t;
 
@@ -522,16 +456,6 @@ typedef struct xqc_app_proto_callbacks_s {
     xqc_stream_callbacks_t      stream_cbs;
 
 } xqc_app_proto_callbacks_t;
-
-typedef enum {
-    XQC_DATA_QOS_HIGHEST = 1,
-    XQC_DATA_QOS_HIGH	 = 2,
-    XQC_DATA_QOS_MEDIUM  = 3,
-    XQC_DATA_QOS_NORMAL  = 4,
-    XQC_DATA_QOS_LOW     = 5,
-    XQC_DATA_QOS_LOWEST  = 6,
-    XQC_DATA_QOS_PROBING = 7,
-} xqc_data_qos_level_t;
 
 /**
  * @brief congestion control algorithm parameters
@@ -692,9 +616,6 @@ typedef struct xqc_engine_callback_s {
     /** custom cid generator, OPTIONAL for server */
     xqc_cid_generate_pt             cid_generate_cb;
 
-    /** tls secret callback, OPTIONAL */
-    xqc_eng_keylog_pt               keylog_cb;
-
     /** get realtime timestamp callback function. if not set, xquic will get timestamp with inner
        function xqc_now, which relies on gettimeofday */
     xqc_timestamp_pt                realtime_ts;
@@ -704,33 +625,6 @@ typedef struct xqc_engine_callback_s {
     xqc_timestamp_pt                monotonic_ts;
 
 } xqc_engine_callback_t;
-
-/**
- * @brief engine's ssl config
- */
-typedef struct xqc_engine_ssl_config_s {
-    /** private key file for server */
-    char       *private_key_file;
-    /** certificate file for server */
-    char       *cert_file;
-    char       *ciphers;
-    char       *groups;
-} xqc_engine_ssl_config_t;
-
-typedef enum {
-    XQC_TLS_CERT_FLAG_NEED_VERIFY        = 1 << 0,
-    XQC_TLS_CERT_FLAG_ALLOW_SELF_SIGNED  = 1 << 1,
-} xqc_cert_verify_flag_e;
-
-/**
- * @brief connection tls config for client
- */
-typedef struct xqc_conn_ssl_config_s {
-    /**
-     * certificate verify flag. which is a bit-map flag defined in xqc_cert_verify_flag_e
-     */
-    uint8_t     cert_verify_flag;
-} xqc_conn_ssl_config_t;
 
 typedef struct xqc_linger_s {
     /** close connection after all data sent and acked, default: 0 */
@@ -768,10 +662,7 @@ typedef struct xqc_conn_settings_s {
     int32_t                     spurious_loss_detect_on;
     /** limit of anti-amplification, default 5 */
     uint32_t                    anti_amplification_limit;
-    /** packet limit of a single 1-rtt key, 0 for unlimited */
-    uint64_t                    keyupdate_pkt_threshold;
     size_t                      max_pkt_out_size;
-    size_t                      probing_pkt_out_size;
 
     /** params for performance tuning */
     /** max ack delay: ms */
@@ -781,20 +672,6 @@ typedef struct xqc_conn_settings_s {
     uint8_t                     adaptive_ack_frequency;
     uint64_t                    loss_detection_pkt_thresh;
     double                      pto_backoff_factor;
-
-     /**
-     * enable PMTUD:
-     * 0x0 disbale,
-     * 0x1 enable client probing,
-     * 0x2 enable server probing,
-     * 0x3 enable both ends probing
-     * NOTE: This option needs to be negotiated by both ends. The final decision
-     * is made by the logic AND operation of both ends' options, e.g. client:
-     * 0x3, server: 0x1 --> 0x1 (only enable client probing).
-     **/
-    uint8_t                     enable_pmtud;
-    /** probing interval (us), default: 500000 */
-    uint64_t                    pmtud_probing_interval;
 
     /**
      * The limitation on conn recv rate (only applied to stream data) in bytes per second.
@@ -938,7 +815,6 @@ typedef struct xqc_stream_stats_s {
  *
  * @param engine_type  XQC_ENGINE_SERVER or XQC_ENGINE_CLIENT
  * @param engine_config config for basic framework, quic, network, etc.
- * @param ssl_config basic ssl config
  * @param engine_callback environment callback functions, including timer, socket, log, etc.
  * @param transport_cbs transport callback functions
  * @param conn_callback default connection callback functions
@@ -946,7 +822,6 @@ typedef struct xqc_stream_stats_s {
 XQC_EXPORT_PUBLIC_API
 xqc_engine_t *xqc_engine_create(xqc_engine_type_t engine_type,
     const xqc_config_t *engine_config,
-    const xqc_engine_ssl_config_t *ssl_config,
     const xqc_engine_callback_t *engine_callback,
     const xqc_transport_callbacks_t *transport_cbs,
     void *user_data);
@@ -1081,10 +956,6 @@ xqc_connection_t *xqc_engine_get_conn_by_scid(xqc_engine_t *engine,
  * @param engine return from xqc_engine_create
  * @param conn_settings settings of connection
  * @param server_host server domain
- * @param no_crypto_flag 1: stop encrypt 1-RTT packets. \n
- * This flag will add no_crypto transport parameter when initiating a connection, which is not an official parameter
- * and might be modified or removed
- * @param conn_ssl_config For handshake
  * @param user_data application data, for connection usage
  * @param peer_addr address of peer
  * @param peer_addrlen length of peer_addr
@@ -1094,8 +965,7 @@ xqc_connection_t *xqc_engine_get_conn_by_scid(xqc_engine_t *engine,
 XQC_EXPORT_PUBLIC_API
 const xqc_cid_t *xqc_connect(xqc_engine_t *engine,
     const xqc_conn_settings_t *conn_settings,
-    const char *server_host, int no_crypto_flag,
-    const xqc_conn_ssl_config_t *conn_ssl_config,
+    const char *server_host,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen,
     const char *alpn, void *user_data);
 
@@ -1117,12 +987,6 @@ xqc_int_t xqc_conn_close_with_error(xqc_connection_t *conn, uint64_t err_code);
  */
 XQC_EXPORT_PUBLIC_API
 xqc_int_t xqc_conn_get_errno(xqc_connection_t *conn);
-
-/**
- * Get ssl handler of specified connection
- */
-XQC_EXPORT_PUBLIC_API
-void *xqc_conn_get_ssl(xqc_connection_t *conn);
 
 /**
  * @brief get latest rtt sample of the initial path
@@ -1329,4 +1193,3 @@ xqc_conn_settings_t xqc_conn_get_conn_settings_template(xqc_conn_settings_type_t
 #endif
 
 #endif /* _XQUIC_H_INCLUDED_ */
-

@@ -233,4 +233,3 @@ fail:
     xqc_conn_destroy(xc);
     return NULL;
 }
-

@@ -27,4 +27,3 @@ xqc_connection_t *xqc_client_create_connection(xqc_engine_t *engine,
     void *user_data);
 
 #endif /* _XQC_CLIENT_H_INCLUDED_ */
-

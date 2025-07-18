@@ -32,8 +32,9 @@ typedef enum {
 } xqc_send_type_t;
 
 typedef enum {
-    XQC_PATH_FLAG_SHOULD_ACK     = 1 << 0,
-    XQC_PATH_FLAG_SOCKET_ERROR   = 1 << 1,
+    XQC_PATH_FLAG_SOCKET_ERROR    = 1 << 0,
+    XQC_PATH_FLAG_SHOULD_ACK_INIT = 1 << 1,
+    XQC_PATH_FLAG_SHOULD_ACK_APP  = 1 << 2,
 } xqc_path_flag_t;
 
 /* path context */
@@ -83,10 +84,6 @@ struct xqc_path_ctx_s {
     xqc_path_metrics_t  path_metrics;
     xqc_usec_t          path_create_time;
     xqc_usec_t          path_destroy_time;
-
-    /* PTMUD */
-    size_t              curr_pkt_out_size;
-    size_t              path_max_pkt_out_size;
 };
 
 xqc_bool_t xqc_is_same_addr(const struct sockaddr *sa1, const struct sockaddr *sa2);

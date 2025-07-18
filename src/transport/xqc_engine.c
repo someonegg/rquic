@@ -20,7 +20,6 @@
 #include "src/transport/xqc_cid.h"
 #include "src/transport/xqc_utils.h"
 #include "src/transport/xqc_timer.h"
-#include "src/tls/xqc_tls.h"
 #include "src/transport/xqc_packet_out.h"
 
 xqc_config_t default_client_config = {
@@ -395,19 +394,6 @@ xqc_engine_create(xqc_engine_type_t engine_type,
         goto fail;
     }
 
-    /* create tls context */
-    if (ssl_config != NULL) {
-        engine->tls_ctx = xqc_tls_ctx_create((xqc_tls_type_t)engine->eng_type, ssl_config,
-                                             &xqc_conn_tls_cbs, engine->log);
-        if (NULL == engine->tls_ctx) {
-            xqc_log(engine->log, XQC_LOG_ERROR, "|create tls context error");
-            goto fail;
-        }
-
-    } else {
-        goto fail;
-    }
-
     engine->default_conn_settings = internal_default_conn_settings;
 
     return engine;
@@ -470,11 +456,6 @@ xqc_engine_destroy(xqc_engine_t *engine)
         engine->conns_wait_wakeup_pq = NULL;
     }
 
-    if (engine->tls_ctx) {
-        xqc_tls_ctx_destroy(engine->tls_ctx);
-        engine->tls_ctx = NULL;
-    }
-
     if (engine->config) {
         xqc_engine_config_destroy(engine->config);
         engine->config = NULL;
@@ -488,10 +469,6 @@ xqc_engine_destroy(xqc_engine_t *engine)
     if (engine->conns_hash) {
         xqc_engine_conns_hash_destroy(engine->conns_hash);
         engine->conns_hash = NULL;
-    }
-
-    if (engine->tls_ctx) {
-        xqc_tls_ctx_destroy(engine->tls_ctx);
     }
 
     if (engine->log) {
@@ -585,11 +562,6 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
 
     XQC_CHECK_IMMEDIATE_CLOSE();
 
-    ret = xqc_conn_try_add_new_conn_id(conn, 0);
-    if (ret) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_conn_try_add_new_conn_id error|");
-    }
-
     if (XQC_UNLIKELY(conn->conn_flag & XQC_CONN_FLAG_PING)) {
         ret = xqc_conn_send_ping_internal(conn, NULL, XQC_FALSE);
         if (ret) {
@@ -605,11 +577,6 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
         if (ret) {
             xqc_log(conn->log, XQC_LOG_ERROR, "|send version negotiation error|");
         }
-    }
-
-    /* PMTUD probing */
-    if (XQC_UNLIKELY(conn->conn_flag & XQC_CONN_FLAG_PMTUD_PROBING)) {
-        xqc_conn_ptmud_probing(conn);
     }
 
 end:
@@ -954,12 +921,6 @@ xqc_int_t
 xqc_engine_add_alpn(xqc_engine_t *engine, const char *alpn, size_t alpn_len,
     xqc_app_proto_callbacks_t *ap_cbs, void *alp_ctx)
 {
-    /* register alpn in tls context */
-    xqc_int_t ret = xqc_tls_ctx_register_alpn(engine->tls_ctx, alpn, alpn_len);
-    if (ret != XQC_OK) {
-        return ret;
-    }
-
     xqc_alpn_registration_t *registration = xqc_calloc(1, sizeof(xqc_alpn_registration_t));
     if (NULL == registration) {
         xqc_log(engine->log, XQC_LOG_ERROR, "|create alpn registration error!");
@@ -1052,7 +1013,7 @@ xqc_engine_unregister_alpn(xqc_engine_t *engine, const char *alpn, size_t alpn_l
 
             xqc_free(alpn_reg);
 
-            return xqc_tls_ctx_unregister_alpn(engine->tls_ctx, alpn, alpn_len);
+            return XQC_OK;
         }
     }
 

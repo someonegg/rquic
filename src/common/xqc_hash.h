@@ -345,4 +345,3 @@ xqc_hash_optimize(const u_char *data, size_t len)
 }
 
 #endif /* _XQC_HASH_H_INCLUDED_ */
-
