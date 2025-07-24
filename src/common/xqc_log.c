@@ -78,22 +78,14 @@ xqc_qlog_event_2_level(xqc_log_type_t type)
         return EVENT_IMPORTANCE_EXTRA;
     case CON_CONNECTION_STARTED:
     case CON_CONNECTION_CLOSED:
-    case CON_CONNECTION_ID_UPDATED:
-    case CON_SPIN_BIM_UPDATED:
     case CON_CONNECTION_STATE_UPDATED:
     case CON_PATH_ASSIGNED:
         return EVENT_IMPORTANCE_BASE;
-
-    case CON_MTU_UPDATED:
-        return EVENT_IMPORTANCE_EXTRA;
 
     case TRA_VERSION_INFORMATION:
     case TRA_ALPN_INFORMATION:
     case TRA_PARAMETERS_SET:
         return EVENT_IMPORTANCE_CORE;
-
-    case TRA_PARAMETERS_RESTORED:
-        return EVENT_IMPORTANCE_BASE;
 
     case TRA_PACKET_SENT:
     case TRA_PACKET_RECEIVED:
@@ -178,15 +170,11 @@ xqc_log_type_str(xqc_log_type_t type)
             [CON_SERVER_LISTENING]              = "server_listening",
             [CON_CONNECTION_STARTED]            = "connection_started",
             [CON_CONNECTION_CLOSED]             = "connection_closed",
-            [CON_CONNECTION_ID_UPDATED]         = "connection_id_updated",
-            [CON_SPIN_BIM_UPDATED]              = "spin_bin_updated",
             [CON_CONNECTION_STATE_UPDATED]      = "connection_state_updated",
             [CON_PATH_ASSIGNED]                 = "path_assigned",
-            [CON_MTU_UPDATED]                   = "mtu_updated",
             [TRA_VERSION_INFORMATION]           = "version_information",
             [TRA_ALPN_INFORMATION]              = "alpn_information",
             [TRA_PARAMETERS_SET]                = "tra_parameters_set",
-            [TRA_PARAMETERS_RESTORED]           = "tra_parameters_restored",
             [TRA_PACKET_SENT]                   = "packet_sent",
             [TRA_PACKET_RECEIVED]               = "packet_received",
             [TRA_PACKET_DROPPED]                = "packet_dropped",

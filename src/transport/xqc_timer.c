@@ -8,8 +8,7 @@
 static const char * const timer_type_2_str[XQC_TIMER_N] = {
 
     /* path level (path->path_send_ctl->path_timer_manager->timer[XQC_TIMER_N])*/
-    [XQC_TIMER_ACK_INIT]        = "ACK_INIT",
-    [XQC_TIMER_ACK_APP]         = "ACK_APP",
+    [XQC_TIMER_ACK]             = "ACK",
     [XQC_TIMER_LOSS_DETECTION]  = "LOSS_DETECTION",
     [XQC_TIMER_PACING]          = "PACING",
     [XQC_TIMER_NAT_REBINDING]   = "NAT_REBINDING",
@@ -35,9 +34,8 @@ xqc_timer_ack_timeout(xqc_timer_type_t type, xqc_usec_t now, void *user_data)
     xqc_send_ctl_t *send_ctl = (xqc_send_ctl_t *)user_data;
 
     xqc_connection_t *conn = send_ctl->ctl_conn;
-    xqc_pkt_num_space_t pns = type - XQC_TIMER_ACK_INIT;
-    send_ctl->ctl_path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK_INIT << pns;
-    conn->ack_flag |= (1 << (pns + send_ctl->ctl_path->path_id * XQC_PNS_N));
+    send_ctl->ctl_path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK;
+    conn->ack_flag |= (1 << send_ctl->ctl_path->path_id);
 }
 
 /**
@@ -52,11 +50,10 @@ xqc_timer_loss_detection_timeout(xqc_timer_type_t type, xqc_usec_t now, void *us
     xqc_connection_t *conn = send_ctl->ctl_conn;
 
     xqc_usec_t loss_time;
-    xqc_pkt_num_space_t pns;
-    loss_time = xqc_send_ctl_get_earliest_loss_time(send_ctl, &pns);
+    loss_time = xqc_send_ctl_get_earliest_loss_time(send_ctl);
     if (loss_time != 0) {
         /* Time threshold loss Detection */
-        xqc_send_ctl_detect_lost(send_ctl, conn->conn_send_queue, pns, now);
+        xqc_send_ctl_detect_lost(send_ctl, conn->conn_send_queue, now);
         xqc_send_ctl_set_loss_detection_timer(send_ctl);
         return;
     }
@@ -66,24 +63,13 @@ xqc_timer_loss_detection_timeout(xqc_timer_type_t type, xqc_usec_t now, void *us
          * PTO. Send new data if available, else retransmit old data.
          * If neither is available, send a single PING frame
          */
-        xqc_usec_t t = xqc_send_ctl_get_pto_time_and_space(send_ctl, now, &pns);
-        xqc_path_send_one_or_two_ack_elicit_pkts(path, pns);
-
-    } else {
-        /* assert(!PeerCompletedAddressValidation()) */
-        if (xqc_conn_peer_complete_address_validation(conn)) {
-            xqc_log(conn->log, XQC_LOG_WARN, "|exception|peer validated address while inflight bytes is 0|");
-            return;
-        }
-
-        /* send Initial to earn more anti-amplification credit */
-        xqc_conn_send_one_ack_eliciting_pkt(conn, XQC_PNS_INIT);
+        xqc_usec_t t = xqc_send_ctl_get_pto_time(send_ctl, now);
+        xqc_path_send_one_or_two_ack_elicit_pkts(path);
     }
 
     send_ctl->ctl_pto_count++;
     conn->max_pto_cnt = xqc_max(send_ctl->ctl_pto_count, conn->max_pto_cnt);
     xqc_send_ctl_set_loss_detection_timer(send_ctl);
-
 }
 
 void
@@ -186,7 +172,7 @@ xqc_timer_init(xqc_timer_manager_t *manager, xqc_log_t *log, void *user_data)
     xqc_timer_t *timer;
     for (xqc_timer_type_t type = 0; type < XQC_TIMER_N; ++type) {
         timer = &manager->timer[type];
-        if (type == XQC_TIMER_ACK_INIT || type == XQC_TIMER_ACK_APP) {
+        if (type == XQC_TIMER_ACK) {
             timer->timeout_cb = xqc_timer_ack_timeout;
             timer->user_data = user_data;
 

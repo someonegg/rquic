@@ -71,14 +71,8 @@ typedef struct xqc_demo_svr_net_config_s {
  */
 
 typedef struct xqc_demo_svr_quic_config_s {
-    /* cipher config */
-    char cipher_suit[CIPHER_SUIT_LEN];
-    char groups[TLS_GROUPS_LEN];
-
     /* dummy mode */
     int  dummy_mode;
-
-    uint64_t keyupdate_pkt_threshold;
 
     size_t max_pkt_sz;
 } xqc_demo_svr_quic_config_t;
@@ -92,10 +86,7 @@ typedef struct xqc_demo_svr_quic_config_s {
  */
 
 #define LOG_PATH "slog.log"
-#define KEY_PATH "skeys.log"
 #define SOURCE_DIR  "."
-#define PRIV_KEY_PATH "server.key"
-#define CERT_PEM_PATH "server.crt"
 
 /* environment config */
 typedef struct xqc_demo_svr_env_config_s {
@@ -105,14 +96,6 @@ typedef struct xqc_demo_svr_env_config_s {
 
     /* source file dir */
     char    source_file_dir[RESOURCE_LEN];
-
-    /* tls certs */
-    char    priv_key_path[PATH_LEN];
-    char    cert_pem_path[PATH_LEN];
-
-    /* key export */
-    int     key_output_flag;
-    char    key_out_path[PATH_LEN];
 } xqc_demo_svr_env_config_t;
 
 typedef struct xqc_demo_svr_args_s {
@@ -147,7 +130,6 @@ typedef struct xqc_demo_svr_ctx_s {
     int                 current_fd;
 
     int                 log_fd;
-    int                 keylog_fd;
 
     xqc_demo_svr_args_t *args;
 } xqc_demo_svr_ctx_t;
@@ -212,9 +194,6 @@ xqc_demo_svr_accept(xqc_engine_t *engine, xqc_connection_t *conn, const xqc_cid_
     return 0;
 }
 
-/**
- * start of server keylog functions
- */
 int
 xqc_demo_svr_open_log_file(xqc_demo_svr_ctx_t *ctx)
 {
@@ -270,52 +249,6 @@ xqc_demo_svr_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_
     write_len = write(ctx->log_fd, line_break, 1);
     if (write_len < 0) {
         printf("write qlog failed, errno: %d\n", get_sys_errno());
-    }
-}
-
-/**
- * start of server keylog functions
- */
-int
-xqc_demo_svr_open_keylog_file(xqc_demo_svr_ctx_t *ctx)
-{
-    if (ctx->args->env_cfg.key_output_flag) {
-        ctx->keylog_fd = open(ctx->args->env_cfg.key_out_path, (O_WRONLY | O_APPEND | O_CREAT), 0644);
-        printf("%s %d\n", ctx->args->env_cfg.key_out_path, ctx->keylog_fd);
-        if (ctx->keylog_fd <= 0) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-void
-xqc_demo_svr_close_keylog_file(xqc_demo_svr_ctx_t *ctx)
-{
-    if (ctx->keylog_fd <= 0) {
-        return;
-    }
-    close(ctx->keylog_fd);
-    ctx->keylog_fd = 0;
-    return;
-}
-
-void
-xqc_demo_svr_keylog_cb(const xqc_cid_t *scid, const char *line, void *eng_user_data)
-{
-    xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t*)eng_user_data;
-    if (ctx->keylog_fd <= 0) {
-        return;
-    }
-
-    int write_len = write(ctx->keylog_fd, line, strlen(line));
-    if (write_len < 0) {
-        printf("write keys failed, errno: %d\n", get_sys_errno());
-        return;
-    }
-    write_len = write(ctx->keylog_fd, line_break, 1);
-    if (write_len < 0) {
-        printf("write keys failed, errno: %d\n", get_sys_errno());
     }
 }
 
@@ -773,19 +706,11 @@ xqc_demo_svr_init_args(xqc_demo_svr_args_t *args)
     strncpy(args->net_cfg.ip, DEFAULT_IP, sizeof(args->net_cfg.ip) - 1);
     args->net_cfg.port = DEFAULT_PORT;
 
-    /* quic cfg */
-    strncpy(args->quic_cfg.cipher_suit, XQC_TLS_CIPHERS, CIPHER_SUIT_LEN - 1);
-    strncpy(args->quic_cfg.groups, XQC_TLS_GROUPS, TLS_GROUPS_LEN - 1);
-
     /* env cfg */
     args->env_cfg.log_level = XQC_LOG_DEBUG;
-    strncpy(args->env_cfg.log_path, LOG_PATH, TLS_GROUPS_LEN - 1);
+    strncpy(args->env_cfg.log_path, LOG_PATH, PATH_LEN - 1);
     strncpy(args->env_cfg.source_file_dir, SOURCE_DIR, RESOURCE_LEN - 1);
-    strncpy(args->env_cfg.key_out_path, KEY_PATH, PATH_LEN - 1);
-    strncpy(args->env_cfg.priv_key_path, PRIV_KEY_PATH, PATH_LEN - 1);
-    strncpy(args->env_cfg.cert_pem_path, CERT_PEM_PATH, PATH_LEN - 1);
 
-    args->quic_cfg.keyupdate_pkt_threshold = UINT64_MAX;
     args->quic_cfg.max_pkt_sz = 1200;
 }
 
@@ -804,10 +729,8 @@ xqc_demo_svr_usage(int argc, char *argv[])
             "   -p    Listen port.\n"
             "   -l    Log level. e:error d:debug.\n"
             "   -L    xquic log path.\n"
-            "   -k    key output file\n"
             "   -d    do not read responses from files\n"
             "   -D    resource directory\n"
-            "   -u    Keyupdate packet threshold\n"
             "   -F    MTU size (default: 1200)\n"
             "   -C    Pacing on.\n"
             "   -6    IPv6\n"
@@ -818,7 +741,7 @@ void
 xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
 {
     int ch = 0;
-    while ((ch = getopt(argc, argv, "p:l:L:k:dD:u:F:C6")) != -1) {
+    while ((ch = getopt(argc, argv, "p:l:L:dD:F:C6")) != -1) {
         switch (ch) {
         case 'p':
             printf("option listen port :%s\n", optarg);
@@ -835,12 +758,6 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
             snprintf(args->env_cfg.log_path, sizeof(args->env_cfg.log_path), "%s", optarg);
             break;
 
-        case 'k':
-            printf("option key output file: %s\n", optarg);
-            args->env_cfg.key_output_flag = 1;
-            strncpy(args->env_cfg.key_out_path, optarg, sizeof(args->env_cfg.key_out_path) - 1);
-            break;
-
         case 'd':
             printf("option dummpy mode on\n");
             args->quic_cfg.dummy_mode = 1;
@@ -849,11 +766,6 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
         case 'D':
             printf("option resource directory :%s\n", optarg);
             strncpy(args->env_cfg.source_file_dir, optarg, RESOURCE_LEN - 1);
-            break;
-
-        case 'u':
-            printf("key update packet threshold: %s\n", optarg);
-            args->quic_cfg.keyupdate_pkt_threshold = atoi(optarg);
             break;
 
         case 'F':
@@ -890,7 +802,6 @@ xqc_demo_svr_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t 
             .xqc_log_write_stat = xqc_demo_svr_write_log_file,
             .xqc_qlog_event_write = xqc_demo_svr_write_qlog_file
         },
-        .keylog_cb = xqc_demo_svr_keylog_cb,
     };
 
     static xqc_transport_callbacks_t tcb = {
@@ -910,17 +821,6 @@ xqc_demo_svr_init_ctx(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *args)
     ctx->current_fd = -1;
     ctx->args = args;
     xqc_demo_svr_open_log_file(ctx);
-    xqc_demo_svr_open_keylog_file(ctx);
-}
-
-/* init ssl config */
-void
-xqc_demo_svr_init_ssl_config(xqc_engine_ssl_config_t *cfg, xqc_demo_svr_args_t *args)
-{
-    cfg->private_key_file = args->env_cfg.priv_key_path;
-    cfg->cert_file = args->env_cfg.cert_pem_path;
-    cfg->ciphers = args->quic_cfg.cipher_suit;
-    cfg->groups = args->quic_cfg.groups;
 }
 
 void
@@ -937,7 +837,6 @@ xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
         },
         .spurious_loss_detect_on = 1,
         .init_idle_time_out = 60000,
-        .keyupdate_pkt_threshold = args->quic_cfg.keyupdate_pkt_threshold,
         .max_pkt_out_size = args->quic_cfg.max_pkt_sz,
         .adaptive_ack_frequency = 1,
     };
@@ -977,10 +876,6 @@ xqc_demo_svr_init_alpn_ctx(xqc_demo_svr_ctx_t *ctx)
 int
 xqc_demo_svr_init_xquic_engine(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *args)
 {
-    /* init engine ssl config */
-    xqc_engine_ssl_config_t cfg = {0};
-    xqc_demo_svr_init_ssl_config(&cfg, args);
-
     /* init engine callbacks */
     xqc_engine_callback_t callback;
     xqc_transport_callbacks_t transport_cbs;
@@ -1013,7 +908,7 @@ xqc_demo_svr_init_xquic_engine(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *arg
     }
 
     /* create server engine */
-    ctx->engine = xqc_engine_create(XQC_ENGINE_SERVER, &config, &cfg,
+    ctx->engine = xqc_engine_create(XQC_ENGINE_SERVER, &config,
                                     &callback, &transport_cbs, ctx);
     if (ctx->engine == NULL) {
         printf("xqc_engine_create error\n");
@@ -1044,7 +939,6 @@ void stop(int signo)
 void
 xqc_demo_svr_free_ctx(xqc_demo_svr_ctx_t *ctx)
 {
-    xqc_demo_svr_close_keylog_file(ctx);
     xqc_demo_svr_close_log_file(ctx);
 
     if (ctx->args) {

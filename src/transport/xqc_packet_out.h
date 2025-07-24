@@ -98,9 +98,6 @@ typedef struct xqc_packet_out_s {
     xqc_usec_t              po_send_pacing_blk_ts;
 } xqc_packet_out_t;
 
-xqc_bool_t xqc_packet_out_can_attach_ack(xqc_packet_out_t *po,
-    xqc_path_ctx_t *path, xqc_pkt_type_t pkt_type);
-
 void xqc_packet_out_remove_ack_frame(xqc_packet_out_t *po);
 
 xqc_packet_out_t *xqc_packet_out_create(size_t po_buf_cap);

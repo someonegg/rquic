@@ -306,8 +306,8 @@ xqc_engine_set_callback(xqc_engine_t *engine, const xqc_engine_callback_t *engin
  * @brief check the legitimacy of engine config
  */
 xqc_bool_t
-xqc_engine_check_config(xqc_engine_type_t engine_type, const xqc_config_t *engine_config,
-    const xqc_engine_ssl_config_t *ssl_config, const xqc_transport_callbacks_t *transport_cbs)
+xqc_engine_check_config(xqc_engine_type_t engine_type,
+    const xqc_config_t *engine_config, const xqc_transport_callbacks_t *transport_cbs)
 {
     /* mismatch of sendmmsg_on enable and write_mmsg callback function */
     if (engine_config && engine_config->sendmmsg_on && transport_cbs->write_mmsg == NULL) {
@@ -324,7 +324,6 @@ xqc_engine_check_config(xqc_engine_type_t engine_type, const xqc_config_t *engin
 xqc_engine_t *
 xqc_engine_create(xqc_engine_type_t engine_type,
     const xqc_config_t *engine_config,
-    const xqc_engine_ssl_config_t *ssl_config,
     const xqc_engine_callback_t *engine_callback,
     const xqc_transport_callbacks_t *transport_cbs,
     void *user_data)
@@ -333,7 +332,7 @@ xqc_engine_create(xqc_engine_type_t engine_type,
     uint8_t sipkey[XQC_SIPHASH_KEY_SIZE];
 
     /* check input parameter */
-    if (xqc_engine_check_config(engine_type, engine_config, ssl_config, transport_cbs)
+    if (xqc_engine_check_config(engine_type, engine_config, transport_cbs)
         == XQC_FALSE)
     {
         return NULL;
@@ -478,13 +477,6 @@ xqc_engine_destroy(xqc_engine_t *engine)
     xqc_free(engine);
 }
 
-#define XQC_CHECK_UNDECRYPT_PACKETS() do {                      \
-    if (XQC_UNLIKELY(xqc_conn_has_undecrypt_packets(conn))) {   \
-        xqc_conn_process_undecrypt_packets(conn);               \
-        XQC_CHECK_IMMEDIATE_CLOSE();                            \
-    }                                                           \
-} while(0);                                                     \
-
 #define XQC_CHECK_IMMEDIATE_CLOSE() do {                        \
     if (XQC_UNLIKELY(conn->conn_flag & XQC_CONN_IMMEDIATE_CLOSE_FLAGS)) {     \
         xqc_conn_immediate_close(conn);                         \
@@ -524,20 +516,13 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
         goto end;
     }
 
-    XQC_CHECK_UNDECRYPT_PACKETS();
-    xqc_process_crypto_read_streams(conn);
-    XQC_CHECK_UNDECRYPT_PACKETS();
-    xqc_process_crypto_write_streams(conn);
-    XQC_CHECK_UNDECRYPT_PACKETS();
-    XQC_CHECK_IMMEDIATE_CLOSE();
-
     if (XQC_UNLIKELY(!xqc_list_empty(&conn->conn_send_queue->sndq_buff_1rtt_packets)
-        && conn->conn_flag & XQC_CONN_FLAG_CAN_SEND_1RTT)) {
+        && xqc_conn_is_established(conn))) {
         xqc_conn_write_buffed_1rtt_packets(conn);
     }
     XQC_CHECK_IMMEDIATE_CLOSE();
 
-    if (conn->conn_flag & XQC_CONN_FLAG_CAN_SEND_1RTT) {
+    if (xqc_conn_is_established(conn)) {
         xqc_process_read_streams(conn);
         if (xqc_send_queue_can_write(conn->conn_send_queue)) {
             if (conn->conn_send_queue->sndq_full) {
@@ -559,7 +544,6 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
             XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
         }
     }
-
     XQC_CHECK_IMMEDIATE_CLOSE();
 
     if (XQC_UNLIKELY(conn->conn_flag & XQC_CONN_FLAG_PING)) {

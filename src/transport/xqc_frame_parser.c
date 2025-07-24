@@ -492,7 +492,6 @@ xqc_parse_ack_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn, xqc_ack_
      * with the Connection ID having sequence number 0.
      */
     ack_info->path_id = 0;
-    ack_info->pns = packet_in->pi_pkt.pkt_pns;
 
     vlen = xqc_vint_read(p, end, &largest_acked);
     if (vlen < 0) {

@@ -66,24 +66,14 @@ xqc_log_CON_CONNECTION_CLOSED_callback(xqc_log_t *log, const char *func, xqc_con
             }
         }
         xqc_qlog_implement(log, CON_CONNECTION_CLOSED, func,
-                            "|err_code:%d|mtu_updatad_count:%d|pkt_dropped:%d|recent_congestion:%s|",
-                            conn->conn_err, conn->MTU_updated_count, conn->packet_dropped_count, log_buf);
+                            "|err_code:%d|pkt_dropped:%d|recent_congestion:%s|",
+                            conn->conn_err, conn->packet_dropped_count, log_buf);
     }
     else{
         xqc_qlog_implement(log, CON_CONNECTION_CLOSED, func,
-                            "|err_code:%d|mtu_updatad_count:%d|pkt_dropped:%d|",
-                            conn->conn_err, conn->MTU_updated_count, conn->packet_dropped_count);
+                            "|err_code:%d|pkt_dropped:%d|",
+                            conn->conn_err, conn->packet_dropped_count);
     }
-}
-
-void
-xqc_log_CON_CONNECTION_ID_UPDATED_callback(xqc_log_t *log, const char *func, xqc_connection_t *conn)
-{
-    unsigned char  scid_str[XQC_MAX_CID_LEN * 2 + 1];
-    xqc_hex_dump(scid_str, conn->scid_set.user_scid.cid_buf, conn->scid_set.user_scid.cid_len);
-    scid_str[conn->scid_set.user_scid.cid_len * 2] = '\0';
-    xqc_qlog_implement(log, CON_CONNECTION_ID_UPDATED, func,
-                      "|scid:%s|dcid:%s|", scid_str, conn->dcid_set.current_dcid_str);
 }
 
 void
@@ -101,13 +91,6 @@ xqc_log_CON_PATH_ASSIGNED_callback(xqc_log_t *log, const char *func,
                       "|path_id:%ui|local_addr:%s|peer_addr:%s|dcid:%s|scid:%s|",
                      path->path_id,  xqc_conn_addr_str(conn), xqc_path_addr_str(path),
                      xqc_dcid_str(log->engine, &path->path_dcid), xqc_scid_str(log->engine, &path->path_scid));
-}
-
-void
-xqc_log_CON_MTU_UPDATED_callback(xqc_log_t *log, const char *func, xqc_connection_t *conn, int32_t is_done)
-{
-    xqc_qlog_implement(log, CON_MTU_UPDATED, func,
-                      "|new:%uz|done:%d|max:%uz|", conn->pkt_out_size, is_done, conn->max_pkt_out_size);
 }
 
 void
@@ -190,8 +173,8 @@ void
 xqc_log_TRA_PACKET_RECEIVED_callback(xqc_log_t *log, const char *func, xqc_packet_in_t *packet_in)
 {
     xqc_qlog_implement(log, TRA_PACKET_RECEIVED, func,
-                      "|pkt_pns:%d|pkt_type:%s|pkt_num:%ui|len:%uz|frame_flag:%s|path_id:%ui|",
-                      packet_in->pi_pkt.pkt_pns, xqc_pkt_type_2_str(packet_in->pi_pkt.pkt_type), packet_in->pi_pkt.pkt_num,
+                      "|pkt_type:%s|pkt_num:%ui|len:%uz|frame_flag:%s|path_id:%ui|",
+                      xqc_pkt_type_2_str(packet_in->pi_pkt.pkt_type), packet_in->pi_pkt.pkt_num,
                       packet_in->buf_size, xqc_frame_type_2_str(log->engine, packet_in->pi_frame_types), XQC_INITIAL_PATH_ID);
 }
 
@@ -210,17 +193,17 @@ xqc_log_TRA_PACKET_SENT_callback(xqc_log_t *log, const char *func, xqc_connectio
 {
     if (with_pn) {
         xqc_qlog_implement(log, TRA_PACKET_SENT, func,
-                        "|<==|conn:%p|path_id:%ui|pkt_pns:%d|pkt_type:%s|pkt_num:%ui|size:%d|frame_flag:%s|"
+                        "|<==|conn:%p|path_id:%ui|pkt_type:%s|pkt_num:%ui|size:%d|frame_flag:%s|"
                         "sent:%z|inflight:%ud|now:%ui|stream_id:%ui|stream_offset:%ui|",
-                        conn, path->path_id, packet_out->po_pkt.pkt_pns,
+                        conn, path->path_id,
                         xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type), packet_out->po_pkt.pkt_num,
                         packet_out->po_used_size, xqc_frame_type_2_str(log->engine, packet_out->po_frame_types),
                         sent, path->path_send_ctl->ctl_bytes_in_flight, send_time,
                         packet_out->po_stream_id, packet_out->po_stream_offset);
     } else {
         xqc_qlog_implement(log, TRA_PACKET_SENT, func,
-                       "|<==|conn:%p|path_id:%ui|pkt_type:%s|pkt_pns:%d|frame_flag:%s|size:%ud|sent:%z|",
-                       conn, path->path_id, xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type), packet_out->po_pkt.pkt_pns,
+                       "|<==|conn:%p|path_id:%ui|pkt_type:%s|frame_flag:%s|size:%ud|sent:%z|",
+                       conn, path->path_id, xqc_pkt_type_2_str(packet_out->po_pkt.pkt_type),
                        xqc_frame_type_2_str(log->engine, packet_out->po_frame_types), packet_out->po_used_size, sent);
     }
 }
@@ -229,8 +212,8 @@ void
 xqc_log_TRA_PACKET_BUFFERED_callback(xqc_log_t *log, const char *func, xqc_packet_in_t *packet_in)
 {
     xqc_qlog_implement(log, TRA_PACKET_BUFFERED, func,
-                      "|pkt_num:%ui|pkt_pns:%d|pkt_type:%d|len:%d|",
-                      packet_in->pi_pkt.pkt_num, packet_in->pi_pkt.pkt_pns, packet_in->pi_pkt.pkt_type, packet_in->buf_size);
+                      "|pkt_num:%ui|pkt_type:%d|len:%d|",
+                      packet_in->pi_pkt.pkt_num, packet_in->pi_pkt.pkt_type, packet_in->buf_size);
 }
 
 void
@@ -238,8 +221,8 @@ xqc_log_TRA_PACKETS_ACKED_callback(xqc_log_t *log, const char *func, xqc_packet_
     xqc_packet_number_t high, xqc_packet_number_t low, uint64_t path_id)
 {
     xqc_qlog_implement(log, TRA_PACKETS_ACKED, func,
-                      "|pkt_space:%d|high:%d|low:%d|path_id:%ui|",
-                      packet_in->pi_pkt.pkt_pns, high, low, path_id);
+                      "|high:%d|low:%d|path_id:%ui|",
+                      high, low, path_id);
 }
 
 void
@@ -531,9 +514,9 @@ xqc_log_REC_PACKET_LOST_callback(xqc_log_t *log, const char *func, xqc_packet_ou
                                 xqc_packet_number_t lost_pn, xqc_usec_t lost_send_time, xqc_usec_t loss_delay)
 {
     xqc_qlog_implement(log, REC_PACKET_LOST, func,
-                      "|pkt_pns:%d|pkt_type:%d|pkt_num:%d|lost_pn:%ui|po_sent_time:%ui|"
+                      "|pkt_type:%d|pkt_num:%d|lost_pn:%ui|po_sent_time:%ui|"
                       "lost_send_time:%ui|loss_delay:%ui|frame:%s|repair:%d|",
-                      packet_out->po_pkt.pkt_pns, packet_out->po_pkt.pkt_type, packet_out->po_pkt.pkt_num,
+                      packet_out->po_pkt.pkt_type, packet_out->po_pkt.pkt_num,
                       lost_pn, packet_out->po_sent_time, lost_send_time, loss_delay,
                       xqc_frame_type_2_str(log->engine, packet_out->po_frame_types), XQC_NEED_REPAIR(packet_out->po_frame_types));
 }

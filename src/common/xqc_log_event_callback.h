@@ -16,17 +16,11 @@ void xqc_log_CON_CONNECTION_STARTED_callback(xqc_log_t *log, const char *func,
 void xqc_log_CON_CONNECTION_CLOSED_callback(xqc_log_t *log, const char *func,
     xqc_connection_t *conn);
 
-void xqc_log_CON_CONNECTION_ID_UPDATED_callback(xqc_log_t *log, const char *func,
-    xqc_connection_t *conn);
-
 void xqc_log_CON_CONNECTION_STATE_UPDATED_callback(xqc_log_t *log, const char *func,
     xqc_connection_t *conn);
 
 void xqc_log_CON_PATH_ASSIGNED_callback(xqc_log_t *log, const char *func,
     xqc_path_ctx_t *path, xqc_connection_t *conn);
-
-void xqc_log_CON_MTU_UPDATED_callback(xqc_log_t *log, const char *func,
-    xqc_connection_t *conn, int32_t is_done);
 
 void xqc_log_TRA_VERSION_INFORMATION_callback(xqc_log_t *log, const char *func,
     uint32_t local_count, uint32_t *local_version, uint32_t remote_count,

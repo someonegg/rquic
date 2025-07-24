@@ -29,12 +29,6 @@ typedef enum {
     XQC_STREAM_FLAG_DISCARDED       = 1 << 7,   /* stream create_notify with error, all stream data will be discarded */
 } xqc_stream_flag_t;
 
-typedef enum {
-    XQC_STREAM_PRI_DEFAULT  = 0,
-    XQC_STREAM_PRI_HIGH     = 1,
-    XQC_STREAM_PRI_NORMAL   = 2,
-} xqc_stream_priority_t;
-
 typedef struct {
     uint64_t                fc_max_stream_data_can_send;
     uint64_t                fc_max_stream_data_can_recv;
@@ -139,8 +133,6 @@ xqc_stream_is_uni(xqc_stream_id_t stream_id)
     return stream_id & 0x02;
 }
 
-void xqc_stream_set_priority(xqc_stream_t *stream, xqc_stream_priority_t priority);
-
 xqc_stream_t *xqc_create_stream_with_conn (xqc_connection_t *conn, xqc_stream_id_t stream_id,
     xqc_stream_type_t stream_type, xqc_stream_settings_t *settings, void *user_data);
 
@@ -149,10 +141,6 @@ void xqc_destroy_stream(xqc_stream_t *stream);
 void xqc_process_write_streams(xqc_connection_t *conn);
 
 void xqc_process_read_streams(xqc_connection_t *conn);
-
-void xqc_process_crypto_write_streams(xqc_connection_t *conn);
-
-void xqc_process_crypto_read_streams(xqc_connection_t *conn);
 
 void xqc_stream_ready_to_write(xqc_stream_t *stream);
 
@@ -179,10 +167,6 @@ int xqc_stream_do_recv_flow_ctl(xqc_stream_t *stream);
 int xqc_stream_do_create_flow_ctl(xqc_connection_t *conn, xqc_stream_id_t stream_id, xqc_stream_type_t stream_type);
 
 xqc_stream_t *xqc_passive_create_stream(xqc_connection_t *conn, xqc_stream_id_t stream_id, void *user_data);
-
-int xqc_crypto_stream_on_write(xqc_stream_t *stream, void *user_data);
-
-int xqc_read_crypto_stream(xqc_stream_t *stream);
 
 void xqc_destroy_stream_frame(xqc_stream_frame_t *stream_frame);
 
