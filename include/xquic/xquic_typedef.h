@@ -193,7 +193,14 @@ typedef enum xqc_conn_settings_type_e {
     XQC_CONN_SETTINGS_LOW_DELAY     = 1,
 } xqc_conn_settings_type_t;
 
+typedef enum {
+    XQC_STREAM_PRI_DEFAULT  = 0,
+    XQC_STREAM_PRI_HIGH     = 1,
+    XQC_STREAM_PRI_NORMAL   = 2,
+} xqc_stream_priority_t;
+
 typedef struct xqc_stream_settings_s {
+    xqc_stream_priority_t stream_priority;
     uint64_t recv_rate_bytes_per_sec;
 } xqc_stream_settings_t;
 

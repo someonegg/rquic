@@ -33,8 +33,7 @@ typedef enum {
 
 typedef enum {
     XQC_PATH_FLAG_SOCKET_ERROR    = 1 << 0,
-    XQC_PATH_FLAG_SHOULD_ACK_INIT = 1 << 1,
-    XQC_PATH_FLAG_SHOULD_ACK_APP  = 1 << 2,
+    XQC_PATH_FLAG_SHOULD_ACK      = 1 << 1,
 } xqc_path_flag_t;
 
 /* path context */

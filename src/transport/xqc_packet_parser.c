@@ -158,8 +158,7 @@ xqc_packet_decode_packet_number(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     xqc_path_ctx_t *path = c->the_path;
     if (path) {
         xqc_pn_ctl_t *pn_ctl = xqc_get_pn_ctl(c, path);
-        xqc_pkt_num_space_t pns = packet_in->pi_pkt.pkt_pns;
-        largest_pn = xqc_recv_record_largest(&pn_ctl->ctl_recv_record[pns]);
+        largest_pn = xqc_recv_record_largest(&pn_ctl->ctl_recv_record);
     }
 
     packet_in->pi_pkt.pkt_num =
@@ -268,7 +267,6 @@ xqc_packet_parse_short_header(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     uint64_t length = 0;
 
     packet_in->pi_pkt.pkt_type = XQC_PTYPE_SHORT_HEADER;
-    packet_in->pi_pkt.pkt_pns = XQC_PNS_APP;
 
     if (XQC_BUFF_LEFT_SIZE(pos, packet_in->last) < 1 + cid_len) {
         xqc_log(c->log, XQC_LOG_ERROR, "|cid len error|cid_len:%d|size:%d",
@@ -438,17 +436,6 @@ xqc_packet_parse_initial(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     unsigned pktno_bytes = XQC_PACKET_HEADER_PKTNO_BYTES(packet_in->buf);
 
     packet_in->pi_pkt.pkt_type = XQC_PTYPE_INIT;
-    packet_in->pi_pkt.pkt_pns = XQC_PNS_INIT;
-
-    /* The smallest length of udp datagrams carrying initial packet frome client is 1200  */
-    if (c->conn_type == XQC_CONN_TYPE_SERVER) {
-        if (XQC_BUFF_LEFT_SIZE(packet_in->buf, end) < XQC_PACKET_INITIAL_MIN_LENGTH) {
-            xqc_log(c->log, XQC_LOG_ERROR, "|initial size too small|%z|",
-                    (size_t)XQC_BUFF_LEFT_SIZE(packet_in->buf, end));
-            XQC_CONN_ERR(c, TRA_PROTOCOL_VIOLATION);
-            return -XQC_EILLPKT;
-        }
-    }
 
     /* Length(i) */
     size = xqc_vint_read(pos, end, &length);
@@ -660,7 +647,7 @@ xqc_packet_parse_long_header(xqc_connection_t *c, xqc_packet_in_t *packet_in)
     /* update pos */
     packet_in->pos = pos;
 
-    if (type != XQC_PTYPE_INIT && XQC_CONN_FLAG_DCID_OK & c->conn_flag)
+    if (xqc_conn_is_dcid_done(c))
     {
         /* check cid */
         if (xqc_cid_set_search_cid(&c->scid_set, &(packet->pkt_dcid)) == NULL

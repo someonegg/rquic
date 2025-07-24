@@ -660,8 +660,6 @@ typedef struct xqc_conn_settings_s {
     /** idle timeout interval, effective after handshake completion */
     xqc_msec_t                  idle_time_out;
     int32_t                     spurious_loss_detect_on;
-    /** limit of anti-amplification, default 5 */
-    uint32_t                    anti_amplification_limit;
     size_t                      max_pkt_out_size;
 
     /** params for performance tuning */
@@ -956,18 +954,18 @@ xqc_connection_t *xqc_engine_get_conn_by_scid(xqc_engine_t *engine,
  * @param engine return from xqc_engine_create
  * @param conn_settings settings of connection
  * @param server_host server domain
- * @param user_data application data, for connection usage
+ * @param alpn Application-Layer-Protocol, MUST NOT be NULL
  * @param peer_addr address of peer
  * @param peer_addrlen length of peer_addr
- * @param alpn Application-Layer-Protocol, MUST NOT be NULL
+ * @param user_data application data, for connection usage
  * @return user should copy cid to your own memory, in case of cid destroyed in xquic library
  */
 XQC_EXPORT_PUBLIC_API
 const xqc_cid_t *xqc_connect(xqc_engine_t *engine,
     const xqc_conn_settings_t *conn_settings,
-    const char *server_host,
+    const char *server_host, const char *alpn,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen,
-    const char *alpn, void *user_data);
+    void *user_data);
 
 /**
  * Send CONNECTION_CLOSE to peer, conn_close_notify will callback when connection destroyed

@@ -2,6 +2,7 @@
 #define _XQC_TIMER_H_INCLUDED_
 
 #include "src/common/xqc_time.h"
+#include "src/common/xqc_common_inc.h"
 #include "src/transport/xqc_packet.h"
 #include "src/transport/xqc_packet_in.h"
 #include "src/common/xqc_list.h"
@@ -26,8 +27,7 @@ typedef enum xqc_timer_level {
 typedef enum xqc_timer_type {
 
     /* path level (path->path_send_ctl->path_timer_manager->timer[XQC_TIMER_N])*/
-    XQC_TIMER_ACK_INIT,
-    XQC_TIMER_ACK_APP = XQC_TIMER_ACK_INIT + XQC_PNS_APP,
+    XQC_TIMER_ACK,
     XQC_TIMER_LOSS_DETECTION,
     XQC_TIMER_PACING,
     XQC_TIMER_NAT_REBINDING,

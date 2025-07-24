@@ -37,7 +37,6 @@
 
 #define XQC_PACKET_TMP_BUF_LEN  1600
 #define MAX_BUF_SIZE            (100*1024*1024)
-#define XQC_INTEROP_TLS_GROUPS  "P-256:X25519:P-384:P-521"
 
 typedef enum xqc_demo_cli_alpn_type_s {
     ALPN_HQ,
@@ -127,12 +126,6 @@ typedef struct xqc_demo_cli_quic_config_s {
     char alpn[16];
     int quic_version;
 
-    char *cipher_suites;                /* cipher suites */
-
-    uint64_t keyupdate_pkt_threshold;   /* packet limit of a single 1-rtt key, 0 for unlimited */
-
-    uint8_t no_encryption;
-
     uint64_t recv_rate;
 
     uint64_t idle_timeout;
@@ -149,7 +142,6 @@ typedef struct xqc_demo_cli_quic_config_s {
  */
 
 #define LOG_PATH "clog.log"
-#define KEY_PATH "ckeys.log"
 #define OUT_DIR  "."
 
 /* environment config */
@@ -161,10 +153,6 @@ typedef struct xqc_demo_cli_env_config_s {
 
     /* out file */
     char    out_file_dir[256];
-
-    /* key export */
-    int     key_output_flag;
-    char    key_out_path[256];
 
     /* life cycle */
     int     life;
@@ -296,9 +284,6 @@ typedef struct xqc_demo_cli_ctx_s {
     /* log context */
     int             log_fd;
     char            log_path[256];
-
-    /* key log context */
-    int             keylog_fd;
 
     /* client context */
     xqc_demo_cli_client_args_t  *args;
@@ -523,50 +508,6 @@ xqc_demo_cli_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_
     write_len = write(ctx->log_fd, line_break, 1);
     if (write_len < 0) {
         printf("write qlog failed, errno: %d\n", get_sys_errno());
-    }
-}
-
-int
-xqc_demo_cli_open_keylog_file(xqc_demo_cli_ctx_t *ctx)
-{
-    if (ctx->args->env_cfg.key_output_flag) {
-        ctx->keylog_fd = open(ctx->args->env_cfg.key_out_path, (O_WRONLY | O_APPEND | O_CREAT), 0644);
-        printf("%s %d\n", ctx->args->env_cfg.key_out_path, ctx->keylog_fd);
-        if (ctx->keylog_fd <= 0) {
-            return -1;
-        }
-    }
-    return 0;
-}
-
-void
-xqc_demo_cli_close_keylog_file(xqc_demo_cli_ctx_t *ctx)
-{
-    if (ctx->keylog_fd <= 0) {
-        return;
-    }
-    close(ctx->keylog_fd);
-    ctx->keylog_fd = 0;
-    return;
-}
-
-void
-xqc_demo_cli_keylog_cb(const xqc_cid_t *scid, const char *line, void *engine_user_data)
-{
-    xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t*)engine_user_data;
-
-    if (ctx->keylog_fd <= 0) {
-        return;
-    }
-
-    int write_len = write(ctx->keylog_fd, line, strlen(line));
-    if (write_len < 0) {
-        printf("write keys failed, errno: %d\n", get_sys_errno());
-        return;
-    }
-    write_len = write(ctx->keylog_fd, line_break, 1);
-    if (write_len < 0) {
-        printf("write keys failed, errno: %d\n", get_sys_errno());
     }
 }
 
@@ -982,27 +923,6 @@ xqc_demo_cli_rebind_path(int fd, short what, void *arg)
  ******************************************************************************/
 
 void
-xqc_demo_cli_init_engine_ssl_config(xqc_engine_ssl_config_t* cfg, xqc_demo_cli_client_args_t *args)
-{
-    memset(cfg, 0, sizeof(xqc_engine_ssl_config_t));
-    if (args->quic_cfg.cipher_suites) {
-        cfg->ciphers = args->quic_cfg.cipher_suites;
-
-    } else {
-        cfg->ciphers = XQC_TLS_CIPHERS;
-    }
-
-    cfg->groups = XQC_INTEROP_TLS_GROUPS;
-}
-
-void
-xqc_demo_cli_init_conn_ssl_config(xqc_conn_ssl_config_t *conn_ssl_config,
-    xqc_demo_cli_client_args_t *args)
-{
-    memset(conn_ssl_config, 0, sizeof(xqc_conn_ssl_config_t));
-}
-
-void
 xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
     xqc_demo_cli_client_args_t *args)
 {
@@ -1014,7 +934,6 @@ xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
     settings->so_sndbuf = 1024*1024;
     settings->proto_version = args->quic_cfg.quic_version;
     settings->spurious_loss_detect_on = 1;
-    settings->keyupdate_pkt_threshold = args->quic_cfg.keyupdate_pkt_threshold;
     settings->recv_rate_bytes_per_sec = args->quic_cfg.recv_rate;
     settings->max_pkt_out_size = args->quic_cfg.max_pkt_sz;
     settings->max_udp_payload_size = args->quic_cfg.max_pkt_sz;
@@ -1038,12 +957,10 @@ xqc_demo_cli_init_args(xqc_demo_cli_client_args_t *args)
     args->env_cfg.log_level = XQC_LOG_DEBUG;
     strncpy(args->env_cfg.log_path, LOG_PATH, sizeof(args->env_cfg.log_path));
     strncpy(args->env_cfg.out_file_dir, OUT_DIR, sizeof(args->env_cfg.out_file_dir));
-    strncpy(args->env_cfg.key_out_path, KEY_PATH, sizeof(args->env_cfg.out_file_dir));
 
     /* quic cfg */
     args->quic_cfg.alpn_type = ALPN_HQ;
     strncpy(args->quic_cfg.alpn, "hq-interop", sizeof(args->quic_cfg.alpn));
-    args->quic_cfg.keyupdate_pkt_threshold = UINT64_MAX;
     args->quic_cfg.max_pkt_sz = 1200;
     args->quic_cfg.quic_version = XQC_VERSION_V1;
 }
@@ -1165,7 +1082,6 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -p    Server port.\n"
         "   -l    Log level. e:error d:debug.\n"
         "   -L    xquic log path.\n"
-        "   -k    key output file\n"
         "   -d    do not save responses to files\n"
         "   -D    response directory\n"
         "   -U    Url. \n"
@@ -1177,12 +1093,9 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -t    Connection timeout. Default 3 seconds.\n"
         "   -T    Throttle recving rate (Bps)\n"
         "   -A    alpn selection: hq\n"
-        "   -S    cipher suites\n"
-        "   -u    key update packet threshold\n"
         "   -F    MTU size (default: 1200)\n"
         "   -e    NAT rebinding after 2s\n"
         "   -C    Pacing on.\n"
-        "   -N    No encryption (default disabled)\n"
         "   -6    IPv6\n"
         , prog);
 }
@@ -1191,7 +1104,7 @@ void
 xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args)
 {
     int ch = 0;
-    while ((ch = getopt(argc, argv, "a:p:l:L:k:dD:U:x:r:K:w:I:t:T:A:S:u:F:eCN6")) != -1) {
+    while ((ch = getopt(argc, argv, "a:p:l:L:dD:U:x:r:K:w:I:t:T:A:F:eC6")) != -1) {
         switch (ch) {
         case 'a':
             printf("option server addr :%s\n", optarg);
@@ -1213,12 +1126,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         case 'L':
             printf("option log path :%s\n", optarg);
             strncpy(args->env_cfg.log_path, optarg, sizeof(args->env_cfg.log_path) - 1);
-            break;
-
-        case 'k':
-            printf("key output file: %s\n", optarg);
-            args->env_cfg.key_output_flag = 1;
-            strncpy(args->env_cfg.key_out_path, optarg, sizeof(args->env_cfg.key_out_path) - 1);
             break;
 
         case 'd':
@@ -1279,11 +1186,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             }
             break;
 
-        case 'S':
-            printf("option ssl cipher suites: %s\n", optarg);
-            args->quic_cfg.cipher_suites = optarg;
-            break;
-
         /* multi connections */
         case 'm':
             printf("option multi connection: on\n");
@@ -1301,11 +1203,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
             }
             break;
 
-        case 'u':
-            printf("key update packet threshold: %s\n", optarg);
-            args->quic_cfg.keyupdate_pkt_threshold = atoi(optarg);
-            break;
-
         case 'F':
             printf("MTU size: %s\n", optarg);
             args->quic_cfg.max_pkt_sz = atoi(optarg);
@@ -1319,11 +1216,6 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         case 'C':
             printf("option pacing :%s\n", "on");
             args->net_cfg.pacing = 1;
-            break;
-
-        case 'N':
-            printf("option no encryption on\n");
-            args->quic_cfg.no_encryption = 1;
             break;
 
         case '6':
@@ -1474,7 +1366,6 @@ xqc_demo_cli_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t 
             .xqc_log_write_stat = xqc_demo_cli_write_log_file,
             .xqc_qlog_event_write = xqc_demo_cli_write_qlog_file,
         },
-        .keylog_cb = xqc_demo_cli_keylog_cb,
         .set_event_timer = xqc_demo_cli_set_event_timer,
     };
 
@@ -1516,10 +1407,7 @@ xqc_demo_cli_init_alpn_ctx(xqc_demo_cli_ctx_t *ctx)
 int
 xqc_demo_cli_init_xquic_engine(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_client_args_t *args)
 {
-    /* init engine ssl config */
-    xqc_engine_ssl_config_t engine_ssl_config;
     xqc_transport_callbacks_t transport_cbs;
-    xqc_demo_cli_init_engine_ssl_config(&engine_ssl_config, args);
 
     /* init engine callbacks */
     xqc_engine_callback_t callback;
@@ -1549,7 +1437,7 @@ xqc_demo_cli_init_xquic_engine(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_client_args
     }
 
     ctx->engine = xqc_engine_create(XQC_ENGINE_CLIENT, &config,
-                                     &engine_ssl_config, &callback, &transport_cbs, ctx);
+                                    &callback, &transport_cbs, ctx);
     if (ctx->engine == NULL) {
         printf("xqc_engine_create error\n");
         return XQC_ERROR;
@@ -1571,13 +1459,11 @@ xqc_demo_cli_init_xquic_connection(xqc_demo_cli_user_conn_t *user_conn,
     xqc_conn_settings_t conn_settings;
     xqc_demo_cli_init_conneciton_settings(&conn_settings, args);
 
-    xqc_conn_ssl_config_t conn_ssl_config;
-    xqc_demo_cli_init_conn_ssl_config(&conn_ssl_config, args);
-
     if (1) {
-        const xqc_cid_t *cid = xqc_hq_connect(user_conn->ctx->engine, &conn_settings,
-            args->net_cfg.host, args->quic_cfg.no_encryption, &conn_ssl_config,
-            (struct sockaddr*)&args->net_cfg.addr, args->net_cfg.addr_len, user_conn);
+        const xqc_cid_t *cid = xqc_hq_connect(user_conn->ctx->engine,
+            &conn_settings, args->net_cfg.host,
+            (struct sockaddr*)&args->net_cfg.addr, args->net_cfg.addr_len,
+            user_conn);
 
         if (cid == NULL) {
             return -1;
@@ -1650,7 +1536,6 @@ xqc_demo_cli_init_ctx(xqc_demo_cli_ctx_t *pctx, xqc_demo_cli_client_args_t *args
     strncpy(pctx->log_path, args->env_cfg.log_path, sizeof(pctx->log_path) - 1);
     pctx->args = args;
     xqc_demo_cli_open_log_file(pctx);
-    xqc_demo_cli_open_keylog_file(pctx);
 }
 
 int
@@ -1941,7 +1826,6 @@ xqc_demo_cli_start_task_manager(xqc_demo_cli_ctx_t *ctx)
 void
 xqc_demo_cli_free_ctx(xqc_demo_cli_ctx_t *ctx)
 {
-    xqc_demo_cli_close_keylog_file(ctx);
     xqc_demo_cli_close_log_file(ctx);
 
     if (ctx->args) {

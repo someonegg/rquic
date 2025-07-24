@@ -30,22 +30,6 @@ xqc_pkt_type_2_str(xqc_pkt_type_t pkt_type)
     return pkt_type_2_str[pkt_type];
 }
 
-xqc_pkt_num_space_t
-xqc_packet_type_to_pns(xqc_pkt_type_t pkt_type)
-{
-    switch (pkt_type) {
-    case XQC_PTYPE_INIT:
-    case XQC_PTYPE_RSV1:
-    case XQC_PTYPE_RSV2:
-    case XQC_PTYPE_RSV3:
-        return XQC_PNS_INIT;
-    case XQC_PTYPE_SHORT_HEADER:
-        return XQC_PNS_APP;
-    default:
-        return XQC_PNS_N;
-    }
-}
-
 xqc_pkt_type_t
 xqc_state_to_pkt_type(xqc_connection_t *conn)
 {
@@ -57,49 +41,12 @@ xqc_state_to_pkt_type(xqc_connection_t *conn)
     case XQC_CONN_STATE_SERVER_INITIAL_RECVD:
     case XQC_CONN_STATE_SERVER_INITIAL_SENT:
         return XQC_PTYPE_INIT;
-    case XQC_CONN_STATE_CLIENT_HANDSHAKE_RECVD:
-    case XQC_CONN_STATE_CLIENT_HANDSHAKE_SENT:
-    case XQC_CONN_STATE_SERVER_HANDSHAKE_SENT:
-    case XQC_CONN_STATE_SERVER_HANDSHAKE_RECVD:
-        return XQC_PTYPE_INIT;
     default:
         return XQC_PTYPE_SHORT_HEADER;
     }
 }
 
-uint8_t
-xqc_packet_need_decrypt(xqc_packet_t *pkt)
-{
-    /* packets don't need decryption */
-    return xqc_has_packet_number(pkt);
-}
-
-/*
- * a client MUST discard Initial keys when it first sends a Handshake packet
- * and a server MUST discard Initial keys when it first successfully processes a Handshake packet
- * we should ignore initial packet if xqc_conn_check_initial_packet_from_cur_state return XQC_FALSE
- */
-static inline xqc_int_t
-xqc_conn_check_initial_packet_from_cur_state(xqc_conn_state_t cur_state)
-{
-    switch(cur_state) {
-        case XQC_CONN_STATE_CLIENT_INIT:
-        case XQC_CONN_STATE_CLIENT_INITIAL_SENT:
-        case XQC_CONN_STATE_CLIENT_INITIAL_RECVD:
-        case XQC_CONN_STATE_SERVER_INIT:
-        case XQC_CONN_STATE_SERVER_INITIAL_RECVD:
-        case XQC_CONN_STATE_SERVER_INITIAL_SENT:
-        case XQC_CONN_STATE_SERVER_HANDSHAKE_SENT:
-        case XQC_CONN_STATE_SERVER_HANDSHAKE_RECVD:
-            return XQC_TRUE;
-        default:
-            return XQC_FALSE;
-
-    }
-    return XQC_TRUE;
-}
-
-xqc_int_t
+static xqc_int_t
 xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 {
     unsigned char *pos = packet_in->pos;
@@ -111,8 +58,14 @@ xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         return -XQC_EILLPKT;
     }
 
-    /* short header */
+    // TODOXXXX
     if (XQC_PACKET_IS_SHORT_HEADER(pos)) {
+        if (!xqc_conn_is_handshake_done(c)) {
+            xqc_log(c->log, XQC_LOG_INFO,
+                    "|1RTT packet before handshake done|");
+            return -XQC_EIGNORE_PKT;
+        }
+
         ret = xqc_packet_parse_short_header(c, packet_in);
         if (ret != XQC_OK) {
             xqc_log(c->log, XQC_LOG_ERROR,
@@ -120,33 +73,13 @@ xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
             return ret;
         }
 
-        /* check handshake */
-        if (!xqc_conn_check_handshake_completed(c)) {
-            /* handshake not completed, buffer packets */
-            xqc_log(c->log, XQC_LOG_WARN,
-                    "|delay|buff 1RTT packet before handshake completed|");
-            xqc_conn_buff_undecrypt_packet_in(packet_in, c, XQC_ENC_LEV_1RTT);
-            return -XQC_EWAITING;
+    } else if (XQC_PACKET_IS_LONG_HEADER(pos)) {
+        if (XQC_UNLIKELY(xqc_conn_is_established(c))) {
+            xqc_log(c->log, XQC_LOG_INFO, "|initial packet should be discarded"
+                    "|curr_stat:%d|", c->conn_state);
+            return -XQC_EIGNORE_PKT;
         }
 
-    } else if (XQC_PACKET_IS_LONG_HEADER(pos)) {    /* long header */
-        /* buffer packets if key is not ready */
-        if (XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in->pos) == XQC_PTYPE_HSK
-                   && !xqc_tls_is_key_ready(c->tls, XQC_ENC_LEV_HSK, XQC_KEY_TYPE_RX_READ))
-        {
-            /* buffer packets */
-            xqc_log(c->log, XQC_LOG_INFO, "|delay|buff HSK before hs_rx_key_ready|");
-            xqc_conn_buff_undecrypt_packet_in(packet_in, c, XQC_ENC_LEV_HSK);
-            return -XQC_EWAITING;
-        } else if (XQC_PTYPE_INIT == XQC_PACKET_LONG_HEADER_GET_TYPE(packet_in->pos)) {
-            if (XQC_UNLIKELY(xqc_conn_check_initial_packet_from_cur_state(c->conn_state) == XQC_FALSE)) {
-                xqc_log(c->log, XQC_LOG_INFO, "|initial packet should be discarded"
-                        "|curr_stat:%d|", c->conn_state);
-                return -XQC_EIGNORE_PKT;
-            }
-        }
-
-        /* parse packet */
         ret = xqc_packet_parse_long_header(c, packet_in);
         if (XQC_OK != ret) {
             xqc_log(c->log, XQC_LOG_ERROR,
@@ -164,45 +97,6 @@ xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 }
 
 xqc_int_t
-xqc_packet_decrypt_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
-{
-    xqc_int_t ret = XQC_OK;
-
-    /*
-     * remember the last position of udp packet, as the last pointer
-     * of packet_in will be changed during processing QUIC packets
-     */
-    unsigned char *last = packet_in->last;
-
-    /* decrypt packet */
-    ret = xqc_packet_decrypt(c, packet_in);
-    if (ret == XQC_OK) {
-        /* process frames */
-        ret = xqc_process_frames(c, packet_in);
-        if (ret != XQC_OK) {
-            xqc_log(c->log, XQC_LOG_ERROR, "|xqc_process_frames error|%d|", ret);
-            return ret;
-        }
-
-    } else {
-        if (ret == -XQC_TLS_DATA_REJECT) {
-            ret = -XQC_EIGNORE_PKT;
-        } else {
-            xqc_log_event(c->log, TRA_PACKET_DROPPED, "decrypt data error", ret,
-                xqc_pkt_type_2_str(packet_in->pi_pkt.pkt_type), packet_in->pi_pkt.pkt_num);
-            c->packet_dropped_count ++;
-            ret = -XQC_EDECRYPT;
-            /* don't close connection, just drop the packet */
-        }
-        return ret;
-    }
-
-    /* restore the udp packet's end */
-    packet_in->last = last;
-    return ret;
-}
-
-xqc_int_t
 xqc_packet_process_single(xqc_connection_t *c,
     xqc_packet_in_t *packet_in)
 {
@@ -214,14 +108,15 @@ xqc_packet_process_single(xqc_connection_t *c,
         return ret;
     }
 
-    /* those packets with no packet number, don't need to be decrypt or put into CC */
-    if (!xqc_packet_need_decrypt(&packet_in->pi_pkt)) {
+    /* those packets with no packet number, don't need to be process or put into CC */
+    if (!xqc_has_packet_number(&packet_in->pi_pkt)) {
         return XQC_OK;
     }
 
-    /* decrypt packet */
-    ret = xqc_packet_decrypt_single(c, packet_in);
+    /* process frames */
+    ret = xqc_process_frames(c, packet_in);
     if (ret != XQC_OK) {
+        xqc_log(c->log, XQC_LOG_ERROR, "|xqc_process_frames error|%d|", ret);
         return ret;
     }
 

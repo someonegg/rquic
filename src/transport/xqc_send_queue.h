@@ -15,11 +15,11 @@ typedef struct xqc_send_queue_s {
     /* send queue for packets, should be in connection level */
     xqc_list_head_t             sndq_send_packets;                  /* xqc_packet_out_t to send */
     xqc_list_head_t             sndq_send_packets_high_pri;         /* xqc_packet_out_t to send with high priority */
-    xqc_list_head_t             sndq_unacked_packets[XQC_PNS_N];    /* xqc_packet_out_t */
+    xqc_list_head_t             sndq_unacked_packets;               /* xqc_packet_out_t */
 
     xqc_list_head_t             sndq_lost_packets;                  /* xqc_packet_out_t */
     xqc_list_head_t             sndq_free_packets;                  /* xqc_packet_out_t */
-    xqc_list_head_t             sndq_buff_1rtt_packets;             /* xqc_packet_out_t buff 1RTT before handshake complete */
+    xqc_list_head_t             sndq_buff_1rtt_packets;             /* xqc_packet_out_t buff 1RTT before handshake done */
     xqc_list_head_t             sndq_pto_probe_packets;             /* xqc_packet_out_t */
 
     uint64_t                    sndq_packets_in_unacked_list;       /* to estimate bytes in the lists except for unacked list */
@@ -86,8 +86,6 @@ void xqc_send_queue_copy_to_lost(xqc_packet_out_t *packet_out, xqc_send_queue_t 
 void xqc_send_queue_copy_to_probe(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue, xqc_path_ctx_t *path);
 
 void xqc_send_queue_drop_packets(xqc_connection_t *conn);
-void xqc_send_queue_drop_initial_packets(xqc_connection_t *conn);
-void xqc_send_queue_drop_handshake_packets(xqc_connection_t *conn);
 void xqc_send_queue_drop_stream_frame_packets(xqc_connection_t *conn, xqc_stream_id_t stream_id);
 
 #endif /* _XQC_SEND_QUEUE_H_INCLUDED_ */

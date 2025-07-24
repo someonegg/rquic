@@ -48,21 +48,21 @@ typedef struct {
 
 typedef struct xqc_pn_ctl_s {
 
-    xqc_packet_number_t         ctl_packet_number[XQC_PNS_N];
+    xqc_packet_number_t         ctl_packet_number;
 
     /* maximum value of Largest Acknowledged in the packet_out that sent ACK and was ACKed
      * ensures that the ACK has been received by the peer,
      * so that the sender can no longer generate ACKs smaller than that value */
-    xqc_packet_number_t         ctl_largest_acked_ack[XQC_PNS_N];
+    xqc_packet_number_t         ctl_largest_acked_ack;
 
     /* largest packet number of the packets sent */
-    xqc_packet_number_t         ctl_largest_sent[XQC_PNS_N];
+    xqc_packet_number_t         ctl_largest_sent;
 
     /* record received pkt number range in a list */
-    xqc_recv_record_t           ctl_recv_record[XQC_PNS_N];
+    xqc_recv_record_t           ctl_recv_record;
 
     /* record ack sent */
-    xqc_ack_sent_record_t       ack_sent_record[XQC_PNS_N];
+    xqc_ack_sent_record_t       ack_sent_record;
 
     /* fields are used for detecting optimistic ack attacks */
     /* we skip pn in [ctl_skipped_pn_low, ctl_skipped_pn_high] */
@@ -77,25 +77,25 @@ typedef struct xqc_send_ctl_s {
     xqc_path_ctx_t              *ctl_path;
 
     /* largest packet number of the acked packets in packet_out */
-    xqc_packet_number_t         ctl_largest_acked[XQC_PNS_N];
+    xqc_packet_number_t         ctl_largest_acked;
 
     /* sending time of largest packet */
-    xqc_usec_t                  ctl_largest_acked_sent_time[XQC_PNS_N];
+    xqc_usec_t                  ctl_largest_acked_sent_time;
 
     /* largest packet number of the received packets in packet_in */
-    xqc_packet_number_t         ctl_largest_received[XQC_PNS_N];
+    xqc_packet_number_t         ctl_largest_received;
 
     /* received time of largest packet */
-    xqc_usec_t                  ctl_largest_recv_time[XQC_PNS_N];
+    xqc_usec_t                  ctl_largest_recv_time;
 
     /* Ack-eliciting Packets received since last ack sent */
-    uint32_t                    ctl_ack_eliciting_pkt[XQC_PNS_N];
+    uint32_t                    ctl_ack_eliciting_pkt;
 
-    xqc_usec_t                  ctl_loss_time[XQC_PNS_N];
+    xqc_usec_t                  ctl_loss_time;
 
     xqc_usec_t                  ctl_last_inflight_pkt_sent_time;
-    xqc_usec_t                  ctl_time_of_last_sent_ack_eliciting_packet[XQC_PNS_N];
-    xqc_packet_number_t         ctl_last_sent_ack_eliciting_packet_number[XQC_PNS_N];
+    xqc_usec_t                  ctl_time_of_last_sent_ack_eliciting_packet;
+    xqc_packet_number_t         ctl_last_sent_ack_eliciting_packet_number;
     xqc_usec_t                  ctl_srtt,
                                 ctl_rttvar,
                                 ctl_minrtt,
@@ -126,7 +126,7 @@ typedef struct xqc_send_ctl_s {
     uint8_t                     ctl_is_cwnd_limited;
 
     unsigned                    ctl_bytes_in_flight;
-    uint32_t                    ctl_bytes_ack_eliciting_inflight[XQC_PNS_N];
+    uint32_t                    ctl_bytes_ack_eliciting_inflight;
     unsigned                    ctl_prior_bytes_in_flight;
 
     uint64_t                    ctl_bytes_send;
@@ -200,8 +200,6 @@ void xqc_send_ctl_increase_inflight(xqc_connection_t *conn, xqc_packet_out_t *pa
 
 void xqc_send_ctl_decrease_inflight(xqc_connection_t *conn, xqc_packet_out_t *packet_out);
 
-void xqc_send_ctl_on_pns_discard(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t pns);
-
 void xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_packet_out_t *packet_out, xqc_usec_t now);
 
 int xqc_send_ctl_on_ack_received (xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_send_queue_t *send_queue, xqc_ack_info_t *const ack_info, xqc_usec_t ack_recv_time);
@@ -211,11 +209,10 @@ void xqc_send_ctl_on_dgram_received(xqc_send_ctl_t *send_ctl, size_t dgram_size)
 void xqc_send_ctl_update_rtt(xqc_send_ctl_t *send_ctl, xqc_usec_t *latest_rtt, xqc_usec_t ack_delay);
 
 void xqc_send_ctl_on_spurious_loss_detected(xqc_send_ctl_t *send_ctl,
-    xqc_pkt_num_space_t pns, xqc_usec_t ack_recv_time,
-    xqc_packet_number_t largest_ack, xqc_packet_number_t spurious_loss_pktnum,
-    xqc_usec_t spurious_loss_sent_time);
+    xqc_usec_t ack_recv_time, xqc_packet_number_t largest_ack,
+    xqc_packet_number_t spurious_loss_pktnum, xqc_usec_t spurious_loss_sent_time);
 
-void xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue, xqc_pkt_num_space_t pns, xqc_usec_t now);
+void xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue, xqc_usec_t now);
 
 xqc_bool_t xqc_send_ctl_in_persistent_congestion(xqc_send_ctl_t *send_ctl, xqc_packet_out_t *largest_lost, xqc_usec_t now);
 
@@ -233,11 +230,11 @@ void xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl, xqc_packet_out_t *ac
 
 void xqc_send_queue_maybe_remove_unacked(xqc_packet_out_t *packet_out, xqc_send_queue_t *send_queue, xqc_path_ctx_t *path);
 
-xqc_usec_t xqc_send_ctl_get_pto_time_and_space(xqc_send_ctl_t *send_ctl, xqc_usec_t now, xqc_pkt_num_space_t *pns_ret);
+xqc_usec_t xqc_send_ctl_get_pto_time(xqc_send_ctl_t *send_ctl, xqc_usec_t now);
 
 void xqc_send_ctl_set_loss_detection_timer(xqc_send_ctl_t *send_ctl);
 
-xqc_usec_t xqc_send_ctl_get_earliest_loss_time(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t *pns_ret);
+xqc_usec_t xqc_send_ctl_get_earliest_loss_time(xqc_send_ctl_t *send_ctl);
 
 xqc_usec_t xqc_send_ctl_get_srtt(xqc_send_ctl_t *send_ctl);
 
@@ -245,21 +242,11 @@ float xqc_send_ctl_get_retrans_rate(xqc_send_ctl_t *send_ctl);
 
 float xqc_send_ctl_get_spurious_loss_rate(xqc_send_ctl_t *send_ctl);
 
-/**
- * check amplification limit state
- * @param send_bytes input 0 to check if server is at limit now, input non-zero to
- * check if this byte count will trigger amplification limit
- * @return XQC_FALSE: not at amplification limit, XQC_TRUE: at amplification limit
- */
-xqc_bool_t xqc_send_ctl_check_anti_amplification(xqc_send_ctl_t *send_ctl, size_t send_bytes);
+xqc_bool_t xqc_send_ctl_ack_received(xqc_send_ctl_t *send_ctl);
 
-void xqc_send_ctl_rearm_ld_timer(xqc_send_ctl_t *send_ctl);
+xqc_packet_number_t xqc_send_ctl_get_lost_sent_pn(xqc_send_ctl_t *send_ctl);
 
-xqc_bool_t xqc_send_ctl_ack_received_in_pns(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t pns);
-
-xqc_packet_number_t xqc_send_ctl_get_lost_sent_pn(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t pns);
-
-xqc_packet_number_t xqc_send_ctl_get_pkt_num_gap(xqc_send_ctl_t *send_ctl, xqc_pkt_num_space_t pns, xqc_packet_number_t front, xqc_packet_number_t back);
+xqc_packet_number_t xqc_send_ctl_get_pkt_num_gap(xqc_send_ctl_t *send_ctl, xqc_packet_number_t front, xqc_packet_number_t back);
 
 /* bytes per second */
 uint64_t xqc_send_ctl_get_est_bw(xqc_send_ctl_t *send_ctl);

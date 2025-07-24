@@ -206,7 +206,7 @@ xqc_recv_record_largest(xqc_recv_record_t *recv_record)
 uint32_t
 xqc_get_ack_frequency(xqc_connection_t *conn, xqc_path_ctx_t *path)
 {
-    if(xqc_conn_is_handshake_confirmed(conn)
+    if(xqc_conn_is_handshake_done(conn)
        && conn->conn_settings.adaptive_ack_frequency
        && path->path_send_ctl->ctl_ack_sent_cnt >= 100)
     {
@@ -218,39 +218,29 @@ xqc_get_ack_frequency(xqc_connection_t *conn, xqc_path_ctx_t *path)
 }
 
 void
-xqc_maybe_should_ack(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_pn_ctl_t *pn_ctl, xqc_pkt_num_space_t pns, int out_of_order, xqc_usec_t now)
+xqc_maybe_should_ack(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_pn_ctl_t *pn_ctl, int out_of_order, xqc_usec_t now)
 {
     /*
      * Generating Acknowledgements
      */
 
-    if (path->path_flag & (XQC_PATH_FLAG_SHOULD_ACK_INIT << pns)) {
-        return;
-    }
-
-    if (pns == XQC_PNS_HSK
-        && (xqc_tls_is_key_ready(conn->tls, XQC_ENC_LEV_HSK, XQC_KEY_TYPE_TX_WRITE) == XQC_FALSE))
-    {
-        return;
-
-    } else if (pns == XQC_PNS_APP && !(conn->conn_flag & XQC_CONN_FLAG_CAN_SEND_1RTT)) {
+    if (path->path_flag & XQC_PATH_FLAG_SHOULD_ACK) {
         return;
     }
 
     xqc_send_ctl_t *send_ctl = path->path_send_ctl;
     uint32_t ack_frequency = xqc_get_ack_frequency(conn, path);
 
-    if (send_ctl->ctl_ack_eliciting_pkt[pns] >= ack_frequency
-        || (pns <= XQC_PNS_HSK && send_ctl->ctl_ack_eliciting_pkt[pns] >= 1)
-        || (out_of_order && send_ctl->ctl_ack_eliciting_pkt[pns] >= 1))
+    if (send_ctl->ctl_ack_eliciting_pkt >= ack_frequency
+        || (out_of_order && send_ctl->ctl_ack_eliciting_pkt >= 1))
     {
-        path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK_INIT << pns;
-        conn->ack_flag |= (1 << (pns + path->path_id * XQC_PNS_N));
-        xqc_timer_unset(&send_ctl->path_timer_manager, XQC_TIMER_ACK_INIT + pns);
-    } else if (send_ctl->ctl_ack_eliciting_pkt[pns] > 0
-               && !xqc_timer_is_set(&send_ctl->path_timer_manager, XQC_TIMER_ACK_INIT + pns))
+        path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK;
+        conn->ack_flag |= (1 << path->path_id);
+        xqc_timer_unset(&send_ctl->path_timer_manager, XQC_TIMER_ACK);
+    } else if (send_ctl->ctl_ack_eliciting_pkt > 0
+         && !xqc_timer_is_set(&send_ctl->path_timer_manager, XQC_TIMER_ACK))
     {
-        xqc_timer_set(&send_ctl->path_timer_manager, XQC_TIMER_ACK_INIT + pns,
+        xqc_timer_set(&send_ctl->path_timer_manager, XQC_TIMER_ACK,
                       now, conn->local_settings.max_ack_delay * 1000);
     }
 }

@@ -49,15 +49,16 @@ xqc_hq_conn_destroy(xqc_hq_conn_t *hqc)
 }
 
 const xqc_cid_t*
-xqc_hq_connect(xqc_engine_t *engine, const xqc_conn_settings_t *conn_settings,
-    const char *server_host, int no_crypto_flag,
-    const xqc_conn_ssl_config_t *conn_ssl_config, const struct sockaddr *peer_addr,
-    socklen_t peer_addrlen, void *user_data)
+xqc_hq_connect(xqc_engine_t *engine,
+    const xqc_conn_settings_t *conn_settings,
+    const char *server_host,
+    const struct sockaddr *peer_addr, socklen_t peer_addrlen,
+    void *user_data)
 {
     /* HQ is also known as HTTP/0.9, here it is used as interop protocol */
-    const xqc_cid_t *cid = xqc_connect(engine, conn_settings, server_host,
-        no_crypto_flag, conn_ssl_config, peer_addr, peer_addrlen,
-        xqc_hq_alpn[conn_settings->proto_version], user_data);
+    const xqc_cid_t *cid = xqc_connect(engine, conn_settings,
+        server_host, xqc_hq_alpn[conn_settings->proto_version],
+        peer_addr, peer_addrlen, user_data);
 
     return cid;
 }

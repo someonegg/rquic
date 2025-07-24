@@ -169,6 +169,7 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
             return XQC_OK;
         }
 
+        // TODOXXXX
         switch (frame_type) {
 
         case 0x00:
@@ -470,7 +471,7 @@ xqc_process_ping_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 
     /* ping frame should not be the first frame in the first initial packet */
     if (conn->conn_state == XQC_CONN_STATE_SERVER_INIT
-        && !(conn->conn_flag & XQC_CONN_FLAG_INIT_RECVD))
+        && !(conn->conn_flag & XQC_CONN_FLAG_HANDSHAKE_RECVD))
     {
         xqc_log(conn->log, XQC_LOG_ERROR,
                 "|xqc_process_ping_frame error: ping frame shoud not be the first frame|");

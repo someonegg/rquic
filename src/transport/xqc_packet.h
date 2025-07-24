@@ -21,12 +21,6 @@
 #define XQC_PACKET_LONG_HEADER_GET_TYPE(buf)    ((buf[0] & 0x30) >> 4)
 #define XQC_PACKET_HEADER_PKTNO_BYTES(buf)      ((buf[0] & 0x03) + 1)
 
-typedef enum xqc_pkt_num_space {
-    XQC_PNS_INIT      = 0,
-    XQC_PNS_APP       = 1,
-    XQC_PNS_N         = 2,
-} xqc_pkt_num_space_t;
-
 typedef enum xqc_pkt_type {
     XQC_PTYPE_INIT  = 0,
     XQC_PTYPE_RSV1  = 1,
@@ -39,7 +33,6 @@ typedef enum xqc_pkt_type {
 
 struct xqc_packet_s {
     xqc_packet_number_t     pkt_num;
-    xqc_pkt_num_space_t     pkt_pns;
     xqc_pkt_type_t          pkt_type;
     xqc_cid_t               pkt_dcid;
     xqc_cid_t               pkt_scid;
@@ -68,8 +61,6 @@ xqc_has_packet_number(xqc_packet_t *pkt)
 }
 
 const char *xqc_pkt_type_2_str(xqc_pkt_type_t pkt_type);
-
-xqc_pkt_num_space_t xqc_packet_type_to_pns(xqc_pkt_type_t pkt_type);
 
 xqc_pkt_type_t xqc_state_to_pkt_type(xqc_connection_t *conn);
 

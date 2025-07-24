@@ -66,14 +66,13 @@ typedef enum {
     XQC_EWAITING                        = 626,      /**< need to wait */
     XQC_EIGNORE_PKT                     = 627,      /**< ignore unknown packet/frame, don't close connection */
     XQC_EGENERATE_CID                   = 628,      /**< connection ID generation error */
-    XQC_EANTI_AMPLIFICATION_LIMIT       = 629,      /**< server reached the anti-amplification limit */
-    XQC_ECONN_NO_AVAIL_CID              = 630,      /**< no available connection ID */
-    XQC_ECONN_CID_NOT_FOUND             = 631,      /**< can't find cid in connection */
-    XQC_ECID_STATE                      = 632,      /**< abnormal connection ID status */
-    XQC_EACTIVE_CID_LIMIT               = 633,      /**< active cid exceed active_connection_id_limit */
-    XQC_EALPN_NOT_SUPPORTED             = 634,      /**< alpn is not supported by server */
-    XQC_EALPN_NOT_REGISTERED            = 635,      /**< alpn is not registered */
-    XQC_EPACKET_FILETER_CALLBACK        = 636,      /**< error with packet filter callback function */
+    XQC_ECONN_NO_AVAIL_CID              = 629,      /**< no available connection ID */
+    XQC_ECONN_CID_NOT_FOUND             = 630,      /**< can't find cid in connection */
+    XQC_ECID_STATE                      = 631,      /**< abnormal connection ID status */
+    XQC_EACTIVE_CID_LIMIT               = 632,      /**< active cid exceed active_connection_id_limit */
+    XQC_EALPN_NOT_SUPPORTED             = 633,      /**< alpn is not supported by server */
+    XQC_EALPN_NOT_REGISTERED            = 634,      /**< alpn is not registered */
+    XQC_EPACKET_FILETER_CALLBACK        = 635,      /**< error with packet filter callback function */
 
     XQC_EMP_CREATE_PATH                 = 660,      /**< create path error */
 

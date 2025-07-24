@@ -95,9 +95,8 @@ xqc_update_sample(xqc_sample_t *sampler, xqc_packet_out_t *packet,
         sampler->prior_delivered = packet->po_delivered;
         sampler->prior_time = packet->po_delivered_time;
 
-        if (xqc_conn_is_handshake_confirmed(send_ctl->ctl_conn)) {
+        if (xqc_conn_is_handshake_done(send_ctl->ctl_conn)) {
             sampler->is_app_limited = packet->po_is_app_limited;
-
         } else {
             sampler->is_app_limited = 1;
         }
