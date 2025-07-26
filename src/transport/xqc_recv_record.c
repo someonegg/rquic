@@ -58,16 +58,9 @@ xqc_recv_record_add(xqc_recv_record_t *recv_record, xqc_packet_number_t packet_n
 {
     xqc_list_head_t *pos, *prev, *next;
     xqc_pktno_range_node_t *pnode, *prev_node;
-    xqc_pktno_range_t range;
     pnode = prev_node = NULL;
     pos = prev = NULL;
     int pos_find = 0;
-
-    xqc_pktno_range_node_t *first = NULL;
-    xqc_list_for_each_safe(pos, next, &recv_record->list_head) {
-        first = xqc_list_entry(pos, xqc_pktno_range_node_t, list);
-        break;
-    }
 
     xqc_list_for_each_safe(pos, next, &recv_record->list_head) {
         pnode = xqc_list_entry(pos, xqc_pktno_range_node_t, list);

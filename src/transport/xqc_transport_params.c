@@ -14,19 +14,10 @@
 /* ack_delay_exponent above 20 is invalid */
 #define XQC_MAX_ACK_DELAY_EXPONENT          20
 
-static inline uint16_t
-xqc_get_uint16(const uint8_t *p)
-{
-    uint16_t n;
-    memcpy(&n, p, 2);
-    return ntohs(n);
-}
-
 static ssize_t
 xqc_transport_params_calc_length(const xqc_transport_params_t *params)
 {
     size_t len = 0;
-    size_t preferred_addrlen = 0;
 
     if (params->max_idle_timeout) {
         len += xqc_put_varint_len(XQC_TRANSPORT_PARAM_MAX_IDLE_TIMEOUT) +
@@ -103,25 +94,12 @@ xqc_put_varint_param(uint8_t* p, xqc_transport_param_id_t id, uint64_t v)
     return p;
 }
 
-/**
- * put zero-length value param into buf
- */
-inline static uint8_t*
-xqc_put_zero_length_param(uint8_t* p, xqc_transport_param_id_t id)
-{
-    p = xqc_put_varint(p, id);  /* put id */
-    p = xqc_put_varint(p, 0);   /* put length, which is 0 */
-    return p;
-}
-
 xqc_int_t
 xqc_encode_transport_params(const xqc_transport_params_t *params,
     uint8_t *out, size_t out_cap, size_t *out_len)
 {
     uint8_t *p = out;
     size_t len = 0;
-    size_t preferred_addrlen = 0;
-    int i;
 
     /* calculate encoding length */
     len += xqc_transport_params_calc_length(params);

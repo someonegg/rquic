@@ -319,7 +319,7 @@ xqc_demo_svr_hq_conn_handshake_finished(xqc_hq_conn_t *conn, void *conn_user_dat
 {
     DEBUG;
     // printf("xqc_demo_svr_conn_handshake_finished, user_data: %p, conn: %p\n", conn_user_data, conn);
-    xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
+    // xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
 }
 
 int
@@ -518,7 +518,7 @@ xqc_demo_svr_write_socket(const unsigned char *buf, size_t size, const struct so
 {
     ssize_t res;
 
-    xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
+    // xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
 
     int fd = svr_ctx.current_fd;
 
@@ -579,8 +579,7 @@ xqc_demo_svr_socket_read_handler(xqc_demo_svr_ctx_t *ctx, int fd)
         }
     } while (recv_size > 0);
 
-finish_recv:
-    // printf("recvfrom size:%zu\n", recv_sum);
+    printf("recvfrom size:%zu\n", recv_sum);
     xqc_engine_finish_recv(ctx->engine);
 }
 
@@ -608,7 +607,6 @@ xqc_demo_svr_init_socket(int family, uint16_t port,
 {
     int size;
     int opt_reuseaddr;
-    int flags = 1;
     int fd = socket(family, SOCK_DGRAM, 0);
     if (fd < 0) {
         printf("create socket failed, errno: %d\n", get_sys_errno());
@@ -617,9 +615,10 @@ xqc_demo_svr_init_socket(int family, uint16_t port,
 
     /* non-block */
 #ifdef XQC_SYS_WINDOWS
+    int flags = 1;
     if (ioctlsocket(fd, FIONBIO, &flags) == SOCKET_ERROR) {
-		goto err;
-	}
+        goto err;
+    }
 #else
     if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
         printf("set socket nonblock failed, errno: %d\n", get_sys_errno());

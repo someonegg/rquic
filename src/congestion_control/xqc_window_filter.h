@@ -20,13 +20,13 @@ typedef struct {
     struct xqc_win_sample s[3];
 } xqc_win_filter_t;
 
-static uint64_t
+static inline uint64_t
 xqc_win_filter_get(const xqc_win_filter_t *w)
 {
     return w->s[0].val;
 }
 
-static uint64_t
+static inline uint64_t
 xqc_win_filter_reset(xqc_win_filter_t *w, uint64_t t, uint64_t nval)
 {
     struct xqc_win_sample nsample = {.t = t, .val = nval };

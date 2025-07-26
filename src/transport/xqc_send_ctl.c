@@ -132,7 +132,6 @@ void
 xqc_send_ctl_reset(xqc_send_ctl_t *send_ctl)
 {
     xqc_connection_t *conn = send_ctl->ctl_conn;
-    xqc_path_ctx_t *path = send_ctl->ctl_path;
 
     send_ctl->ctl_pto_count = 0;
     send_ctl->ctl_minrtt = XQC_MAX_UINT32_VALUE;
@@ -280,8 +279,6 @@ xqc_bool_t
 xqc_send_packet_cwnd_allows(xqc_send_ctl_t *send_ctl,
     xqc_packet_out_t *packet_out, uint32_t schedule_bytes, xqc_usec_t now)
 {
-    xqc_connection_t *conn = send_ctl->ctl_conn;
-
     if (XQC_CAN_IN_FLIGHT(packet_out->po_frame_types)) {
         /* packet with high priority first */
         if (!xqc_send_ctl_can_send(send_ctl, packet_out, schedule_bytes)) {
@@ -299,8 +296,6 @@ xqc_bool_t
 xqc_send_packet_pacer_allows(xqc_send_ctl_t *send_ctl,
     xqc_packet_out_t *packet_out, uint32_t schedule_bytes, xqc_usec_t now)
 {
-    xqc_connection_t *conn = send_ctl->ctl_conn;
-
     if (XQC_CAN_IN_FLIGHT(packet_out->po_frame_types)) {
 
         if (xqc_pacing_is_on(&send_ctl->ctl_pacing)) {
@@ -435,8 +430,6 @@ xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_
 {
     xqc_sample_on_sent(packet_out, send_ctl, now);
 
-    xqc_packet_number_t orig_pktnum = packet_out->po_origin ? packet_out->po_origin->po_pkt.pkt_num : 0;
-
     if (packet_out->po_pkt.pkt_num > pn_ctl->ctl_largest_sent) {
         pn_ctl->ctl_largest_sent = packet_out->po_pkt.pkt_num;
     }
@@ -551,7 +544,6 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
     xqc_packet_number_t spurious_loss_pktnum = 0;
     xqc_usec_t spurious_loss_sent_time = 0;
     unsigned char need_del_record = 0;
-    int stream_frame_acked = 0;
 
     xqc_packet_number_t largest_acked_ack = xqc_ack_sent_record_on_ack(&pn_ctl->ack_sent_record, ack_info);
     if (largest_acked_ack > pn_ctl->ctl_largest_acked_ack) {
@@ -602,7 +594,7 @@ xqc_send_ctl_on_ack_received(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc
             // 若ack info里此路径最大pn大于path largest acked，更新 largest acked
             if (packet_out->po_pkt.pkt_num > send_ctl->ctl_largest_acked ||
                 send_ctl->ctl_largest_acked == XQC_MAX_UINT64_VALUE)
-			{
+            {
                 update_largest_ack = 1;
                 send_ctl->ctl_largest_acked = packet_out->po_pkt.pkt_num;
                 send_ctl->ctl_largest_acked_sent_time = packet_out->po_sent_time;
@@ -760,8 +752,6 @@ xqc_send_ctl_latest_rtt_tracking(xqc_send_ctl_t *send_ctl, xqc_usec_t *latest_rt
 void
 xqc_send_ctl_update_rtt(xqc_send_ctl_t *send_ctl, xqc_usec_t *latest_rtt, xqc_usec_t ack_delay)
 {
-    xqc_connection_t *conn = send_ctl->ctl_conn;
-
     xqc_send_ctl_latest_rtt_tracking(send_ctl, latest_rtt);
 
     /* Based on {{RFC6298}}. */
@@ -887,8 +877,8 @@ xqc_send_ctl_detect_lost(xqc_send_ctl_t *send_ctl, xqc_send_queue_t *send_queue,
 
         /* Mark packet as lost, or set time when it should be marked. */
         if (po->po_sent_time <= lost_send_time
-			|| (lost_pn != XQC_MAX_UINT64_VALUE && po->po_pkt.pkt_num <= lost_pn))
-		{
+            || (lost_pn != XQC_MAX_UINT64_VALUE && po->po_pkt.pkt_num <= lost_pn))
+        {
             if (po->po_flag & XQC_POF_IN_FLIGHT) {
                 xqc_send_ctl_decrease_inflight(conn, po);
 
@@ -1041,7 +1031,6 @@ void
 xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl,
     xqc_packet_out_t *acked_packet, xqc_usec_t now, int do_cc)
 {
-    xqc_stream_t *stream;
     xqc_packet_out_t *packet_out = acked_packet;
     xqc_connection_t *conn = send_ctl->ctl_conn;
     xqc_bool_t notify_ping;
@@ -1098,10 +1087,9 @@ xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl,
 xqc_usec_t
 xqc_send_ctl_get_pto_time(xqc_send_ctl_t *send_ctl, xqc_usec_t now)
 {
-    xqc_usec_t t, duration;
+    xqc_usec_t duration;
     xqc_usec_t pto_timeout = XQC_MAX_UINT64_VALUE;
     xqc_connection_t *c = send_ctl->ctl_conn;
-    xqc_int_t pto_cnt = send_ctl->ctl_pto_count;
     double  backoff = xqc_send_ctl_pow_x(c->conn_settings.pto_backoff_factor, send_ctl->ctl_pto_count);
 
     /* set a cap to avoid PTO timeout overflow */
@@ -1143,8 +1131,6 @@ xqc_send_ctl_get_pto_time(xqc_send_ctl_t *send_ctl, xqc_usec_t now)
 void
 xqc_send_ctl_set_loss_detection_timer(xqc_send_ctl_t *send_ctl)
 {
-    xqc_connection_t *conn = send_ctl->ctl_conn;
-    xqc_path_ctx_t *path = send_ctl->ctl_path;
     xqc_usec_t now = xqc_monotonic_timestamp();
     xqc_usec_t interval = 0;
 

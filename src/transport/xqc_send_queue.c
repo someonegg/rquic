@@ -73,9 +73,7 @@ void
 xqc_send_queue_pre_destroy_packets_list(xqc_send_queue_t *send_queue, xqc_list_head_t *head)
 {
     xqc_list_head_t *pos, *next;
-    xqc_packet_out_t *packet_out;
     xqc_list_for_each_safe(pos, next, head) {
-        packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
         xqc_list_del_init(pos);
         xqc_list_add_tail(pos, &send_queue->sndq_free_packets);
     }

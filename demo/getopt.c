@@ -121,7 +121,7 @@ int getopt(int nargc, char *const *nargv, const char *ostr)
 
 /*
  * getopt_long
- *	Parse argc/argv argument vector, with long options.
+ *    Parse argc/argv argument vector, with long options.
  *
  * This implementation does not use optreset.  Instead, we guarantee that
  * it can be restarted on a new argv array after a previous call returned -1,
@@ -135,7 +135,7 @@ getopt_long(int argc, char *const argv[],
             const struct option * longopts, int *longindex)
 {
     static char *place = EMSG;  /* option letter processing */
-    char	   *oli;            /* option letter list index */
+    char       *oli;            /* option letter list index */
 
     if (!*place)
     {                           /* update scanning pointer */
@@ -171,7 +171,7 @@ getopt_long(int argc, char *const argv[],
                 if (strlen(longopts[i].name) == namelen
                     && strncmp(place, longopts[i].name, namelen) == 0)
                 {
-                    int	has_arg = longopts[i].has_arg;
+                    int    has_arg = longopts[i].has_arg;
                     if (has_arg != no_argument)
                     {
                         if (place[namelen] == '=') {

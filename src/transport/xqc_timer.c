@@ -63,7 +63,6 @@ xqc_timer_loss_detection_timeout(xqc_timer_type_t type, xqc_usec_t now, void *us
          * PTO. Send new data if available, else retransmit old data.
          * If neither is available, send a single PING frame
          */
-        xqc_usec_t t = xqc_send_ctl_get_pto_time(send_ctl, now);
         xqc_path_send_one_or_two_ack_elicit_pkts(path);
     }
 
