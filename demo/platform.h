@@ -45,9 +45,8 @@ static inline void set_sys_errno(int err)
  */
 static inline void xqc_platform_init_env()
 {
+#ifdef XQC_SYS_WINDOWS
     int result = 0;
-
- #ifdef XQC_SYS_WINDOWS
     // Initialize Winsock
     WSADATA wsaData;
     if ((result = WSAStartup(MAKEWORD(2, 2), &wsaData)) != 0) {
@@ -55,6 +54,5 @@ static inline void xqc_platform_init_env()
         exit(1);
     }
 #endif
-
 }
 #endif

@@ -151,7 +151,6 @@ xqc_usec_t
 xqc_conn_get_lastest_rtt(xqc_engine_t *engine, const xqc_cid_t *cid)
 {
     xqc_connection_t *conn;
-    xqc_path_ctx_t *path;
 
     conn = xqc_engine_conns_hash_find(engine, cid, 's');
     if (!conn) {
@@ -960,12 +959,7 @@ xqc_conn_close_with_error(xqc_connection_t *conn, uint64_t err_code)
 static void
 xqc_conn_shutdown(xqc_connection_t *conn)
 {
-    xqc_path_ctx_t     *path;
-    xqc_list_head_t    *pos, *next;
-    xqc_send_ctl_t     *send_ctl;
-    xqc_usec_t          now;
-
-    now = xqc_monotonic_timestamp();
+    xqc_usec_t now = xqc_monotonic_timestamp();
     xqc_usec_t pto = xqc_conn_get_max_pto(conn);
     if (!xqc_timer_is_set(&conn->conn_timer_manager, XQC_TIMER_CONN_DRAINING)) {
         xqc_timer_set(&conn->conn_timer_manager, XQC_TIMER_CONN_DRAINING, now, 3 * pto);
@@ -1124,7 +1118,6 @@ xqc_conn_destroy(xqc_connection_t *xc)
 
     xqc_list_head_t *pos, *next;
     xqc_stream_t    *stream;
-    xqc_packet_in_t *packet_in;
 
     /* destroy streams, must before conn_close_notify */
     xqc_list_for_each_safe(pos, next, &xc->conn_all_streams) {
@@ -1326,8 +1319,9 @@ xqc_conn_server_on_alpn(xqc_connection_t *conn, const unsigned char *alpn, size_
         return ret;
     }
 
-    uint8_t tp_buf[XQC_MAX_TRANSPORT_PARAM_BUF_LEN] = {0};
-    size_t tp_len = 0;
+    // TODOXXXX
+    // uint8_t tp_buf[XQC_MAX_TRANSPORT_PARAM_BUF_LEN] = {0};
+    // size_t tp_len = 0;
 
     /* do callback */
     if (conn->app_proto_cbs.conn_cbs.conn_create_notify) {
@@ -2414,7 +2408,6 @@ xqc_conn_write_buffed_1rtt_packets(xqc_connection_t *conn)
         xqc_send_queue_t *send_queue = conn->conn_send_queue;
         xqc_list_head_t *pos, *next;
         xqc_packet_out_t *packet_out;
-        unsigned total = 0;
         xqc_list_for_each_safe(pos, next, &send_queue->sndq_buff_1rtt_packets) {
             packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
             xqc_send_queue_remove_buff(pos, send_queue);
@@ -2422,7 +2415,6 @@ xqc_conn_write_buffed_1rtt_packets(xqc_connection_t *conn)
             if (packet_out->po_flag & XQC_POF_DCID_NOT_DONE) {
                 xqc_short_packet_update_dcid(packet_out, conn->dcid_set.current_dcid);
             }
-            ++total;
         }
     }
 }
@@ -2488,7 +2480,6 @@ xqc_conn_send_probe_pkt(xqc_connection_t *c, xqc_path_ctx_t *path,
 void
 xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path)
 {
-    xqc_int_t               ret;
     xqc_connection_t       *c;
     xqc_packet_out_t       *packet_out;
     xqc_packet_out_t       *packet_out_last_sent;   /* for dup pto pkt */
@@ -2547,8 +2538,6 @@ xqc_int_t
 xqc_conn_send_ping_internal(xqc_connection_t *conn, void *ping_user_data, xqc_bool_t notify)
 {
     xqc_int_t ret;
-    xqc_path_ctx_t *path;
-    xqc_list_head_t *pos, *next;
     xqc_bool_t has_ping;
     xqc_ping_record_t *pr;
 
@@ -2566,7 +2555,7 @@ xqc_conn_send_ping_internal(xqc_connection_t *conn, void *ping_user_data, xqc_bo
 
     has_ping = XQC_FALSE;
 
-    ret = xqc_write_ping_to_packet(conn, NULL, ping_user_data, notify, pr);
+    ret = xqc_write_ping_to_packet(conn, ping_user_data, notify, pr);
     if (ret < 0) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|write ping error|");
     } else {

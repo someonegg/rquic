@@ -75,8 +75,8 @@ void
 xqc_packet_out_copy(xqc_packet_out_t *dst, xqc_packet_out_t *src)
 {
     unsigned char *po_buf = dst->po_buf;
-    size_t cap = dst->po_buf_cap;
-    unsigned int size = dst->po_buf_size;
+    // size_t cap = dst->po_buf_cap;
+    // unsigned int size = dst->po_buf_size;
     xqc_memcpy(dst, src, sizeof(xqc_packet_out_t));
     dst->po_origin_ref_cnt = 0;
 
@@ -380,7 +380,6 @@ xqc_write_ack_to_packets(xqc_connection_t *conn)
         pkt_type = XQC_PTYPE_SHORT_HEADER;
     }
 
-path_buffer:
     /* Try to attach ack to packet_out in path_buffer */
     xqc_list_for_each_safe(pos, next, &path->path_schedule_buf[XQC_SEND_TYPE_NORMAL]) {
         packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
@@ -398,7 +397,6 @@ path_buffer:
         goto write_new;
     }
 
-conn_buffer:
     xqc_list_for_each_safe(pos, next, &conn->conn_send_queue->sndq_send_packets) {
         packet_out = xqc_list_entry(pos, xqc_packet_out_t, po_list);
 
@@ -434,7 +432,7 @@ done:
 }
 
 int
-xqc_write_ping_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path,
+xqc_write_ping_to_packet(xqc_connection_t *conn,
     void *po_user_data, xqc_bool_t notify, xqc_ping_record_t *pr)
 {
     ssize_t ret;
@@ -805,16 +803,13 @@ xqc_write_stream_frame_to_packet(xqc_connection_t *conn,
 
     /* increase recv window */
     xqc_usec_t max_srtt = 0;
-    uint64_t old_fc_win = 0;
     uint64_t available_window;
-    xqc_int_t ret;
 
     if (conn->conn_settings.enable_stream_rate_limit
         && stream->stream_send_offset == 0
         && stream->stream_type == XQC_CLI_BID)
     {
         available_window = stream->stream_flow_ctl.fc_max_stream_data_can_recv - stream->stream_data_in.next_read_offset;
-        old_fc_win = stream->stream_flow_ctl.fc_stream_recv_window_size;
 
         if (stream->recv_rate_bytes_per_sec) {
             /* set window according to the rate limit */

@@ -123,7 +123,7 @@ int xqc_write_packet_header(xqc_connection_t *conn, xqc_packet_out_t *packet_out
 
 xqc_int_t xqc_write_ack_to_packets(xqc_connection_t *conn);
 
-int xqc_write_ping_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path,
+int xqc_write_ping_to_packet(xqc_connection_t *conn,
     void *po_user_data, xqc_bool_t notify, xqc_ping_record_t *pr);
 
 int xqc_write_conn_close_to_packet(xqc_connection_t *conn, uint64_t err_code);

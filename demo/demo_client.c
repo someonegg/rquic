@@ -603,7 +603,7 @@ void
 xqc_demo_cli_hq_conn_handshake_finished(xqc_hq_conn_t *hqc, void *conn_user_data)
 {
     DEBUG;
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)conn_user_data;
+    // xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)conn_user_data;
     printf("hqc[%p] handshake finished\n", hqc);
 }
 
@@ -663,7 +663,6 @@ xqc_demo_cli_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
     size_t buff_size = 4096;
 
     ssize_t read = 0;
-    ssize_t read_sum = 0;
     do {
         read = xqc_hq_request_recv_rsp(hqr, buff, buff_size, &fin);
         if (read == -XQC_EAGAIN) {
@@ -683,7 +682,6 @@ xqc_demo_cli_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
             fflush(user_stream->recv_body_fp);
         }
 
-        read_sum += read;
         user_stream->recv_body_len += read;
     } while (read > 0 && !fin);
 
@@ -749,7 +747,6 @@ xqc_demo_cli_socket_read_handler(xqc_demo_cli_user_conn_t *user_conn, int fd)
 {
     DEBUG;
     ssize_t recv_size = 0;
-    ssize_t recv_sum = 0;
     struct sockaddr addr;
     socklen_t addr_len = 0;
     unsigned char packet_buf[XQC_PACKET_TMP_BUF_LEN];
@@ -774,7 +771,6 @@ xqc_demo_cli_socket_read_handler(xqc_demo_cli_user_conn_t *user_conn, int fd)
             printf("getsockname error, errno: %d\n", get_sys_errno());
         }
 
-        recv_sum += recv_size;
         uint64_t recv_time = xqc_now();
         user_path->last_sock_op_time = recv_time;
         if (xqc_engine_packet_process(user_conn->ctx->engine, packet_buf, recv_size,
@@ -787,7 +783,6 @@ xqc_demo_cli_socket_read_handler(xqc_demo_cli_user_conn_t *user_conn, int fd)
         }
     } while (recv_size > 0);
 
-finish_recv:
     xqc_engine_finish_recv(user_conn->ctx->engine);
 }
 
@@ -910,7 +905,7 @@ xqc_demo_cli_rebind_path(int fd, short what, void *arg)
         // change fd
         int temp = user_conn->path.fd;
         user_conn->path.fd = user_conn->path.rebind_fd;
-        user_conn->path.rebind_fd = user_conn->path.fd;
+        user_conn->path.rebind_fd = temp;
 
         //stop read from the old socket
         event_del(user_conn->path.ev_socket);
@@ -1108,7 +1103,7 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         switch (ch) {
         case 'a':
             printf("option server addr :%s\n", optarg);
-            snprintf(args->net_cfg.server_addr, sizeof(args->net_cfg.server_addr), optarg);
+            snprintf(args->net_cfg.server_addr, sizeof(args->net_cfg.server_addr), "%s", optarg);
             args->net_cfg.addr_specified = 1;
             break;
 
@@ -1267,8 +1262,7 @@ xqc_demo_cli_send_hq_req(xqc_demo_cli_user_conn_t *user_conn,
     /* prepare stream data, which will be sent on callback */
     user_stream->send_buf = calloc(1, MAX_REQ_BUF_LEN);
     user_stream->send_len = xqc_demo_cli_format_hq_req(user_stream->send_buf, MAX_REQ_BUF_LEN, req);
-    int ret = xqc_demo_cli_hq_req_send(user_stream->hq_request, user_stream);
-    // printf("xqc_demo_cli_hq_req_write_notify, user_stream[%p] send_cnt: %d\n", user_stream, ret);
+    xqc_demo_cli_hq_req_send(user_stream->hq_request, user_stream);
     return 0;
 }
 
@@ -1579,8 +1573,6 @@ xqc_demo_cli_create_socket(xqc_demo_cli_user_path_t *user_path, xqc_demo_cli_net
 {
     int size;
     int fd = 0;
-    int ret;
-    int flags = 1;
     struct sockaddr *addr = (struct sockaddr*)&cfg->addr;
     fd = socket(addr->sa_family, SOCK_DGRAM, 0);
     if (fd < 0) {
@@ -1588,9 +1580,10 @@ xqc_demo_cli_create_socket(xqc_demo_cli_user_path_t *user_path, xqc_demo_cli_net
         return -1;
     }
 #ifdef XQC_SYS_WINDOWS
+    int flags = 1;
     if (ioctlsocket(fd, FIONBIO, &flags) == SOCKET_ERROR) {
-		goto err;
-	}
+        goto err;
+    }
 #else
     if (fcntl(fd, F_SETFL, O_NONBLOCK) == -1) {
         printf("set socket nonblock failed, errno: %d\n", get_sys_errno());

@@ -738,11 +738,13 @@ xqc_bbr_update_min_rtt(xqc_bbr_t *bbr, xqc_sample_t *sampler)
     }
 }
 
+/*
 static uint64_t
 xqc_bbr_get_min_rtt(xqc_bbr_t *bbr)
 {
     return bbr->min_rtt == 0 ? xqc_bbr_initial_rtt_ms * 1000 : bbr->min_rtt;
 }
+*/
 
 static void
 _xqc_bbr_set_pacing_rate_helper(xqc_bbr_t *bbr, float pacing_gain)
@@ -1026,7 +1028,6 @@ static void
 xqc_bbr_restart_from_idle(void *cong_ctl, uint64_t conn_delivered)
 {
     xqc_bbr_t *bbr = (xqc_bbr_t *)(cong_ctl);
-    uint32_t rate;
     uint64_t now = xqc_monotonic_timestamp();
     bbr->idle_restart = 1;
     bbr->extra_ack_stamp = now;

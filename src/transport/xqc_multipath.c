@@ -274,8 +274,6 @@ err:
 static xqc_int_t
 xqc_path_init(xqc_path_ctx_t *path, xqc_connection_t *conn)
 {
-    xqc_int_t ret = XQC_ERROR;
-
     if (conn->peer_addrlen > 0) {
         xqc_memcpy(path->peer_addr, conn->peer_addr, conn->peer_addrlen);
         path->peer_addrlen = conn->peer_addrlen;

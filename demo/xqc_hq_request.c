@@ -380,10 +380,9 @@ xqc_hq_stream_read_notify(xqc_stream_t *stream, void *user_data)
 int
 xqc_hq_stream_close_notify(xqc_stream_t *stream, void *user_data)
 {
-    int ret = 0;
     xqc_hq_request_t *hqr = (xqc_hq_request_t *)user_data;
     if (hqr->hqr_cbs && hqr->hqr_cbs->req_close_notify) {
-        ret = hqr->hqr_cbs->req_close_notify(hqr, hqr->user_data);
+        hqr->hqr_cbs->req_close_notify(hqr, hqr->user_data);
     }
 
     xqc_hq_request_destroy(hqr);

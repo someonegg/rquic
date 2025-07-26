@@ -356,7 +356,6 @@ xqc_stream_do_recv_flow_ctl(xqc_stream_t *stream)
     /* increase recv window */
     xqc_usec_t min_srtt = xqc_conn_get_min_srtt(conn, 0);
     xqc_usec_t max_srtt = 0;
-    uint64_t old_fc_win = 0;
 
     /* stream level */
     uint64_t available_window = stream->stream_flow_ctl.fc_max_stream_data_can_recv - stream->stream_data_in.next_read_offset;
@@ -377,7 +376,6 @@ xqc_stream_do_recv_flow_ctl(xqc_stream_t *stream)
                 max_srtt = xqc_conn_get_max_srtt(conn);
             }
 
-            old_fc_win = stream->stream_flow_ctl.fc_stream_recv_window_size;
             stream->stream_flow_ctl.fc_stream_recv_window_size = stream->recv_rate_bytes_per_sec * max_srtt / 1000000;
             stream->stream_flow_ctl.fc_stream_recv_window_size = xqc_max(conn->conn_settings.init_recv_window, stream->stream_flow_ctl.fc_stream_recv_window_size);
             stream->stream_flow_ctl.fc_stream_recv_window_size = xqc_min(XQC_MAX_RECV_WINDOW, stream->stream_flow_ctl.fc_stream_recv_window_size);
@@ -415,7 +413,6 @@ xqc_stream_do_recv_flow_ctl(xqc_stream_t *stream)
                 max_srtt = xqc_conn_get_max_srtt(conn);
             }
 
-            old_fc_win = conn->conn_flow_ctl.fc_recv_windows_size;
             conn->conn_flow_ctl.fc_recv_windows_size = conn->conn_settings.recv_rate_bytes_per_sec * max_srtt / 1000000;
             conn->conn_flow_ctl.fc_recv_windows_size = xqc_max(XQC_MIN_RECV_WINDOW, conn->conn_flow_ctl.fc_recv_windows_size);
             conn->conn_flow_ctl.fc_recv_windows_size = xqc_min(XQC_MAX_RECV_WINDOW, conn->conn_flow_ctl.fc_recv_windows_size);
@@ -907,7 +904,7 @@ xqc_stream_update_settings(xqc_stream_t *stream,
 {
     xqc_connection_t *conn = NULL;
     xqc_usec_t max_srtt = 0;
-    uint64_t old_fc_win = 0, new_offset = 0;
+    uint64_t new_offset = 0;
 
     if (stream && settings
         && settings->stream_priority)
@@ -922,10 +919,10 @@ xqc_stream_update_settings(xqc_stream_t *stream,
         if (conn->conn_settings.enable_stream_rate_limit) {
             stream->recv_rate_bytes_per_sec = settings->recv_rate_bytes_per_sec;
             max_srtt = xqc_conn_get_max_srtt(conn);
-            old_fc_win = stream->stream_flow_ctl.fc_stream_recv_window_size;
             stream->stream_flow_ctl.fc_stream_recv_window_size = stream->recv_rate_bytes_per_sec * max_srtt / 1000000;
             stream->stream_flow_ctl.fc_stream_recv_window_size = xqc_max(conn->conn_settings.init_recv_window, stream->stream_flow_ctl.fc_stream_recv_window_size);
             stream->stream_flow_ctl.fc_stream_recv_window_size = xqc_min(XQC_MAX_RECV_WINDOW, stream->stream_flow_ctl.fc_stream_recv_window_size);
+            new_offset = stream->stream_data_in.next_read_offset + stream->stream_flow_ctl.fc_stream_recv_window_size;
 
             if(new_offset > stream->stream_flow_ctl.fc_max_stream_data_can_recv) {
                 stream->stream_flow_ctl.fc_max_stream_data_can_recv = new_offset;
@@ -1141,7 +1138,6 @@ xqc_process_write_streams(xqc_connection_t *conn)
     xqc_int_t ret;
     xqc_stream_t *stream;
     xqc_list_head_t *pos, *next;
-    int cnt = 0;
 
     xqc_list_for_each_safe(pos, next, &conn->conn_write_streams) {
         stream = xqc_list_entry(pos, xqc_stream_t, write_stream_list);

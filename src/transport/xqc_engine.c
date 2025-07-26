@@ -238,7 +238,6 @@ fail:
 xqc_connection_t *
 xqc_engine_conns_hash_find(xqc_engine_t *engine, const xqc_cid_t *cid, char type)
 {
-    xqc_connection_t    *xqc_conn;
     if (cid == NULL || cid->cid_len == 0) {
         return NULL;
     }
@@ -488,7 +487,6 @@ void
 xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
 {
     int ret;
-    xqc_bool_t wait_scid, wait_dcid;
 
     xqc_conn_timer_expire(conn, now);
 
@@ -549,7 +547,7 @@ xqc_engine_process_conn(xqc_connection_t *conn, xqc_usec_t now)
     if (XQC_UNLIKELY(conn->conn_flag & XQC_CONN_FLAG_PING)) {
         ret = xqc_conn_send_ping_internal(conn, NULL, XQC_FALSE);
         if (ret) {
-            xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_ping_to_packet error|");
+            xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_conn_send_ping_internal error|");
             XQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
         }
     }
@@ -755,7 +753,6 @@ xqc_engine_packet_process(xqc_engine_t *engine,
     xqc_int_t ret;
     xqc_connection_t *conn = NULL;
     xqc_cid_t dcid, scid;   /* dcid: cid of peer; scid: cid of endpoint */
-    xqc_log_level_t lvl;
 
     xqc_cid_init_zero(&dcid);
     xqc_cid_init_zero(&scid);
@@ -795,7 +792,6 @@ xqc_engine_packet_process(xqc_engine_t *engine,
         return -XQC_ECONN_NFOUND;
     }
 
-process:
     if (XQC_UNLIKELY(conn->local_addrlen == 0)) {
         ret = xqc_memcpy_with_cap(conn->local_addr, sizeof(conn->local_addr),
                                   local_addr, local_addrlen);

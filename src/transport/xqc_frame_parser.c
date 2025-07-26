@@ -582,7 +582,6 @@ xqc_gen_conn_close_frame(xqc_packet_out_t *packet_out,
     unsigned char *dst_buf = packet_out->po_buf + packet_out->po_used_size;
     const unsigned char *begin = dst_buf;
 
-    unsigned char *reason = NULL;
     int reason_len = 0;
 
     unsigned frame_type_bits = xqc_vint_get_2bit(frame_type);
@@ -724,7 +723,7 @@ xqc_parse_reset_stream_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t *stream
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     int vlen;
 
@@ -801,7 +800,7 @@ xqc_parse_stop_sending_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t *stream
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     int vlen;
 
@@ -854,7 +853,7 @@ xqc_parse_data_blocked_frame(xqc_packet_in_t *packet_in, uint64_t *data_limit, x
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     int vlen;
 
@@ -908,7 +907,7 @@ xqc_parse_stream_data_blocked_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t 
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     int vlen;
 
@@ -1021,7 +1020,7 @@ xqc_parse_max_data_frame(xqc_packet_in_t *packet_in, uint64_t *max_data, xqc_con
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     int vlen;
 
@@ -1075,7 +1074,7 @@ xqc_parse_max_stream_data_frame(xqc_packet_in_t *packet_in, xqc_stream_id_t *str
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     int vlen;
 
@@ -1204,7 +1203,7 @@ xqc_parse_path_challenge_frame(xqc_packet_in_t *packet_in, unsigned char *data)
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     if (p + XQC_PATH_CHALLENGE_DATA_LEN > end) {
         return -XQC_EVINTREAD;
@@ -1264,7 +1263,7 @@ xqc_parse_path_response_frame(xqc_packet_in_t *packet_in, unsigned char *data)
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
-    const unsigned char first_byte = *p++;
+    p++;
 
     if (p + XQC_PATH_CHALLENGE_DATA_LEN > end) {
         return -XQC_EVINTREAD;
