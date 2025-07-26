@@ -375,10 +375,7 @@ xqc_write_ack_to_packets(xqc_connection_t *conn)
         return XQC_OK;
     }
 
-    pkt_type = XQC_PTYPE_INIT;
-    if (xqc_conn_is_handshake_done(conn)) {
-        pkt_type = XQC_PTYPE_SHORT_HEADER;
-    }
+    pkt_type = xqc_state_to_pkt_type(conn);
 
     /* Try to attach ack to packet_out in path_buffer */
     xqc_list_for_each_safe(pos, next, &path->path_schedule_buf[XQC_SEND_TYPE_NORMAL]) {
@@ -481,15 +478,8 @@ xqc_write_conn_close_to_packet(xqc_connection_t *conn, uint64_t err_code)
 {
     ssize_t ret;
     xqc_packet_out_t *packet_out;
-    xqc_pkt_type_t pkt_type = XQC_PTYPE_INIT;
 
-    /* peer may not have received the handshake packet */
-    if (xqc_conn_is_handshake_done(conn))
-    {
-        pkt_type = XQC_PTYPE_SHORT_HEADER;
-    }
-
-    packet_out = xqc_write_new_packet(conn, pkt_type);
+    packet_out = xqc_write_new_packet(conn, XQC_PTYPE_NUM);
     if (packet_out == NULL) {
         xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_new_packet error|");
         return -XQC_EWRITE_PKT;

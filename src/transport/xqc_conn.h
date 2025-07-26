@@ -60,12 +60,10 @@ extern xqc_conn_settings_t internal_default_conn_settings;
 typedef enum {
     /* server */
     XQC_CONN_STATE_SERVER_INIT = 0,
-    XQC_CONN_STATE_SERVER_INITIAL_RECVD = 1,
-    XQC_CONN_STATE_SERVER_INITIAL_SENT = 2,
+    XQC_CONN_STATE_SERVER_HANDSHAKE = 1,
     /* client */
     XQC_CONN_STATE_CLIENT_INIT = 5,
-    XQC_CONN_STATE_CLIENT_INITIAL_SENT = 6,
-    XQC_CONN_STATE_CLIENT_INITIAL_RECVD = 7,
+    XQC_CONN_STATE_CLIENT_HANDSHAKE = 6,
     /* client & server */
     XQC_CONN_STATE_ESTABED = 10,
     XQC_CONN_STATE_CLOSING = 11,
@@ -79,6 +77,7 @@ typedef enum {
 /* !!WARNING: to add flag, please update conn_flag_2_str */
 typedef enum {
     XQC_CONN_FLAG_WAIT_WAKEUP_SHIFT,
+    XQC_CONN_FLAG_HANDSHAKE_SENT_SHIFT,
     XQC_CONN_FLAG_HANDSHAKE_RECVD_SHIFT,
     XQC_CONN_FLAG_HANDSHAKE_DONE_SHIFT,
     XQC_CONN_FLAG_TICKING_SHIFT,
@@ -99,6 +98,7 @@ typedef enum {
 
 typedef enum {
     XQC_CONN_FLAG_WAIT_WAKEUP           = 1ULL << XQC_CONN_FLAG_WAIT_WAKEUP_SHIFT,
+    XQC_CONN_FLAG_HANDSHAKE_SENT        = 1ULL << XQC_CONN_FLAG_HANDSHAKE_SENT_SHIFT,
     XQC_CONN_FLAG_HANDSHAKE_RECVD       = 1ULL << XQC_CONN_FLAG_HANDSHAKE_RECVD_SHIFT,
     XQC_CONN_FLAG_HANDSHAKE_DONE        = 1ULL << XQC_CONN_FLAG_HANDSHAKE_DONE_SHIFT,
     XQC_CONN_FLAG_TICKING               = 1ULL << XQC_CONN_FLAG_TICKING_SHIFT,
@@ -297,6 +297,16 @@ struct xqc_connection_s {
 
 const char *xqc_conn_state_2_str(xqc_conn_state_t state);
 const char *xqc_conn_flag_2_str(xqc_connection_t *conn, xqc_conn_flag_t conn_flag);
+
+static inline xqc_int_t
+xqc_conn_is_handshake_sent(xqc_connection_t *conn) {
+    return ((conn->conn_flag & XQC_CONN_FLAG_HANDSHAKE_SENT) != 0);
+}
+
+static inline xqc_int_t
+xqc_conn_is_handshake_recvd(xqc_connection_t *conn) {
+    return ((conn->conn_flag & XQC_CONN_FLAG_HANDSHAKE_RECVD) != 0);
+}
 
 static inline xqc_int_t
 xqc_conn_is_handshake_done(xqc_connection_t *conn) {

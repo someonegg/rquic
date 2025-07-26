@@ -9,9 +9,9 @@
 #include <xquic/xquic.h>
 
 /* default connection timeout(millisecond) */
-#define XQC_CONN_DEFAULT_IDLE_TIMEOUT   120000
+#define XQC_CONN_DEFAULT_IDLE_TIMEOUT   75000
 /* default connection initial timeout(millisecond) */
-#define XQC_CONN_INITIAL_IDLE_TIMEOUT   10000
+#define XQC_CONN_INITIAL_IDLE_TIMEOUT   5000
 
 #define XQC_CONN_ADDR_VALIDATION_CID_ENTROPY 8
 
@@ -22,7 +22,7 @@
 #define XQC_CONN_MAX_UDP_PAYLOAD_SIZE   1500
 
 /* connection active cid limit */
-#define XQC_CONN_ACTIVE_CID_LIMIT       3
+#define XQC_CONN_ACTIVE_CID_LIMIT       2
 
 /* version definitions */
 #define XQC_VERSION_V1_VALUE            0x00000001
