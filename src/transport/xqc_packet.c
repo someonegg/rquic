@@ -33,17 +33,10 @@ xqc_pkt_type_2_str(xqc_pkt_type_t pkt_type)
 xqc_pkt_type_t
 xqc_state_to_pkt_type(xqc_connection_t *conn)
 {
-    switch (conn->conn_state) {
-    case XQC_CONN_STATE_CLIENT_INIT:
-    case XQC_CONN_STATE_CLIENT_INITIAL_SENT:
-    case XQC_CONN_STATE_CLIENT_INITIAL_RECVD:
-    case XQC_CONN_STATE_SERVER_INIT:
-    case XQC_CONN_STATE_SERVER_INITIAL_RECVD:
-    case XQC_CONN_STATE_SERVER_INITIAL_SENT:
-        return XQC_PTYPE_INIT;
-    default:
+    if (xqc_conn_is_handshake_done(conn)) {
         return XQC_PTYPE_SHORT_HEADER;
     }
+    return XQC_PTYPE_INIT;
 }
 
 static xqc_int_t

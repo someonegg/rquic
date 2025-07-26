@@ -80,7 +80,8 @@ void
 xqc_log_CON_CONNECTION_STATE_UPDATED_callback(xqc_log_t *log, const char *func, xqc_connection_t *conn)
 {
     xqc_qlog_implement(log, CON_CONNECTION_STATE_UPDATED, func,
-                      "|new:%s|", xqc_conn_state_2_str(conn->conn_state));
+                        "|new:%s|flag:%s|",
+                        xqc_conn_state_2_str(conn->conn_state), xqc_conn_flag_2_str(conn, conn->conn_flag));
 }
 
 void

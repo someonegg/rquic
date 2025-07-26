@@ -354,11 +354,9 @@ xqc_conn_continue_send(xqc_engine_t *engine, const xqc_cid_t *cid)
 
 static const char * const xqc_conn_state_to_str[XQC_CONN_STATE_N] = {
     [XQC_CONN_STATE_SERVER_INIT]            = "S_INIT",
-    [XQC_CONN_STATE_SERVER_INITIAL_RECVD]   = "S_INITIAL_RECVD",
-    [XQC_CONN_STATE_SERVER_INITIAL_SENT]    = "S_INITIAL_SENT",
+    [XQC_CONN_STATE_SERVER_HANDSHAKE]       = "S_HANDSHAKE",
     [XQC_CONN_STATE_CLIENT_INIT]            = "C_INIT",
-    [XQC_CONN_STATE_CLIENT_INITIAL_RECVD]   = "C_INITIAL_RECVD",
-    [XQC_CONN_STATE_CLIENT_INITIAL_SENT]    = "C_INITIAL_SENT",
+    [XQC_CONN_STATE_CLIENT_HANDSHAKE]       = "C_HANDSHAKE",
     [XQC_CONN_STATE_ESTABED]                = "ESTABED",
     [XQC_CONN_STATE_CLOSING]                = "CLOSING",
     [XQC_CONN_STATE_DRAINING]               = "DRAINING",
@@ -373,6 +371,7 @@ xqc_conn_state_2_str(xqc_conn_state_t state)
 
 static const char * const xqc_conn_flag_to_str[XQC_CONN_FLAG_SHIFT_NUM] = {
     [XQC_CONN_FLAG_WAIT_WAKEUP_SHIFT]           = "WAIT_WAKEUP",
+    [XQC_CONN_FLAG_HANDSHAKE_SENT_SHIFT]        = "HSK_SENT",
     [XQC_CONN_FLAG_HANDSHAKE_RECVD_SHIFT]       = "HSK_RECVD",
     [XQC_CONN_FLAG_HANDSHAKE_DONE_SHIFT]        = "HSK_DONE",
     [XQC_CONN_FLAG_TICKING_SHIFT]               = "TICKING",
@@ -982,12 +981,19 @@ xqc_conn_immediate_close(xqc_connection_t *conn)
         return XQC_OK;
     }
 
-    if (conn->conn_type == XQC_CONN_TYPE_SERVER
-       && !(conn->conn_flag & XQC_CONN_FLAG_HANDSHAKE_RECVD))
+    if (conn->conn_type == XQC_CONN_TYPE_CLIENT && !xqc_conn_is_handshake_sent(conn))
     {
         conn->conn_state = XQC_CONN_STATE_CLOSED;
         xqc_log_event(conn->log, CON_CONNECTION_STATE_UPDATED, conn);
-        xqc_conn_log(conn, XQC_LOG_ERROR, "|server cannot send CONNECTION_CLOSE before initial pkt received|");
+        xqc_conn_log(conn, XQC_LOG_ERROR, "|client cannot send CONNECTION_CLOSE before hskpkt sent|");
+        return XQC_OK;
+    }
+
+    if (conn->conn_type == XQC_CONN_TYPE_SERVER && !xqc_conn_is_handshake_recvd(conn))
+    {
+        conn->conn_state = XQC_CONN_STATE_CLOSED;
+        xqc_log_event(conn->log, CON_CONNECTION_STATE_UPDATED, conn);
+        xqc_conn_log(conn, XQC_LOG_ERROR, "|server cannot send CONNECTION_CLOSE before hskpkt received|");
         return XQC_OK;
     }
 
@@ -995,7 +1001,7 @@ xqc_conn_immediate_close(xqc_connection_t *conn)
         xqc_conn_shutdown(conn);
 
         /* convert state to CLOSING */
-        xqc_log(conn->log, XQC_LOG_INFO, "|state to closing|state:%s|flags:%s",
+        xqc_log(conn->log, XQC_LOG_INFO, "|state to closing|state:%s|flags:%s|",
                 xqc_conn_state_2_str(conn->conn_state),
                 xqc_conn_flag_2_str(conn, conn->conn_flag));
         conn->conn_state = XQC_CONN_STATE_CLOSING;
@@ -1013,7 +1019,8 @@ xqc_conn_immediate_close(xqc_connection_t *conn)
             xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_conn_close_to_packet error|ret:%d|", ret);
         }
         ++conn->conn_close_count;
-        xqc_log(conn->log, XQC_LOG_INFO, "|gen_conn_close|state:%s|", xqc_conn_state_2_str(conn->conn_state));
+        xqc_log(conn->log, XQC_LOG_INFO, "|gen_conn_close|state:%s|flag:%s|",
+            xqc_conn_state_2_str(conn->conn_state), xqc_conn_flag_2_str(conn, conn->conn_flag));
     }
 
     return XQC_OK;

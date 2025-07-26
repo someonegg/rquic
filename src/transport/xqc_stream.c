@@ -543,8 +543,8 @@ xqc_create_stream_with_conn(xqc_connection_t *conn, xqc_stream_id_t stream_id,
     xqc_int_t   ret;
 
     if (conn->conn_state >= XQC_CONN_STATE_CLOSING) {
-        xqc_log(conn->log, XQC_LOG_ERROR, "|conn closing, cannot create stream|type:%d|state:%d|flag:%s|",
-                conn->conn_type, conn->conn_state, xqc_conn_flag_2_str(conn, conn->conn_flag));
+        xqc_log(conn->log, XQC_LOG_ERROR, "|conn closing, cannot create stream|type:%d|conn_state:%s|flag:%s|",
+                conn->conn_type, xqc_conn_state_2_str(conn->conn_state), xqc_conn_flag_2_str(conn, conn->conn_flag));
         return NULL;
     }
 
@@ -770,8 +770,9 @@ xqc_stream_close(xqc_stream_t *stream)
 {
     xqc_int_t ret;
     xqc_connection_t *conn = stream->stream_conn;
-    xqc_log(conn->log, XQC_LOG_INFO, "|stream_id:%ui|stream_state_send:%d|stream_state_recv:%d|conn:%p|conn_state:%s|",
-            stream->stream_id, stream->stream_state_send, stream->stream_state_recv, conn, xqc_conn_state_2_str(conn->conn_state));
+    xqc_log(conn->log, XQC_LOG_INFO, "|stream_id:%ui|stream_state_send:%d|stream_state_recv:%d|conn:%p|conn_state:%s|flag:%s|",
+            stream->stream_id, stream->stream_state_send, stream->stream_state_recv, conn,
+            xqc_conn_state_2_str(conn->conn_state), xqc_conn_flag_2_str(conn, conn->conn_flag));
 
     XQC_STREAM_CLOSE_MSG(stream, "local reset");
 

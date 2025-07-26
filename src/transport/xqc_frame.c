@@ -469,9 +469,7 @@ xqc_process_ping_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
 {
     xqc_int_t ret;
 
-    /* ping frame should not be the first frame in the first initial packet */
-    if (conn->conn_state == XQC_CONN_STATE_SERVER_INIT
-        && !(conn->conn_flag & XQC_CONN_FLAG_HANDSHAKE_RECVD))
+    if (!xqc_conn_is_handshake_recvd(conn))
     {
         xqc_log(conn->log, XQC_LOG_ERROR,
                 "|xqc_process_ping_frame error: ping frame shoud not be the first frame|");
