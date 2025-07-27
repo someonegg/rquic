@@ -4,8 +4,8 @@
 
 #define _GNU_SOURCE
 
-#include <xquic/xquic.h>
-#include <xquic/xquic_typedef.h>
+#include <rquic/rquic.h>
+#include <rquic/rquic_typedef.h>
 #include <stdio.h>
 #include <memory.h>
 #include <errno.h>
@@ -17,10 +17,10 @@
 #include <string.h>
 #include <event2/event.h>
 #include "common.h"
-#include "xqc_hq.h"
+#include "rqc_hq.h"
 #include "platform.h"
 
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
 #pragma comment(lib,"ws2_32.lib")
 #pragma comment(lib,"event.lib")
 #pragma comment(lib, "Iphlpapi.lib")
@@ -35,19 +35,19 @@
 #include <netdb.h>
 #endif
 
-#define XQC_PACKET_TMP_BUF_LEN  1600
+#define RQC_PACKET_TMP_BUF_LEN  1600
 #define MAX_BUF_SIZE            (100*1024*1024)
 
-typedef enum xqc_demo_cli_alpn_type_s {
+typedef enum rqc_demo_cli_alpn_type_s {
     ALPN_HQ,
-} xqc_demo_cli_alpn_type_t;
+} rqc_demo_cli_alpn_type_t;
 
 #define MAX_HEADER 100
 
-typedef struct xqc_demo_cli_user_conn_s xqc_demo_cli_user_conn_t;
+typedef struct rqc_demo_cli_user_conn_s rqc_demo_cli_user_conn_t;
 
-typedef struct xqc_demo_cli_user_stream_s {
-    xqc_demo_cli_user_conn_t   *user_conn;
+typedef struct rqc_demo_cli_user_stream_s {
+    rqc_demo_cli_user_conn_t   *user_conn;
 
     /* save file */
     char                        file_name[RESOURCE_LEN];
@@ -57,14 +57,14 @@ typedef struct xqc_demo_cli_user_stream_s {
     size_t                      send_body_len;
     size_t                      recv_body_len;
     int                         recv_fin;
-    xqc_msec_t                  start_time;
+    rqc_msec_t                  start_time;
 
     /* hq request content */
-    xqc_hq_request_t           *hq_request;
+    rqc_hq_request_t           *hq_request;
     char                       *send_buf;
     size_t                      send_len;
     size_t                      send_offset;
-} xqc_demo_cli_user_stream_t;
+} rqc_demo_cli_user_stream_t;
 
 /**
  * ============================================================================
@@ -74,7 +74,7 @@ typedef struct xqc_demo_cli_user_stream_s {
  * ============================================================================
  */
 
-typedef enum xqc_demo_cli_task_mode_s {
+typedef enum rqc_demo_cli_task_mode_s {
     /* send multi requests in single connection with multi streams */
     MODE_SCMR,
 
@@ -83,10 +83,10 @@ typedef enum xqc_demo_cli_task_mode_s {
 
     /* concurrently send multi requests in multi connections, with one request each connection */
     MODE_SCSR_CONCURRENT,
-} xqc_demo_cli_task_mode_t;
+} rqc_demo_cli_task_mode_t;
 
 /* network arguments */
-typedef struct xqc_demo_cli_net_config_s {
+typedef struct rqc_demo_cli_net_config_s {
 
     /* server addr info */
     struct sockaddr_in6 addr;
@@ -103,14 +103,14 @@ typedef struct xqc_demo_cli_net_config_s {
     /* idle persist timeout */
     int                 conn_timeout;
 
-    xqc_demo_cli_task_mode_t mode;
+    rqc_demo_cli_task_mode_t mode;
 
     uint8_t rebind_path;
 
     uint8_t addr_specified;
     uint8_t port_specified;
 
-} xqc_demo_cli_net_config_t;
+} rqc_demo_cli_net_config_t;
 
 /**
  * ============================================================================
@@ -120,9 +120,9 @@ typedef struct xqc_demo_cli_net_config_s {
  * ============================================================================
  */
 
-typedef struct xqc_demo_cli_quic_config_s {
+typedef struct rqc_demo_cli_quic_config_s {
     /* alpn protocol of client */
-    xqc_demo_cli_alpn_type_t alpn_type;
+    rqc_demo_cli_alpn_type_t alpn_type;
     char alpn[16];
     int quic_version;
 
@@ -131,7 +131,7 @@ typedef struct xqc_demo_cli_quic_config_s {
     uint64_t idle_timeout;
 
     size_t max_pkt_sz;
-} xqc_demo_cli_quic_config_t;
+} rqc_demo_cli_quic_config_t;
 
 /**
  * ============================================================================
@@ -145,7 +145,7 @@ typedef struct xqc_demo_cli_quic_config_s {
 #define OUT_DIR  "."
 
 /* environment config */
-typedef struct xqc_demo_cli_env_config_s {
+typedef struct rqc_demo_cli_env_config_s {
 
     /* log path */
     char    log_path[256];
@@ -156,7 +156,7 @@ typedef struct xqc_demo_cli_env_config_s {
 
     /* life cycle */
     int     life;
-} xqc_demo_cli_env_config_t;
+} rqc_demo_cli_env_config_t;
 
 /**
  * ============================================================================
@@ -170,19 +170,19 @@ typedef struct xqc_demo_cli_env_config_s {
 #define g_host ""
 
 /* args of one single request */
-typedef struct xqc_demo_cli_request_s {
+typedef struct rqc_demo_cli_request_s {
     char            path[RESOURCE_LEN];         /* request path */
     char            scheme[8];                  /* request scheme, http/https */
     REQUEST_METHOD  method;
     char            auth[AUTHORITY_LEN];
     char            url[URL_LEN];               /* original url */
-} xqc_demo_cli_request_t;
+} rqc_demo_cli_request_t;
 
 /* request bundle args */
-typedef struct xqc_demo_cli_requests_s {
+typedef struct rqc_demo_cli_requests_s {
     /* requests */
     int                     request_cnt;    /* requests cnt in urls */
-    xqc_demo_cli_request_t  reqs[MAX_REQUEST_CNT];
+    rqc_demo_cli_request_t  reqs[MAX_REQUEST_CNT];
 
     /* do not save responses to files */
     int dummy_mode;
@@ -195,7 +195,7 @@ typedef struct xqc_demo_cli_requests_s {
     int ext_reqn;
     int batch_cnt;
 
-} xqc_demo_cli_requests_t;
+} rqc_demo_cli_requests_t;
 
 /**
  * ============================================================================
@@ -203,77 +203,77 @@ typedef struct xqc_demo_cli_requests_s {
  * client initial args
  * ============================================================================
  */
-typedef struct xqc_demo_cli_client_args_s {
+typedef struct rqc_demo_cli_client_args_s {
     /* network args */
-    xqc_demo_cli_net_config_t   net_cfg;
+    rqc_demo_cli_net_config_t   net_cfg;
 
     /* quic args */
-    xqc_demo_cli_quic_config_t  quic_cfg;
+    rqc_demo_cli_quic_config_t  quic_cfg;
 
     /* environment args */
-    xqc_demo_cli_env_config_t   env_cfg;
+    rqc_demo_cli_env_config_t   env_cfg;
 
     /* request args */
-    xqc_demo_cli_requests_t     req_cfg;
-} xqc_demo_cli_client_args_t;
+    rqc_demo_cli_requests_t     req_cfg;
+} rqc_demo_cli_client_args_t;
 
-typedef enum xqc_demo_cli_task_status_s {
+typedef enum rqc_demo_cli_task_status_s {
     TASK_STATUS_WAITTING,
     TASK_STATUS_RUNNING,
     TASK_STATUS_FINISHED,
     TASK_STATUS_FAILED,
-} xqc_demo_cli_task_status_t;
+} rqc_demo_cli_task_status_t;
 
-typedef struct xqc_demo_cli_task_schedule_info_s {
+typedef struct rqc_demo_cli_task_schedule_info_s {
 
-    xqc_demo_cli_task_status_t  status;         /* task status */
+    rqc_demo_cli_task_status_t  status;         /* task status */
     int                         req_create_cnt; /* streams created */
     int                         req_sent_cnt;
     int                         req_fin_cnt;    /* the req cnt which have received FIN */
     uint8_t                     fin_flag;       /* all reqs finished, need close */
-} xqc_demo_cli_task_schedule_info_t;
+} rqc_demo_cli_task_schedule_info_t;
 
 /*
  * the task schedule info, used to mark the operation
  * info of all requests, the client will exit when all
  * tasks are finished or closed
  */
-typedef struct xqc_demo_cli_task_schedule_s {
+typedef struct rqc_demo_cli_task_schedule_s {
     /* the cnt of tasks that been running or have been ran */
     int idx;
 
     /* the task status, 0: not executed; 1: suc; -1: failed */
-    xqc_demo_cli_task_schedule_info_t   *schedule_info;
-} xqc_demo_cli_task_schedule_t;
+    rqc_demo_cli_task_schedule_info_t   *schedule_info;
+} rqc_demo_cli_task_schedule_t;
 
 /*
  * task info structure.
  * a task is strongly correlate to a net connection
  */
-typedef struct xqc_demo_cli_task_s {
+typedef struct rqc_demo_cli_task_s {
     int         task_idx;
     int         req_cnt;
-    xqc_demo_cli_request_t   *reqs;      /* a task could contain multipule requests, which wil be sent  */
-    xqc_demo_cli_user_conn_t *user_conn; /* user_conn handle */
-} xqc_demo_cli_task_t;
+    rqc_demo_cli_request_t   *reqs;      /* a task could contain multipule requests, which wil be sent  */
+    rqc_demo_cli_user_conn_t *user_conn; /* user_conn handle */
+} rqc_demo_cli_task_t;
 
-typedef struct xqc_demo_cli_task_ctx_s {
+typedef struct rqc_demo_cli_task_ctx_s {
     /* task mode */
-    xqc_demo_cli_task_mode_t        mode;
+    rqc_demo_cli_task_mode_t        mode;
 
     /* total task cnt */
     int                             task_cnt;
 
     /* task list */
-    xqc_demo_cli_task_t            *tasks;
+    rqc_demo_cli_task_t            *tasks;
 
     /* current task schedule info */
-    xqc_demo_cli_task_schedule_t    schedule;        /* current task index */
-} xqc_demo_cli_task_ctx_t;
+    rqc_demo_cli_task_schedule_t    schedule;        /* current task index */
+} rqc_demo_cli_task_ctx_t;
 
-typedef struct xqc_demo_cli_ctx_s {
-    /* xquic engine context */
-    xqc_engine_t    *engine;
+typedef struct rqc_demo_cli_ctx_s {
+    /* rquic engine context */
+    rqc_engine_t    *engine;
 
     /* libevent context */
     struct event    *ev_engine;
@@ -286,13 +286,13 @@ typedef struct xqc_demo_cli_ctx_s {
     char            log_path[256];
 
     /* client context */
-    xqc_demo_cli_client_args_t  *args;
+    rqc_demo_cli_client_args_t  *args;
 
     /* task schedule context */
-    xqc_demo_cli_task_ctx_t     task_ctx;
-} xqc_demo_cli_ctx_t;
+    rqc_demo_cli_task_ctx_t     task_ctx;
+} rqc_demo_cli_ctx_t;
 
-typedef struct xqc_demo_cli_user_path_s {
+typedef struct rqc_demo_cli_user_path_s {
 
     uint64_t                path_id;
     uint8_t                 is_active;
@@ -311,42 +311,42 @@ typedef struct xqc_demo_cli_user_path_s {
 
     uint64_t                last_sock_op_time;
 
-    xqc_demo_cli_user_conn_t *user_conn;
+    rqc_demo_cli_user_conn_t *user_conn;
 
-} xqc_demo_cli_user_path_t;
+} rqc_demo_cli_user_path_t;
 
-typedef struct xqc_demo_cli_user_conn_s {
+typedef struct rqc_demo_cli_user_conn_s {
 
-    xqc_cid_t                cid;
-    xqc_hq_conn_t           *hqc_handle;
+    rqc_cid_t                cid;
+    rqc_hq_conn_t           *hqc_handle;
 
-    xqc_demo_cli_user_path_t path;
+    rqc_demo_cli_user_path_t path;
 
     struct event            *ev_delay_req;
     struct event            *ev_idle_restart;
     struct event            *ev_rebind_path;
 
-    xqc_demo_cli_ctx_t      *ctx;
-    xqc_demo_cli_task_t     *task;
-} xqc_demo_cli_user_conn_t;
+    rqc_demo_cli_ctx_t      *ctx;
+    rqc_demo_cli_task_t     *task;
+} rqc_demo_cli_user_conn_t;
 
 static void
-xqc_demo_cli_delayed_idle_restart(int fd, short what, void *arg);
+rqc_demo_cli_delayed_idle_restart(int fd, short what, void *arg);
 
 void
-xqc_demo_cli_continue_send_reqs(xqc_demo_cli_user_conn_t *user_conn);
+rqc_demo_cli_continue_send_reqs(rqc_demo_cli_user_conn_t *user_conn);
 
 void
-xqc_demo_cli_send_requests(xqc_demo_cli_user_conn_t *user_conn,
-    xqc_demo_cli_client_args_t *args,
-    xqc_demo_cli_request_t *reqs, int req_cnt);
+rqc_demo_cli_send_requests(rqc_demo_cli_user_conn_t *user_conn,
+    rqc_demo_cli_client_args_t *args,
+    rqc_demo_cli_request_t *reqs, int req_cnt);
 
-int xqc_demo_cli_init_user(xqc_demo_cli_user_conn_t *user_conn, uint64_t path_id);
+int rqc_demo_cli_init_user(rqc_demo_cli_user_conn_t *user_conn, uint64_t path_id);
 
 int
-xqc_demo_cli_close_task(xqc_demo_cli_task_t *task)
+rqc_demo_cli_close_task(rqc_demo_cli_task_t *task)
 {
-    xqc_demo_cli_user_conn_t *user_conn = task->user_conn;
+    rqc_demo_cli_user_conn_t *user_conn = task->user_conn;
 
     if (user_conn->path.is_active) {
         user_conn->path.is_active = 0;
@@ -390,11 +390,11 @@ xqc_demo_cli_close_task(xqc_demo_cli_task_t *task)
  * [return] 1: all req suc, task finished, 0: still got req underway
  */
 void
-xqc_demo_cli_on_stream_fin(xqc_demo_cli_user_stream_t *user_stream)
+rqc_demo_cli_on_stream_fin(rqc_demo_cli_user_stream_t *user_stream)
 {
-    xqc_demo_cli_task_ctx_t *ctx = &user_stream->user_conn->ctx->task_ctx;
-    xqc_demo_cli_user_conn_t *user_conn = user_stream->user_conn;
-    xqc_demo_cli_ctx_t *conn_ctx = user_conn->ctx;
+    rqc_demo_cli_task_ctx_t *ctx = &user_stream->user_conn->ctx->task_ctx;
+    rqc_demo_cli_user_conn_t *user_conn = user_stream->user_conn;
+    rqc_demo_cli_ctx_t *conn_ctx = user_conn->ctx;
     int task_idx = user_stream->user_conn->task->task_idx;
 
     /* all reqs are finished, close the connection */
@@ -402,8 +402,8 @@ xqc_demo_cli_on_stream_fin(xqc_demo_cli_user_stream_t *user_stream)
         == ctx->tasks[task_idx].req_cnt)
     {
         ctx->schedule.schedule_info[task_idx].fin_flag = 1;
-        /* close xquic conn */
-        xqc_hq_conn_close(conn_ctx->engine, user_conn->hqc_handle, &user_conn->cid);
+        /* close rquic conn */
+        rqc_hq_conn_close(conn_ctx->engine, user_conn->hqc_handle, &user_conn->cid);
     }
     printf("task[%d], fin_cnt: %d, fin_flag: %d\n", task_idx,
         ctx->schedule.schedule_info[task_idx].req_fin_cnt,
@@ -412,9 +412,9 @@ xqc_demo_cli_on_stream_fin(xqc_demo_cli_user_stream_t *user_stream)
 
 /* directly finish a task */
 void
-xqc_demo_cli_on_task_finish(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_task_t *task)
+rqc_demo_cli_on_task_finish(rqc_demo_cli_ctx_t *ctx, rqc_demo_cli_task_t *task)
 {
-    xqc_demo_cli_close_task(task);
+    rqc_demo_cli_close_task(task);
     ctx->task_ctx.schedule.schedule_info[task->task_idx].status = TASK_STATUS_FINISHED;
 
     printf("task finished, total task_req_cnt: %d, req_fin_cnt: %d, req_sent_cnt: %d, "
@@ -426,7 +426,7 @@ xqc_demo_cli_on_task_finish(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_task_t *task)
 
 /* directly fail a task */
 void
-xqc_demo_cli_on_task_fail(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_task_t *task)
+rqc_demo_cli_on_task_fail(rqc_demo_cli_ctx_t *ctx, rqc_demo_cli_task_t *task)
 {
     ctx->task_ctx.schedule.schedule_info[task->task_idx].status = TASK_STATUS_FAILED;
 
@@ -442,10 +442,10 @@ xqc_demo_cli_on_task_fail(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_task_t *task)
  ******************************************************************************/
 
 void
-xqc_demo_cli_set_event_timer(xqc_usec_t wake_after, void *eng_user_data)
+rqc_demo_cli_set_event_timer(rqc_usec_t wake_after, void *eng_user_data)
 {
-    xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t *) eng_user_data;
-    //printf("xqc_engine_wakeup_after %llu us, now %llu\n", wake_after, xqc_now());
+    rqc_demo_cli_ctx_t *ctx = (rqc_demo_cli_ctx_t *) eng_user_data;
+    //printf("rqc_engine_wakeup_after %llu us, now %llu\n", wake_after, rqc_now());
 
     struct timeval tv;
     tv.tv_sec = wake_after / 1000000;
@@ -455,7 +455,7 @@ xqc_demo_cli_set_event_timer(xqc_usec_t wake_after, void *eng_user_data)
 }
 
 int
-xqc_demo_cli_open_log_file(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_open_log_file(rqc_demo_cli_ctx_t *ctx)
 {
     ctx->log_fd = open(ctx->log_path, (O_WRONLY | O_APPEND | O_CREAT), 0644);
     if (ctx->log_fd <= 0) {
@@ -465,7 +465,7 @@ xqc_demo_cli_open_log_file(xqc_demo_cli_ctx_t *ctx)
 }
 
 int
-xqc_demo_cli_close_log_file(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_close_log_file(rqc_demo_cli_ctx_t *ctx)
 {
     if (ctx->log_fd <= 0) {
         return -1;
@@ -475,9 +475,9 @@ xqc_demo_cli_close_log_file(xqc_demo_cli_ctx_t *ctx)
 }
 
 void
-xqc_demo_cli_write_log_file(xqc_log_level_t lvl, const void *buf, size_t size, void *engine_user_data)
+rqc_demo_cli_write_log_file(rqc_log_level_t lvl, const void *buf, size_t size, void *engine_user_data)
 {
-    xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t*)engine_user_data;
+    rqc_demo_cli_ctx_t *ctx = (rqc_demo_cli_ctx_t*)engine_user_data;
     if (ctx->log_fd <= 0) {
         return;
     }
@@ -494,9 +494,9 @@ xqc_demo_cli_write_log_file(xqc_log_level_t lvl, const void *buf, size_t size, v
 }
 
 void
-xqc_demo_cli_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_t size, void *engine_user_data)
+rqc_demo_cli_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_t size, void *engine_user_data)
 {
-    xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t*)engine_user_data;
+    rqc_demo_cli_ctx_t *ctx = (rqc_demo_cli_ctx_t*)engine_user_data;
     if (ctx->log_fd <= 0) {
         return;
     }
@@ -516,11 +516,11 @@ xqc_demo_cli_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_
  ******************************************************************************/
 
 ssize_t
-xqc_demo_cli_write_socket(const unsigned char *buf, size_t size,
+rqc_demo_cli_write_socket(const unsigned char *buf, size_t size,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen, void *conn_user_data)
 {
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)conn_user_data;
-    xqc_demo_cli_user_path_t *user_path = &user_conn->path;
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *)conn_user_data;
+    rqc_demo_cli_user_path_t *user_path = &user_conn->path;
 
     ssize_t res = 0;
 
@@ -528,26 +528,26 @@ xqc_demo_cli_write_socket(const unsigned char *buf, size_t size,
         set_sys_errno(0);
         res = sendto(user_path->fd, buf, size, 0, peer_addr, peer_addrlen);
         if (res < 0) {
-            printf("xqc_demo_cli_write_socket err %zd %s, fd: %d, buf: %p, size: %zu, "
+            printf("rqc_demo_cli_write_socket err %zd %s, fd: %d, buf: %p, size: %zu, "
                 "server_addr: %s\n", res, strerror(get_sys_errno()), user_path->fd, buf, size,
                 user_conn->ctx->args->net_cfg.server_addr);
             if (get_sys_errno() == EAGAIN) {
-                res = XQC_SOCKET_EAGAIN;
+                res = RQC_SOCKET_EAGAIN;
             }
         }
-        user_path->last_sock_op_time = xqc_now();
+        user_path->last_sock_op_time = rqc_now();
     } while ((res < 0) && (get_sys_errno() == EINTR));
 
     return res;
 }
 
-#if defined(XQC_SUPPORT_SENDMMSG) && !defined(XQC_SYS_WINDOWS)
+#if defined(RQC_SUPPORT_SENDMMSG) && !defined(RQC_SYS_WINDOWS)
 ssize_t
-xqc_demo_cli_write_mmsg(void *conn_user_data, struct iovec *msg_iov, unsigned int vlen,
+rqc_demo_cli_write_mmsg(void *conn_user_data, struct iovec *msg_iov, unsigned int vlen,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen)
 {
     const int MAX_SEG = 128;
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)conn_user_data;
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *)conn_user_data;
     ssize_t res = 0;
     int fd = user_conn->path.fd;
     struct mmsghdr mmsg[MAX_SEG];
@@ -562,7 +562,7 @@ xqc_demo_cli_write_mmsg(void *conn_user_data, struct iovec *msg_iov, unsigned in
         if (res < 0) {
             printf("sendmmsg err %zd %s\n", res, strerror(errno));
             if (errno == EAGAIN) {
-                res = XQC_SOCKET_EAGAIN;
+                res = RQC_SOCKET_EAGAIN;
             }
         }
 
@@ -576,50 +576,50 @@ xqc_demo_cli_write_mmsg(void *conn_user_data, struct iovec *msg_iov, unsigned in
  ******************************************************************************/
 
 int
-xqc_demo_cli_hq_conn_create_notify(xqc_hq_conn_t *hqc, const xqc_cid_t *cid, void *user_data)
+rqc_demo_cli_hq_conn_create_notify(rqc_hq_conn_t *hqc, const rqc_cid_t *cid, void *user_data)
 {
     DEBUG;
 
-    // printf("xqc_demo_cli_hq_conn_create_notify, conn: %p, user_conn: %p\n", conn, user_data);
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)user_data;
+    // printf("rqc_demo_cli_hq_conn_create_notify, conn: %p, user_conn: %p\n", conn, user_data);
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *)user_data;
     user_conn->hqc_handle = hqc;
-    memcpy(&user_conn->cid, cid, sizeof(xqc_cid_t));
+    memcpy(&user_conn->cid, cid, sizeof(rqc_cid_t));
     return 0;
 }
 
 int
-xqc_demo_cli_hq_conn_close_notify(xqc_hq_conn_t *hqc, const xqc_cid_t *cid, void *user_data)
+rqc_demo_cli_hq_conn_close_notify(rqc_hq_conn_t *hqc, const rqc_cid_t *cid, void *user_data)
 {
     DEBUG;
-    // printf("xqc_demo_cli_hq_conn_close_notify, conn: %p, user_conn: %p\n", conn, user_data);
+    // printf("rqc_demo_cli_hq_conn_close_notify, conn: %p, user_conn: %p\n", conn, user_data);
 
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *) user_data;
-    xqc_demo_cli_on_task_finish(user_conn->ctx, user_conn->task);
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *) user_data;
+    rqc_demo_cli_on_task_finish(user_conn->ctx, user_conn->task);
     free(user_conn);
     return 0;
 }
 
 void
-xqc_demo_cli_hq_conn_handshake_finished(xqc_hq_conn_t *hqc, void *conn_user_data)
+rqc_demo_cli_hq_conn_handshake_finished(rqc_hq_conn_t *hqc, void *conn_user_data)
 {
     DEBUG;
-    // xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)conn_user_data;
+    // rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *)conn_user_data;
     printf("hqc[%p] handshake finished\n", hqc);
 }
 
 int
-xqc_demo_cli_hq_req_send(xqc_hq_request_t *hqr, xqc_demo_cli_user_stream_t *user_stream)
+rqc_demo_cli_hq_req_send(rqc_hq_request_t *hqr, rqc_demo_cli_user_stream_t *user_stream)
 {
     ssize_t ret = 0;
 
     if (user_stream->start_time == 0) {
-        user_stream->start_time = xqc_now();
+        user_stream->start_time = rqc_now();
     }
 
-    ret = xqc_hq_request_send_req(hqr, user_stream->send_buf);
+    ret = rqc_hq_request_send_req(hqr, user_stream->send_buf);
     if (ret < 0) {
         switch (-ret) {
-        case XQC_EAGAIN:
+        case RQC_EAGAIN:
             return 0;
 
         default:
@@ -636,15 +636,15 @@ xqc_demo_cli_hq_req_send(xqc_hq_request_t *hqr, xqc_demo_cli_user_stream_t *user
 }
 
 int
-xqc_demo_cli_hq_req_write_notify(xqc_hq_request_t *hqr, void *req_user_data)
+rqc_demo_cli_hq_req_write_notify(rqc_hq_request_t *hqr, void *req_user_data)
 {
     DEBUG;
     ssize_t ret = 0;
-    xqc_demo_cli_user_stream_t *user_stream = (xqc_demo_cli_user_stream_t *)req_user_data;
+    rqc_demo_cli_user_stream_t *user_stream = (rqc_demo_cli_user_stream_t *)req_user_data;
     if (user_stream->send_len > user_stream->send_offset)
     {
-        ret = xqc_demo_cli_hq_req_send(hqr, user_stream);
-        // printf("xqc_demo_cli_hq_req_write_notify, user_stream[%p] send_cnt: %d\n", user_stream, ret);
+        ret = rqc_demo_cli_hq_req_send(hqr, user_stream);
+        // printf("rqc_demo_cli_hq_req_write_notify, user_stream[%p] send_cnt: %d\n", user_stream, ret);
         if (ret == user_stream->send_len) {
             user_stream->user_conn->ctx->task_ctx.schedule.schedule_info->req_sent_cnt++;
         }
@@ -654,22 +654,22 @@ xqc_demo_cli_hq_req_write_notify(xqc_hq_request_t *hqr, void *req_user_data)
 }
 
 int
-xqc_demo_cli_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
+rqc_demo_cli_hq_req_read_notify(rqc_hq_request_t *hqr, void *req_user_data)
 {
     DEBUG;
     unsigned char fin = 0;
-    xqc_demo_cli_user_stream_t *user_stream = (xqc_demo_cli_user_stream_t *)req_user_data;
+    rqc_demo_cli_user_stream_t *user_stream = (rqc_demo_cli_user_stream_t *)req_user_data;
     char buff[4096] = {0};
     size_t buff_size = 4096;
 
     ssize_t read = 0;
     do {
-        read = xqc_hq_request_recv_rsp(hqr, buff, buff_size, &fin);
-        if (read == -XQC_EAGAIN) {
+        read = rqc_hq_request_recv_rsp(hqr, buff, buff_size, &fin);
+        if (read == -RQC_EAGAIN) {
             break;
 
         } else if (read < 0) {
-            printf("xqc_stream_recv error %zd\n", read);
+            printf("rqc_stream_recv error %zd\n", read);
             return 0;
         }
 
@@ -687,7 +687,7 @@ xqc_demo_cli_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
 
     if (fin) {
         user_stream->recv_fin = 1;
-        xqc_msec_t now_us = xqc_now();
+        rqc_msec_t now_us = rqc_now();
         printf("\033[33m>>>>>>>> request time cost:%"PRIu64" us, speed:%"PRIu64" K/s \n"
                ">>>>>>>> user_stream[%p], req: %s, send_body_size:%zu, recv_body_size:%zu \033[0m\n",
                now_us - user_stream->start_time,
@@ -700,30 +700,30 @@ xqc_demo_cli_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
             user_stream->recv_body_fp = NULL;
         }
 
-        // xqc_demo_cli_on_stream_fin(user_stream);
+        // rqc_demo_cli_on_stream_fin(user_stream);
     }
     return 0;
 }
 
 int
-xqc_demo_cli_hq_req_close_notify(xqc_hq_request_t *hqr, void *req_user_data)
+rqc_demo_cli_hq_req_close_notify(rqc_hq_request_t *hqr, void *req_user_data)
 {
     DEBUG;
-    // printf("xqc_demo_cli_hq_req_close_notify, stream: %p, user_conn: %p\n", stream, user_data);
+    // printf("rqc_demo_cli_hq_req_close_notify, stream: %p, user_conn: %p\n", stream, user_data);
 
-    xqc_demo_cli_user_stream_t *user_stream = (xqc_demo_cli_user_stream_t *)req_user_data;
+    rqc_demo_cli_user_stream_t *user_stream = (rqc_demo_cli_user_stream_t *)req_user_data;
 
     /* print stats */
-    xqc_stream_stats_t stats = xqc_hq_request_get_stats(hqr);
+    rqc_stream_stats_t stats = rqc_hq_request_get_stats(hqr);
 
     printf("\033[33m[HQ-req] type:%u, err:%u, send_bytes:%zu, recv_bytes:%zu\n\033[0m",
            (unsigned)stats.stream_type, (unsigned)stats.stream_err, (size_t)stats.send_bytes, (size_t)stats.recv_bytes);
 
     /* task schedule */
-    xqc_demo_cli_on_stream_fin(user_stream);
+    rqc_demo_cli_on_stream_fin(user_stream);
 
     if (!user_stream->user_conn->ev_idle_restart) {
-        xqc_demo_cli_continue_send_reqs(user_stream->user_conn);
+        rqc_demo_cli_continue_send_reqs(user_stream->user_conn);
     }
 
     free(user_stream->send_buf);
@@ -736,22 +736,22 @@ xqc_demo_cli_hq_req_close_notify(xqc_hq_request_t *hqr, void *req_user_data)
  ******************************************************************************/
 
 void
-xqc_demo_cli_socket_write_handler(xqc_demo_cli_user_conn_t *user_conn, int fd)
+rqc_demo_cli_socket_write_handler(rqc_demo_cli_user_conn_t *user_conn, int fd)
 {
     DEBUG;
-    // xqc_conn_continue_send(user_conn->ctx->engine, &user_conn->cid);
+    // rqc_conn_continue_send(user_conn->ctx->engine, &user_conn->cid);
 }
 
 void
-xqc_demo_cli_socket_read_handler(xqc_demo_cli_user_conn_t *user_conn, int fd)
+rqc_demo_cli_socket_read_handler(rqc_demo_cli_user_conn_t *user_conn, int fd)
 {
     DEBUG;
     ssize_t recv_size = 0;
     struct sockaddr addr;
     socklen_t addr_len = 0;
-    unsigned char packet_buf[XQC_PACKET_TMP_BUF_LEN];
+    unsigned char packet_buf[RQC_PACKET_TMP_BUF_LEN];
 
-    xqc_demo_cli_user_path_t *user_path = &user_conn->path;
+    rqc_demo_cli_user_path_t *user_path = &user_conn->path;
 
     do {
         recv_size = recvfrom(user_path->fd, packet_buf, sizeof(packet_buf), 0,
@@ -765,38 +765,38 @@ xqc_demo_cli_socket_read_handler(xqc_demo_cli_user_conn_t *user_conn, int fd)
         }
 
         user_path->local_addrlen = sizeof(struct sockaddr_in6);
-        xqc_int_t ret = getsockname(user_path->fd, (struct sockaddr*)&user_path->local_addr,
+        rqc_int_t ret = getsockname(user_path->fd, (struct sockaddr*)&user_path->local_addr,
                                     &user_path->local_addrlen);
         if (ret != 0) {
             printf("getsockname error, errno: %d\n", get_sys_errno());
         }
 
-        uint64_t recv_time = xqc_now();
+        uint64_t recv_time = rqc_now();
         user_path->last_sock_op_time = recv_time;
-        if (xqc_engine_packet_process(user_conn->ctx->engine, packet_buf, recv_size,
+        if (rqc_engine_packet_process(user_conn->ctx->engine, packet_buf, recv_size,
                                       (struct sockaddr *)(&user_path->local_addr),
                                       user_path->local_addrlen, (struct sockaddr *)(&addr),
-                                      addr_len, (xqc_msec_t)recv_time,
-                                      user_conn) != XQC_OK)
+                                      addr_len, (rqc_msec_t)recv_time,
+                                      user_conn) != RQC_OK)
         {
             return;
         }
     } while (recv_size > 0);
 
-    xqc_engine_finish_recv(user_conn->ctx->engine);
+    rqc_engine_finish_recv(user_conn->ctx->engine);
 }
 
 static void
-xqc_demo_cli_socket_event_callback(int fd, short what, void *arg)
+rqc_demo_cli_socket_event_callback(int fd, short what, void *arg)
 {
     //DEBUG;
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *) arg;
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *) arg;
 
     if (what & EV_WRITE) {
-        xqc_demo_cli_socket_write_handler(user_conn, fd);
+        rqc_demo_cli_socket_write_handler(user_conn, fd);
 
     } else if (what & EV_READ) {
-        xqc_demo_cli_socket_read_handler(user_conn, fd);
+        rqc_demo_cli_socket_read_handler(user_conn, fd);
 
     } else {
         printf("event callback: what=%d\n", what);
@@ -809,27 +809,27 @@ xqc_demo_cli_socket_event_callback(int fd, short what, void *arg)
  ******************************************************************************/
 
 static void
-xqc_demo_cli_engine_callback(int fd, short what, void *arg)
+rqc_demo_cli_engine_callback(int fd, short what, void *arg)
 {
-    // printf("timer wakeup now:%"PRIu64"\n", xqc_now());
-    xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t *) arg;
-    xqc_engine_main_logic(ctx->engine);
+    // printf("timer wakeup now:%"PRIu64"\n", rqc_now());
+    rqc_demo_cli_ctx_t *ctx = (rqc_demo_cli_ctx_t *) arg;
+    rqc_engine_main_logic(ctx->engine);
 }
 
 static void
-xqc_demo_cli_idle_callback(int fd, short what, void *arg)
+rqc_demo_cli_idle_callback(int fd, short what, void *arg)
 {
-    xqc_demo_cli_user_path_t *user_path = (xqc_demo_cli_user_path_t*) arg;
-    xqc_demo_cli_user_conn_t *user_conn = user_path->user_conn;
+    rqc_demo_cli_user_path_t *user_path = (rqc_demo_cli_user_path_t*) arg;
+    rqc_demo_cli_user_conn_t *user_conn = user_path->user_conn;
 
-    if (xqc_now() - user_path->last_sock_op_time < (uint64_t)user_conn->ctx->args->net_cfg.conn_timeout * 1000000) {
+    if (rqc_now() - user_path->last_sock_op_time < (uint64_t)user_conn->ctx->args->net_cfg.conn_timeout * 1000000) {
         struct timeval tv;
         tv.tv_sec = user_conn->ctx->args->net_cfg.conn_timeout;
         tv.tv_usec = 0;
         event_add(user_path->ev_timeout, &tv);
 
     } else {
-        int rc = xqc_hq_conn_close(user_conn->ctx->engine, user_conn->hqc_handle, &user_conn->cid);
+        int rc = rqc_hq_conn_close(user_conn->ctx->engine, user_conn->hqc_handle, &user_conn->cid);
 
         if (user_conn->ev_delay_req) {
             event_del(user_conn->ev_delay_req);
@@ -851,7 +851,7 @@ xqc_demo_cli_idle_callback(int fd, short what, void *arg)
                user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_fin_cnt,
                user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_sent_cnt,
                user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_create_cnt);
-        xqc_demo_cli_on_task_fail(user_conn->ctx, user_conn->task);
+        rqc_demo_cli_on_task_fail(user_conn->ctx, user_conn->task);
 
         if (rc) {
             printf("close path or conn error, path_id %"PRIu64"\n", user_path->path_id);
@@ -861,15 +861,15 @@ xqc_demo_cli_idle_callback(int fd, short what, void *arg)
 }
 
 static void
-xqc_demo_cli_delayed_req_start(int fd, short what, void *arg)
+rqc_demo_cli_delayed_req_start(int fd, short what, void *arg)
 {
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *) arg;
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *) arg;
     int batch_cnt = user_conn->ctx->args->req_cfg.batch_cnt;
     int req_cnt = user_conn->task->req_cnt;
     if (batch_cnt) {
         req_cnt = req_cnt > batch_cnt ? batch_cnt : req_cnt;
     }
-    xqc_demo_cli_send_requests(user_conn, user_conn->ctx->args,
+    rqc_demo_cli_send_requests(user_conn, user_conn->ctx->args,
                                user_conn->task->reqs, req_cnt);
 
     if (req_cnt > user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_create_cnt
@@ -878,7 +878,7 @@ xqc_demo_cli_delayed_req_start(int fd, short what, void *arg)
     {
 
         user_conn->ev_idle_restart = event_new(user_conn->ctx->eb, -1, 0,
-                                                xqc_demo_cli_delayed_idle_restart,
+                                                rqc_demo_cli_delayed_idle_restart,
                                                 user_conn);
         struct timeval tv = {
             .tv_sec = user_conn->ctx->args->req_cfg.idle_gap / 1000,
@@ -889,18 +889,18 @@ xqc_demo_cli_delayed_req_start(int fd, short what, void *arg)
 }
 
 static void
-xqc_demo_cli_delayed_idle_restart(int fd, short what, void *arg)
+rqc_demo_cli_delayed_idle_restart(int fd, short what, void *arg)
 {
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *)arg;
-    xqc_demo_cli_task_ctx_t *ctx = &user_conn->ctx->task_ctx;
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *)arg;
+    rqc_demo_cli_task_ctx_t *ctx = &user_conn->ctx->task_ctx;
     int task_idx = user_conn->task->task_idx;
-    xqc_demo_cli_continue_send_reqs(ctx->tasks[task_idx].user_conn);
+    rqc_demo_cli_continue_send_reqs(ctx->tasks[task_idx].user_conn);
 }
 
 static void
-xqc_demo_cli_rebind_path(int fd, short what, void *arg)
+rqc_demo_cli_rebind_path(int fd, short what, void *arg)
 {
-    xqc_demo_cli_user_conn_t *user_conn = (xqc_demo_cli_user_conn_t *) arg;
+    rqc_demo_cli_user_conn_t *user_conn = (rqc_demo_cli_user_conn_t *) arg;
     if (user_conn->path.is_active) {
         // change fd
         int temp = user_conn->path.fd;
@@ -918,12 +918,12 @@ xqc_demo_cli_rebind_path(int fd, short what, void *arg)
  ******************************************************************************/
 
 void
-xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
-    xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_init_conneciton_settings(rqc_conn_settings_t* settings,
+    rqc_demo_cli_client_args_t *args)
 {
-    memset(settings, 0, sizeof(xqc_conn_settings_t));
+    memset(settings, 0, sizeof(rqc_conn_settings_t));
     settings->pacing_on = args->net_cfg.pacing;
-    settings->cong_ctrl_callback = xqc_bbr_cb;
+    settings->cong_ctrl_callback = rqc_bbr_cb;
     settings->cc_params.customize_on = 1,
     settings->cc_params.init_cwnd = 96,
     settings->so_sndbuf = 1024*1024;
@@ -937,9 +937,9 @@ xqc_demo_cli_init_conneciton_settings(xqc_conn_settings_t* settings,
 
 /* set client args to default values */
 void
-xqc_demo_cli_init_args(xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_init_args(rqc_demo_cli_client_args_t *args)
 {
-    memset(args, 0, sizeof(xqc_demo_cli_client_args_t));
+    memset(args, 0, sizeof(rqc_demo_cli_client_args_t));
 
     /* net cfg */
     args->net_cfg.conn_timeout = 30;
@@ -949,7 +949,7 @@ xqc_demo_cli_init_args(xqc_demo_cli_client_args_t *args)
     args->net_cfg.port_specified = 0;
 
     /* env cfg */
-    args->env_cfg.log_level = XQC_LOG_DEBUG;
+    args->env_cfg.log_level = RQC_LOG_DEBUG;
     strncpy(args->env_cfg.log_path, LOG_PATH, sizeof(args->env_cfg.log_path));
     strncpy(args->env_cfg.out_file_dir, OUT_DIR, sizeof(args->env_cfg.out_file_dir));
 
@@ -957,11 +957,11 @@ xqc_demo_cli_init_args(xqc_demo_cli_client_args_t *args)
     args->quic_cfg.alpn_type = ALPN_HQ;
     strncpy(args->quic_cfg.alpn, "hq-interop", sizeof(args->quic_cfg.alpn));
     args->quic_cfg.max_pkt_sz = 1200;
-    args->quic_cfg.quic_version = XQC_VERSION_V1;
+    args->quic_cfg.quic_version = RQC_VERSION_V1;
 }
 
 void
-xqc_demo_cli_parse_server_addr(char *url, xqc_demo_cli_net_config_t *cfg)
+rqc_demo_cli_parse_server_addr(char *url, rqc_demo_cli_net_config_t *cfg)
 {
     /* get hostname and port */
     char s_port[16] = {0};
@@ -1038,7 +1038,7 @@ xqc_demo_cli_parse_server_addr(char *url, xqc_demo_cli_net_config_t *cfg)
 }
 
 void
-xqc_demo_cli_parse_urls(char *urls, xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_parse_urls(char *urls, rqc_demo_cli_client_args_t *args)
 {
     /* split urls */
     int cnt = 0;
@@ -1057,12 +1057,12 @@ xqc_demo_cli_parse_urls(char *urls, xqc_demo_cli_client_args_t *args)
 
     /* parse the server addr */
     if (args->req_cfg.request_cnt > 0) {
-        xqc_demo_cli_parse_server_addr(args->req_cfg.reqs[0].url, &args->net_cfg);
+        rqc_demo_cli_parse_server_addr(args->req_cfg.reqs[0].url, &args->net_cfg);
     }
 }
 
 void
-xqc_demo_cli_usage(int argc, char *argv[])
+rqc_demo_cli_usage(int argc, char *argv[])
 {
     char *prog = argv[0];
     char *const slash = strrchr(prog, '/');
@@ -1076,7 +1076,7 @@ xqc_demo_cli_usage(int argc, char *argv[])
         "   -a    Server addr.\n"
         "   -p    Server port.\n"
         "   -l    Log level. e:error d:debug.\n"
-        "   -L    xquic log path.\n"
+        "   -L    rquic log path.\n"
         "   -d    do not save responses to files\n"
         "   -D    response directory\n"
         "   -U    Url. \n"
@@ -1096,7 +1096,7 @@ xqc_demo_cli_usage(int argc, char *argv[])
 }
 
 void
-xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_parse_args(int argc, char *argv[], rqc_demo_cli_client_args_t *args)
 {
     int ch = 0;
     while ((ch = getopt(argc, argv, "a:p:l:L:dD:U:x:r:K:w:I:t:T:A:F:eC6")) != -1) {
@@ -1135,7 +1135,7 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
 
         case 'U': // request URL, address is parsed from the request
             printf("option url only:%s\n", optarg);
-            xqc_demo_cli_parse_urls(optarg, args);
+            rqc_demo_cli_parse_urls(optarg, args);
             break;
 
         case 'x':
@@ -1220,7 +1220,7 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
 
         default:
             printf("other option :%c\n", ch);
-            xqc_demo_cli_usage(argc, argv);
+            rqc_demo_cli_usage(argc, argv);
             exit(0);
         }
     }
@@ -1233,7 +1233,7 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
         {
             memcpy(&args->req_cfg.reqs[ch],
                    &args->req_cfg.reqs[ch - 1],
-                   sizeof(xqc_demo_cli_request_t));
+                   sizeof(rqc_demo_cli_request_t));
         }
         args->req_cfg.request_cnt = args->req_cfg.ext_reqn;
     }
@@ -1241,18 +1241,18 @@ xqc_demo_cli_parse_args(int argc, char *argv[], xqc_demo_cli_client_args_t *args
 
 #define MAX_REQ_BUF_LEN 1500
 int
-xqc_demo_cli_format_hq_req(char *buf, int len, xqc_demo_cli_request_t* req)
+rqc_demo_cli_format_hq_req(char *buf, int len, rqc_demo_cli_request_t* req)
 {
     return snprintf(buf, len, "%s", req->path);
     // return snprintf(buf, len, "%s %s\r\n", method_s[req->method], req->path);
 }
 
 int
-xqc_demo_cli_send_hq_req(xqc_demo_cli_user_conn_t *user_conn,
-    xqc_demo_cli_user_stream_t *user_stream, xqc_demo_cli_request_t *req)
+rqc_demo_cli_send_hq_req(rqc_demo_cli_user_conn_t *user_conn,
+    rqc_demo_cli_user_stream_t *user_stream, rqc_demo_cli_request_t *req)
 {
     /* create request */
-    user_stream->hq_request = xqc_hq_request_create(user_conn->ctx->engine, user_conn->hqc_handle,
+    user_stream->hq_request = rqc_hq_request_create(user_conn->ctx->engine, user_conn->hqc_handle,
                                                     &user_conn->cid, user_stream);
     if (user_stream->hq_request == NULL) {
         // printf("user_conn: %p, create stream failed, will try later\n", user_stream);
@@ -1261,13 +1261,13 @@ xqc_demo_cli_send_hq_req(xqc_demo_cli_user_conn_t *user_conn,
 
     /* prepare stream data, which will be sent on callback */
     user_stream->send_buf = calloc(1, MAX_REQ_BUF_LEN);
-    user_stream->send_len = xqc_demo_cli_format_hq_req(user_stream->send_buf, MAX_REQ_BUF_LEN, req);
-    xqc_demo_cli_hq_req_send(user_stream->hq_request, user_stream);
+    user_stream->send_len = rqc_demo_cli_format_hq_req(user_stream->send_buf, MAX_REQ_BUF_LEN, req);
+    rqc_demo_cli_hq_req_send(user_stream->hq_request, user_stream);
     return 0;
 }
 
 void
-xqc_demo_cli_open_file(xqc_demo_cli_user_stream_t *user_stream, const char *save_path,
+rqc_demo_cli_open_file(rqc_demo_cli_user_stream_t *user_stream, const char *save_path,
     const char *req_path)
 {
     char file_path[512] = {0};
@@ -1288,29 +1288,29 @@ xqc_demo_cli_open_file(xqc_demo_cli_user_stream_t *user_stream, const char *save
 }
 
 void
-xqc_demo_cli_on_task_req_sent(xqc_demo_cli_ctx_t *ctx, int task_id)
+rqc_demo_cli_on_task_req_sent(rqc_demo_cli_ctx_t *ctx, int task_id)
 {
     ctx->task_ctx.schedule.schedule_info[task_id].req_create_cnt++;
 }
 
 void
-xqc_demo_cli_send_requests(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_client_args_t *args,
-    xqc_demo_cli_request_t *reqs, int req_cnt)
+rqc_demo_cli_send_requests(rqc_demo_cli_user_conn_t *user_conn, rqc_demo_cli_client_args_t *args,
+    rqc_demo_cli_request_t *reqs, int req_cnt)
 {
     DEBUG;
     for (int i = 0; i < req_cnt; i++) {
         /* user handle of stream */
-        xqc_demo_cli_user_stream_t *user_stream = calloc(1, sizeof(xqc_demo_cli_user_stream_t));
+        rqc_demo_cli_user_stream_t *user_stream = calloc(1, sizeof(rqc_demo_cli_user_stream_t));
         user_stream->user_conn = user_conn;
         // printf("   .. user_stream: %p\n", user_stream);
 
         /* open save file */
-        xqc_demo_cli_open_file(user_stream, args->env_cfg.out_file_dir, reqs[i].path);
+        rqc_demo_cli_open_file(user_stream, args->env_cfg.out_file_dir, reqs[i].path);
         strncpy(user_stream->file_name, reqs[i].path, RESOURCE_LEN - 1);
 
         /* send request */
         if (args->quic_cfg.alpn_type == ALPN_HQ) {
-            if (xqc_demo_cli_send_hq_req(user_conn, user_stream, reqs + i) < 0) {
+            if (rqc_demo_cli_send_hq_req(user_conn, user_stream, reqs + i) < 0) {
                 printf("send hq req blocked, will try later, total sent_cnt: %d\n",
                     user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_create_cnt);
                 free(user_stream);
@@ -1319,14 +1319,14 @@ xqc_demo_cli_send_requests(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_cli
 
         }
 
-        xqc_demo_cli_on_task_req_sent(user_conn->ctx, user_conn->task->task_idx);
+        rqc_demo_cli_on_task_req_sent(user_conn->ctx, user_conn->task->task_idx);
     }
 }
 
 void
-xqc_demo_cli_continue_send_reqs(xqc_demo_cli_user_conn_t *user_conn)
+rqc_demo_cli_continue_send_reqs(rqc_demo_cli_user_conn_t *user_conn)
 {
-    xqc_demo_cli_ctx_t *ctx = user_conn->ctx;
+    rqc_demo_cli_ctx_t *ctx = user_conn->ctx;
     int task_idx = user_conn->task->task_idx;
     int req_create_cnt = ctx->task_ctx.schedule.schedule_info[task_idx].req_create_cnt;
     int req_cnt = user_conn->task->req_cnt - req_create_cnt;
@@ -1334,8 +1334,8 @@ xqc_demo_cli_continue_send_reqs(xqc_demo_cli_user_conn_t *user_conn)
         req_cnt = req_cnt > ctx->args->req_cfg.batch_cnt ? ctx->args->req_cfg.batch_cnt : req_cnt;
     }
     if (req_cnt > 0) {
-        xqc_demo_cli_request_t *reqs = user_conn->task->reqs + req_create_cnt;
-        xqc_demo_cli_send_requests(user_conn, ctx->args, reqs, req_cnt);
+        rqc_demo_cli_request_t *reqs = user_conn->task->reqs + req_create_cnt;
+        rqc_demo_cli_send_requests(user_conn, ctx->args, reqs, req_cnt);
 
         if (user_conn->task->req_cnt > req_create_cnt
             && ctx->args->req_cfg.idle_gap
@@ -1351,20 +1351,20 @@ xqc_demo_cli_continue_send_reqs(xqc_demo_cli_user_conn_t *user_conn)
 }
 
 void
-xqc_demo_cli_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t *transport_cbs,
-    xqc_demo_cli_client_args_t* args)
+rqc_demo_cli_init_callback(rqc_engine_callback_t *cb, rqc_transport_callbacks_t *transport_cbs,
+    rqc_demo_cli_client_args_t* args)
 {
-    static xqc_engine_callback_t callback = {
+    static rqc_engine_callback_t callback = {
         .log_callbacks = {
-            .xqc_log_write_err = xqc_demo_cli_write_log_file,
-            .xqc_log_write_stat = xqc_demo_cli_write_log_file,
-            .xqc_qlog_event_write = xqc_demo_cli_write_qlog_file,
+            .rqc_log_write_err = rqc_demo_cli_write_log_file,
+            .rqc_log_write_stat = rqc_demo_cli_write_log_file,
+            .rqc_qlog_event_write = rqc_demo_cli_write_qlog_file,
         },
-        .set_event_timer = xqc_demo_cli_set_event_timer,
+        .set_event_timer = rqc_demo_cli_set_event_timer,
     };
 
-    static xqc_transport_callbacks_t tcb = {
-        .write_socket = xqc_demo_cli_write_socket,
+    static rqc_transport_callbacks_t tcb = {
+        .write_socket = rqc_demo_cli_write_socket,
     };
 
     *cb = callback;
@@ -1372,25 +1372,25 @@ xqc_demo_cli_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t 
 }
 
 int
-xqc_demo_cli_init_alpn_ctx(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_init_alpn_ctx(rqc_demo_cli_ctx_t *ctx)
 {
     int ret = 0;
 
-    xqc_hq_callbacks_t hq_cbs = {
+    rqc_hq_callbacks_t hq_cbs = {
         .hqc_cbs = {
-            .conn_create_notify = xqc_demo_cli_hq_conn_create_notify,
-            .conn_close_notify = xqc_demo_cli_hq_conn_close_notify,
+            .conn_create_notify = rqc_demo_cli_hq_conn_create_notify,
+            .conn_close_notify = rqc_demo_cli_hq_conn_close_notify,
         },
         .hqr_cbs = {
-            .req_close_notify = xqc_demo_cli_hq_req_close_notify,
-            .req_read_notify = xqc_demo_cli_hq_req_read_notify,
-            .req_write_notify = xqc_demo_cli_hq_req_write_notify,
+            .req_close_notify = rqc_demo_cli_hq_req_close_notify,
+            .req_read_notify = rqc_demo_cli_hq_req_read_notify,
+            .req_write_notify = rqc_demo_cli_hq_req_write_notify,
         }
     };
 
     /* init hq context */
-    ret = xqc_hq_ctx_init(ctx->engine, &hq_cbs);
-    if (ret != XQC_OK) {
+    ret = rqc_hq_ctx_init(ctx->engine, &hq_cbs);
+    if (ret != RQC_OK) {
         printf("init hq context error, ret: %d\n", ret);
         return ret;
     }
@@ -1399,62 +1399,62 @@ xqc_demo_cli_init_alpn_ctx(xqc_demo_cli_ctx_t *ctx)
 }
 
 int
-xqc_demo_cli_init_xquic_engine(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_init_rquic_engine(rqc_demo_cli_ctx_t *ctx, rqc_demo_cli_client_args_t *args)
 {
-    xqc_transport_callbacks_t transport_cbs;
+    rqc_transport_callbacks_t transport_cbs;
 
     /* init engine callbacks */
-    xqc_engine_callback_t callback;
-    xqc_demo_cli_init_callback(&callback, &transport_cbs, args);
+    rqc_engine_callback_t callback;
+    rqc_demo_cli_init_callback(&callback, &transport_cbs, args);
 
-    xqc_config_t config;
-    if (xqc_engine_get_default_config(&config, XQC_ENGINE_CLIENT) < 0) {
-        return XQC_ERROR;
+    rqc_config_t config;
+    if (rqc_engine_get_default_config(&config, RQC_ENGINE_CLIENT) < 0) {
+        return RQC_ERROR;
     }
 
     switch (args->env_cfg.log_level) {
     case 'd':
-        config.cfg_log_level = XQC_LOG_DEBUG;
+        config.cfg_log_level = RQC_LOG_DEBUG;
         break;
     case 'i':
-        config.cfg_log_level = XQC_LOG_INFO;
+        config.cfg_log_level = RQC_LOG_INFO;
         break;
     case 'w':
-        config.cfg_log_level = XQC_LOG_WARN;
+        config.cfg_log_level = RQC_LOG_WARN;
         break;
     case 'e':
-        config.cfg_log_level = XQC_LOG_ERROR;
+        config.cfg_log_level = RQC_LOG_ERROR;
         break;
     default:
-        config.cfg_log_level = XQC_LOG_DEBUG;
+        config.cfg_log_level = RQC_LOG_DEBUG;
         break;
     }
 
-    ctx->engine = xqc_engine_create(XQC_ENGINE_CLIENT, &config,
+    ctx->engine = rqc_engine_create(RQC_ENGINE_CLIENT, &config,
                                     &callback, &transport_cbs, ctx);
     if (ctx->engine == NULL) {
-        printf("xqc_engine_create error\n");
-        return XQC_ERROR;
+        printf("rqc_engine_create error\n");
+        return RQC_ERROR;
     }
 
-    if (xqc_demo_cli_init_alpn_ctx(ctx) < 0) {
+    if (rqc_demo_cli_init_alpn_ctx(ctx) < 0) {
         printf("init alpn ctx error!");
         return -1;
     }
 
-    return XQC_OK;
+    return RQC_OK;
 }
 
 int
-xqc_demo_cli_init_xquic_connection(xqc_demo_cli_user_conn_t *user_conn,
-    xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_init_rquic_connection(rqc_demo_cli_user_conn_t *user_conn,
+    rqc_demo_cli_client_args_t *args)
 {
     /* init connection settings */
-    xqc_conn_settings_t conn_settings;
-    xqc_demo_cli_init_conneciton_settings(&conn_settings, args);
+    rqc_conn_settings_t conn_settings;
+    rqc_demo_cli_init_conneciton_settings(&conn_settings, args);
 
     if (1) {
-        const xqc_cid_t *cid = xqc_hq_connect(user_conn->ctx->engine,
+        const rqc_cid_t *cid = rqc_hq_connect(user_conn->ctx->engine,
             &conn_settings, args->net_cfg.host,
             (struct sockaddr*)&args->net_cfg.addr, args->net_cfg.addr_len,
             user_conn);
@@ -1463,24 +1463,24 @@ xqc_demo_cli_init_xquic_connection(xqc_demo_cli_user_conn_t *user_conn,
             return -1;
         }
 
-        memcpy(&user_conn->cid, cid, sizeof(xqc_cid_t));
+        memcpy(&user_conn->cid, cid, sizeof(rqc_cid_t));
     }
 
     return 0;
 }
 
 void
-xqc_demo_cli_start(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_client_args_t *args,
-    xqc_demo_cli_request_t *reqs, int req_cnt)
+rqc_demo_cli_start(rqc_demo_cli_user_conn_t *user_conn, rqc_demo_cli_client_args_t *args,
+    rqc_demo_cli_request_t *reqs, int req_cnt)
 {
-    if (XQC_OK != xqc_demo_cli_init_xquic_connection(user_conn, args)) {
-        printf("|xqc_demo_cli_start FAILED|\n");
+    if (RQC_OK != rqc_demo_cli_init_rquic_connection(user_conn, args)) {
+        printf("|rqc_demo_cli_start FAILED|\n");
         return;
     }
 
     if (args->net_cfg.rebind_path) {
         user_conn->ev_rebind_path = event_new(user_conn->ctx->eb, -1, 0,
-                                               xqc_demo_cli_rebind_path,
+                                               rqc_demo_cli_rebind_path,
                                                user_conn);
         struct timeval tv = {
             .tv_sec = 2,
@@ -1491,7 +1491,7 @@ xqc_demo_cli_start(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_client_args
 
     if (args->req_cfg.req_start_delay) {
         user_conn->ev_delay_req = event_new(user_conn->ctx->eb, -1, 0,
-                                            xqc_demo_cli_delayed_req_start,
+                                            rqc_demo_cli_delayed_req_start,
                                             user_conn);
         struct timeval tv = {
             .tv_sec = args->req_cfg.req_start_delay / 1000,
@@ -1502,9 +1502,9 @@ xqc_demo_cli_start(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_client_args
     } else {
         /* TODO: fix MAX_STREAMS bug */
         if (args->req_cfg.batch_cnt) {
-            xqc_demo_cli_send_requests(user_conn, args, reqs, req_cnt > args->req_cfg.batch_cnt ? args->req_cfg.batch_cnt : req_cnt);
+            rqc_demo_cli_send_requests(user_conn, args, reqs, req_cnt > args->req_cfg.batch_cnt ? args->req_cfg.batch_cnt : req_cnt);
         } else {
-            xqc_demo_cli_send_requests(user_conn, args, reqs, req_cnt);
+            rqc_demo_cli_send_requests(user_conn, args, reqs, req_cnt);
         }
 
         if (req_cnt > user_conn->ctx->task_ctx.schedule.schedule_info[user_conn->task->task_idx].req_create_cnt
@@ -1513,7 +1513,7 @@ xqc_demo_cli_start(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_client_args
         {
 
             user_conn->ev_idle_restart = event_new(user_conn->ctx->eb, -1, 0,
-                                                    xqc_demo_cli_delayed_idle_restart,
+                                                    rqc_demo_cli_delayed_idle_restart,
                                                     user_conn);
             struct timeval tv = {
                 .tv_sec = args->req_cfg.idle_gap / 1000,
@@ -1525,15 +1525,15 @@ xqc_demo_cli_start(xqc_demo_cli_user_conn_t *user_conn, xqc_demo_cli_client_args
 }
 
 void
-xqc_demo_cli_init_ctx(xqc_demo_cli_ctx_t *pctx, xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_init_ctx(rqc_demo_cli_ctx_t *pctx, rqc_demo_cli_client_args_t *args)
 {
     strncpy(pctx->log_path, args->env_cfg.log_path, sizeof(pctx->log_path) - 1);
     pctx->args = args;
-    xqc_demo_cli_open_log_file(pctx);
+    rqc_demo_cli_open_log_file(pctx);
 }
 
 int
-xqc_demo_cli_all_tasks_finished(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_all_tasks_finished(rqc_demo_cli_ctx_t *ctx)
 {
     for (size_t i = 0; i < ctx->task_ctx.task_cnt; i++) {
         if (ctx->task_ctx.schedule.schedule_info[i].status <= TASK_STATUS_RUNNING) {
@@ -1545,7 +1545,7 @@ xqc_demo_cli_all_tasks_finished(xqc_demo_cli_ctx_t *ctx)
 
 /* get an waiting task while task scheduler is idle */
 int
-xqc_demo_cli_get_idle_waiting_task(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_get_idle_waiting_task(rqc_demo_cli_ctx_t *ctx)
 {
     int waiting_idx = -1;
     int idle_flag = 1;
@@ -1569,7 +1569,7 @@ xqc_demo_cli_get_idle_waiting_task(xqc_demo_cli_ctx_t *ctx)
 }
 
 static int
-xqc_demo_cli_create_socket(xqc_demo_cli_user_path_t *user_path, xqc_demo_cli_net_config_t* cfg)
+rqc_demo_cli_create_socket(rqc_demo_cli_user_path_t *user_path, rqc_demo_cli_net_config_t* cfg)
 {
     int size;
     int fd = 0;
@@ -1579,7 +1579,7 @@ xqc_demo_cli_create_socket(xqc_demo_cli_user_path_t *user_path, xqc_demo_cli_net
         printf("create socket failed, errno: %d\n", get_sys_errno());
         return -1;
     }
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
     int flags = 1;
     if (ioctlsocket(fd, FIONBIO, &flags) == SOCKET_ERROR) {
         goto err;
@@ -1601,7 +1601,7 @@ xqc_demo_cli_create_socket(xqc_demo_cli_user_path_t *user_path, xqc_demo_cli_net
         goto err;
     }
 
-    user_path->last_sock_op_time = xqc_now();
+    user_path->last_sock_op_time = rqc_now();
 
     return fd;
 
@@ -1611,15 +1611,15 @@ err:
 }
 
 int
-xqc_demo_cli_init_user(xqc_demo_cli_user_conn_t *user_conn, uint64_t path_id)
+rqc_demo_cli_init_user(rqc_demo_cli_user_conn_t *user_conn, uint64_t path_id)
 {
-    xqc_demo_cli_ctx_t *ctx = user_conn->ctx;
-    xqc_demo_cli_user_path_t *user_path = &user_conn->path;
+    rqc_demo_cli_ctx_t *ctx = user_conn->ctx;
+    rqc_demo_cli_user_path_t *user_path = &user_conn->path;
 
     /* create the initial path */
-    user_path->fd = xqc_demo_cli_create_socket(user_path, &ctx->args->net_cfg);
+    user_path->fd = rqc_demo_cli_create_socket(user_path, &ctx->args->net_cfg);
     if (user_path->fd < 0) {
-        printf("xqc_create_socket error\n");
+        printf("rqc_create_socket error\n");
         return -1;
     }
 
@@ -1627,26 +1627,26 @@ xqc_demo_cli_init_user(xqc_demo_cli_user_conn_t *user_conn, uint64_t path_id)
     user_path->ev_rebind_socket = NULL;
 
     if (ctx->args->net_cfg.rebind_path) {
-        user_path->rebind_fd = xqc_demo_cli_create_socket(user_path, &ctx->args->net_cfg);
+        user_path->rebind_fd = rqc_demo_cli_create_socket(user_path, &ctx->args->net_cfg);
         if (user_path->rebind_fd < 0) {
-            printf("xqc_create_rebind_socket error\n");
+            printf("rqc_create_rebind_socket error\n");
             return -1;
         }
     }
 
     /* socket event */
     user_path->ev_socket = event_new(ctx->eb, user_path->fd, EV_READ | EV_PERSIST,
-                                     xqc_demo_cli_socket_event_callback, user_conn);
+                                     rqc_demo_cli_socket_event_callback, user_conn);
     event_add(user_path->ev_socket, NULL);
 
     if (user_path->rebind_fd != -1) {
         user_path->ev_rebind_socket = event_new(ctx->eb, user_path->rebind_fd, EV_READ | EV_PERSIST,
-                                                xqc_demo_cli_socket_event_callback, user_conn);
+                                                rqc_demo_cli_socket_event_callback, user_conn);
         event_add(user_path->ev_rebind_socket, NULL);
     }
 
-    /* xquic timer */
-    user_path->ev_timeout = event_new(ctx->eb, -1, 0, xqc_demo_cli_idle_callback, user_path);
+    /* rquic timer */
+    user_path->ev_timeout = event_new(ctx->eb, -1, 0, rqc_demo_cli_idle_callback, user_path);
     struct timeval tv;
     tv.tv_sec = ctx->args->net_cfg.conn_timeout;
     tv.tv_usec = 0;
@@ -1663,21 +1663,21 @@ xqc_demo_cli_init_user(xqc_demo_cli_user_conn_t *user_conn, uint64_t path_id)
 
 /* create one connection, send multi reqs in multi streams */
 int
-xqc_demo_cli_handle_task(xqc_demo_cli_ctx_t *ctx, xqc_demo_cli_task_t *task)
+rqc_demo_cli_handle_task(rqc_demo_cli_ctx_t *ctx, rqc_demo_cli_task_t *task)
 {
     DEBUG;
     /* create socket and connection callback user data */
-    xqc_demo_cli_user_conn_t *user_conn = calloc(1, sizeof(xqc_demo_cli_user_conn_t));
+    rqc_demo_cli_user_conn_t *user_conn = calloc(1, sizeof(rqc_demo_cli_user_conn_t));
     user_conn->ctx = ctx;
     user_conn->task = task;
 
     /* init the first path */
-    if (xqc_demo_cli_init_user(user_conn, 0)) {
+    if (rqc_demo_cli_init_user(user_conn, 0)) {
         return -1;
     }
 
     /* start client */
-    xqc_demo_cli_start(user_conn, ctx->args, task->reqs, task->req_cnt);
+    rqc_demo_cli_start(user_conn, ctx->args, task->reqs, task->req_cnt);
 
     task->user_conn = user_conn;
     return 0;
@@ -1692,9 +1692,9 @@ static struct timeval tv_task_schedule = {0, 100};
  * start a new connection and task.
  */
 static void
-xqc_demo_cli_task_schedule_callback(int fd, short what, void *arg)
+rqc_demo_cli_task_schedule_callback(int fd, short what, void *arg)
 {
-    xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t*)arg;
+    rqc_demo_cli_ctx_t *ctx = (rqc_demo_cli_ctx_t*)arg;
     uint8_t all_task_fin_flag = 1;
     uint8_t idle_flag = 1;
     int idle_waiting_task_id = -1;
@@ -1723,7 +1723,7 @@ xqc_demo_cli_task_schedule_callback(int fd, short what, void *arg)
     /* if idle and got a waiting task, run the task */
     if (idle_flag && idle_waiting_task_id >= 0) {
         /* handle task and set status to RUNNING */
-        int ret = xqc_demo_cli_handle_task(ctx, ctx->task_ctx.tasks + idle_waiting_task_id);
+        int ret = rqc_demo_cli_handle_task(ctx, ctx->task_ctx.tasks + idle_waiting_task_id);
         if (0 == ret) {
             ctx->task_ctx.schedule.schedule_info[idle_waiting_task_id].status = TASK_STATUS_RUNNING;
 
@@ -1737,49 +1737,49 @@ xqc_demo_cli_task_schedule_callback(int fd, short what, void *arg)
 }
 
 void
-xqc_demo_cli_init_scmr(xqc_demo_cli_task_ctx_t *tctx, xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_init_scmr(rqc_demo_cli_task_ctx_t *tctx, rqc_demo_cli_client_args_t *args)
 {
     tctx->task_cnt = 1; /* one task, one connection, all requests */
 
     /* init task list */
-    tctx->tasks = calloc(1, sizeof(xqc_demo_cli_task_t) * 1);
+    tctx->tasks = calloc(1, sizeof(rqc_demo_cli_task_t) * 1);
     tctx->tasks->req_cnt = args->req_cfg.request_cnt;
     tctx->tasks->reqs = args->req_cfg.reqs;
 
     /* init schedule */
-    tctx->schedule.schedule_info = calloc(1, sizeof(xqc_demo_cli_task_schedule_info_t) * 1);
+    tctx->schedule.schedule_info = calloc(1, sizeof(rqc_demo_cli_task_schedule_info_t) * 1);
 }
 
 void
-xqc_demo_cli_init_scsr(xqc_demo_cli_task_ctx_t *tctx, xqc_demo_cli_client_args_t *args)
+rqc_demo_cli_init_scsr(rqc_demo_cli_task_ctx_t *tctx, rqc_demo_cli_client_args_t *args)
 {
     tctx->task_cnt = args->req_cfg.request_cnt;
 
     /* init task list */
-    tctx->tasks = calloc(1, sizeof(xqc_demo_cli_task_t) * tctx->task_cnt);
+    tctx->tasks = calloc(1, sizeof(rqc_demo_cli_task_t) * tctx->task_cnt);
     for (int i = 0; i < tctx->task_cnt; i++) {
         tctx->tasks[i].task_idx = i;
         tctx->tasks[i].req_cnt = 1;
-        tctx->tasks[i].reqs = (xqc_demo_cli_request_t*)args->req_cfg.reqs + i;
+        tctx->tasks[i].reqs = (rqc_demo_cli_request_t*)args->req_cfg.reqs + i;
     }
 
     /* init schedule */
-    tctx->schedule.schedule_info = calloc(1, sizeof(xqc_demo_cli_task_schedule_info_t) * tctx->task_cnt);
+    tctx->schedule.schedule_info = calloc(1, sizeof(rqc_demo_cli_task_schedule_info_t) * tctx->task_cnt);
 }
 
 /* create task info according to args */
 void
-xqc_demo_cli_init_tasks(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_init_tasks(rqc_demo_cli_ctx_t *ctx)
 {
     ctx->task_ctx.mode = ctx->args->net_cfg.mode;
     switch (ctx->args->net_cfg.mode) {
     case MODE_SCMR:
-        xqc_demo_cli_init_scmr(&ctx->task_ctx, ctx->args);
+        rqc_demo_cli_init_scmr(&ctx->task_ctx, ctx->args);
         break;
 
     case MODE_SCSR_SERIAL:
     case MODE_SCSR_CONCURRENT:
-        xqc_demo_cli_init_scsr(&ctx->task_ctx, ctx->args);
+        rqc_demo_cli_init_scsr(&ctx->task_ctx, ctx->args);
         break;
 
     default:
@@ -1789,37 +1789,37 @@ xqc_demo_cli_init_tasks(xqc_demo_cli_ctx_t *ctx)
 
 /* prevent from endless task, this could be used if execution time is limited */
 static void
-xqc_demo_cli_kill_it_any_way_callback(int fd, short what, void *arg)
+rqc_demo_cli_kill_it_any_way_callback(int fd, short what, void *arg)
 {
-    xqc_demo_cli_ctx_t *ctx = (xqc_demo_cli_ctx_t*)arg;
+    rqc_demo_cli_ctx_t *ctx = (rqc_demo_cli_ctx_t*)arg;
     event_base_loopbreak(ctx->eb);
     printf("[* tasks are running more than %d seconds, kill it anyway! *]\n",
         ctx->args->env_cfg.life);
 }
 
 void
-xqc_demo_cli_start_task_manager(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_start_task_manager(rqc_demo_cli_ctx_t *ctx)
 {
-    xqc_demo_cli_init_tasks(ctx);
+    rqc_demo_cli_init_tasks(ctx);
 
     /* init and arm task timer */
-    ctx->ev_task = event_new(ctx->eb, -1, 0, xqc_demo_cli_task_schedule_callback, ctx);
+    ctx->ev_task = event_new(ctx->eb, -1, 0, rqc_demo_cli_task_schedule_callback, ctx);
 
     /* immediate engage task */
-    xqc_demo_cli_task_schedule_callback(-1, 0, ctx);
+    rqc_demo_cli_task_schedule_callback(-1, 0, ctx);
 
     /* kill it anyway, to protect from endless task */
     if (ctx->args->env_cfg.life > 0) {
         struct timeval tv_kill_it_anyway = {ctx->args->env_cfg.life, 0};
-        ctx->ev_kill = event_new(ctx->eb, -1, 0, xqc_demo_cli_kill_it_any_way_callback, ctx);
+        ctx->ev_kill = event_new(ctx->eb, -1, 0, rqc_demo_cli_kill_it_any_way_callback, ctx);
         event_add(ctx->ev_kill, &tv_kill_it_anyway);
     }
 }
 
 void
-xqc_demo_cli_free_ctx(xqc_demo_cli_ctx_t *ctx)
+rqc_demo_cli_free_ctx(rqc_demo_cli_ctx_t *ctx)
 {
-    xqc_demo_cli_close_log_file(ctx);
+    rqc_demo_cli_close_log_file(ctx);
 
     if (ctx->args) {
         free(ctx->args);
@@ -1833,28 +1833,28 @@ int
 main(int argc, char *argv[])
 {
     /* init env if necessary */
-    xqc_platform_init_env();
+    rqc_platform_init_env();
 
     /* get input client args */
-    xqc_demo_cli_client_args_t *args = calloc(1, sizeof(xqc_demo_cli_client_args_t));
-    xqc_demo_cli_init_args(args);
-    xqc_demo_cli_parse_args(argc, argv, args);
+    rqc_demo_cli_client_args_t *args = calloc(1, sizeof(rqc_demo_cli_client_args_t));
+    rqc_demo_cli_init_args(args);
+    rqc_demo_cli_parse_args(argc, argv, args);
 
     /* init client ctx */
-    xqc_demo_cli_ctx_t *ctx = calloc(1, sizeof(xqc_demo_cli_ctx_t));
-    xqc_demo_cli_init_ctx(ctx, args);
+    rqc_demo_cli_ctx_t *ctx = calloc(1, sizeof(rqc_demo_cli_ctx_t));
+    rqc_demo_cli_init_ctx(ctx, args);
 
     /* engine event */
     ctx->eb = event_base_new();
-    ctx->ev_engine = event_new(ctx->eb, -1, 0, xqc_demo_cli_engine_callback, ctx);
-    xqc_demo_cli_init_xquic_engine(ctx, args);
+    ctx->ev_engine = event_new(ctx->eb, -1, 0, rqc_demo_cli_engine_callback, ctx);
+    rqc_demo_cli_init_rquic_engine(ctx, args);
 
     /* start task scheduler */
-    xqc_demo_cli_start_task_manager(ctx);
+    rqc_demo_cli_start_task_manager(ctx);
 
     event_base_dispatch(ctx->eb);
 
-    xqc_engine_destroy(ctx->engine);
-    xqc_demo_cli_free_ctx(ctx);
+    rqc_engine_destroy(ctx->engine);
+    rqc_demo_cli_free_ctx(ctx);
     return 0;
 }

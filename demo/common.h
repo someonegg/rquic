@@ -32,11 +32,11 @@ static size_t READ_FILE_BUF_LEN = 2 *1024 * 1024;
 #define DEBUG ;
 // #define DEBUG printf("%s:%d (%s)\n",__FILE__, __LINE__ ,__FUNCTION__);
 
-extern long xqc_random(void);
-extern xqc_usec_t xqc_now();
+extern long rqc_random(void);
+extern rqc_usec_t rqc_now();
 
 int
-xqc_demo_read_file_data(char * data, size_t data_len, char *filename)
+rqc_demo_read_file_data(char * data, size_t data_len, char *filename)
 {
     int ret = 0;
     size_t total_len, read_len;

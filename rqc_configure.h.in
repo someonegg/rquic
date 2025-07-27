@@ -1,0 +1,6 @@
+/* the configured options and settings for rquic */
+#define rquic_VERSION_MAJOR @rquic_VERSION_MAJOR@
+#define rquic_VERSION_MINOR @rquic_VERSION_MINOR@
+
+#cmakedefine RQC_ENABLE_BBR2
+#cmakedefine RQC_PROTECT_POOL_MEM
