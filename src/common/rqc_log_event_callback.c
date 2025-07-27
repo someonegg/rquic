@@ -262,10 +262,13 @@ rqc_log_TRA_FRAMES_PROCESSED_callback(rqc_log_t *log, const char *func, ...)
     va_start(args, func);
     rqc_frame_type_t frame_type = va_arg(args, rqc_frame_type_t);
     switch (frame_type) {
-    case RQC_FRAME_PING:
+    case RQC_FRAME_HANDSHAKE: {
+        size_t alpn_len = va_arg(args, size_t);
+        size_t tp_len = va_arg(args, size_t);
         rqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,
-                          "|type:%d|", frame_type);
+                          "|type:%d|alpn_len:%uz|tp_len:%uz|", frame_type, alpn_len, tp_len);
         break;
+    }
 
     case RQC_FRAME_ACK: {
         rqc_ack_info_t *ack_info = va_arg(args, rqc_ack_info_t*);
@@ -391,6 +394,7 @@ rqc_log_TRA_FRAMES_PROCESSED_callback(rqc_log_t *log, const char *func, ...)
     }
 
     /* TODO: add log */
+    case RQC_FRAME_PING:
     case RQC_FRAME_PADDING:
     case RQC_FRAME_PATH_CHALLENGE:
     case RQC_FRAME_PATH_RESPONSE:

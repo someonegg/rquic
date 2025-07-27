@@ -650,7 +650,8 @@ rqc_packet_parse_long_header(rqc_connection_t *c, rqc_packet_in_t *packet_in)
     if (rqc_conn_is_dcid_done(c))
     {
         /* check cid */
-        if (rqc_cid_set_search_cid(&c->scid_set, &(packet->pkt_dcid)) == NULL
+        if ((rqc_cid_is_equal(&c->original_dcid, &packet_in->pi_pkt.pkt_dcid) != RQC_OK &&
+                rqc_cid_set_search_cid(&c->scid_set, &(packet->pkt_dcid)) == NULL)
             || rqc_cid_set_search_cid(&c->dcid_set, &(packet->pkt_scid)) == NULL)
         {
             /* log & ignore packet */
