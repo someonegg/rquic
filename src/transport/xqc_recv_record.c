@@ -225,7 +225,8 @@ xqc_maybe_should_ack(xqc_connection_t *conn, xqc_path_ctx_t *path, xqc_pn_ctl_t 
     uint32_t ack_frequency = xqc_get_ack_frequency(conn, path);
 
     if (send_ctl->ctl_ack_eliciting_pkt >= ack_frequency
-        || (out_of_order && send_ctl->ctl_ack_eliciting_pkt >= 1))
+        || (!xqc_conn_is_established(conn) && send_ctl->ctl_ack_eliciting_pkt > 0)
+        || (out_of_order && send_ctl->ctl_ack_eliciting_pkt > 0))
     {
         path->path_flag |= XQC_PATH_FLAG_SHOULD_ACK;
         conn->ack_flag |= (1 << path->path_id);
