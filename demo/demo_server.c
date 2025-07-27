@@ -11,12 +11,12 @@
 #include <event2/event.h>
 #include <signal.h>
 #include <inttypes.h>
-#include <xquic/xquic_typedef.h>
-#include <xquic/xquic.h>
+#include <rquic/rquic_typedef.h>
+#include <rquic/rquic.h>
 #include <ctype.h>
 #include "platform.h"
 
-#ifndef XQC_SYS_WINDOWS
+#ifndef RQC_SYS_WINDOWS
 #include <unistd.h>
 #include <sys/wait.h>
 #else
@@ -29,9 +29,9 @@
 #endif
 
 #include "common.h"
-#include "xqc_hq.h"
+#include "rqc_hq.h"
 
-#define XQC_PACKET_TMP_BUF_LEN 1500
+#define RQC_PACKET_TMP_BUF_LEN 1500
 #define MAX_BUF_SIZE (100*1024*1024)
 
 /**
@@ -45,7 +45,7 @@
 #define DEFAULT_IP   "127.0.0.1"
 #define DEFAULT_PORT 8443
 
-typedef struct xqc_demo_svr_net_config_s {
+typedef struct rqc_demo_svr_net_config_s {
 
     /* server addr info */
     struct sockaddr addr;
@@ -60,7 +60,7 @@ typedef struct xqc_demo_svr_net_config_s {
 
     /* idle persist timeout */
     int     conn_timeout;
-} xqc_demo_svr_net_config_t;
+} rqc_demo_svr_net_config_t;
 
 /**
  * ============================================================================
@@ -70,12 +70,12 @@ typedef struct xqc_demo_svr_net_config_s {
  * ============================================================================
  */
 
-typedef struct xqc_demo_svr_quic_config_s {
+typedef struct rqc_demo_svr_quic_config_s {
     /* dummy mode */
     int  dummy_mode;
 
     size_t max_pkt_sz;
-} xqc_demo_svr_quic_config_t;
+} rqc_demo_svr_quic_config_t;
 
 /**
  * ============================================================================
@@ -89,30 +89,30 @@ typedef struct xqc_demo_svr_quic_config_s {
 #define SOURCE_DIR  "."
 
 /* environment config */
-typedef struct xqc_demo_svr_env_config_s {
+typedef struct rqc_demo_svr_env_config_s {
     /* log path */
     char    log_path[PATH_LEN];
     int     log_level;
 
     /* source file dir */
     char    source_file_dir[RESOURCE_LEN];
-} xqc_demo_svr_env_config_t;
+} rqc_demo_svr_env_config_t;
 
-typedef struct xqc_demo_svr_args_s {
+typedef struct rqc_demo_svr_args_s {
     /* network args */
-    xqc_demo_svr_net_config_t    net_cfg;
+    rqc_demo_svr_net_config_t    net_cfg;
 
     /* quic args */
-    xqc_demo_svr_quic_config_t   quic_cfg;
+    rqc_demo_svr_quic_config_t   quic_cfg;
 
     /* environment args */
-    xqc_demo_svr_env_config_t    env_cfg;
-} xqc_demo_svr_args_t;
+    rqc_demo_svr_env_config_t    env_cfg;
+} rqc_demo_svr_args_t;
 
-typedef struct xqc_demo_svr_ctx_s {
+typedef struct rqc_demo_svr_ctx_s {
     struct event_base   *eb;
 
-    xqc_engine_t        *engine;
+    rqc_engine_t        *engine;
     struct event        *ev_engine;
 
     /* ipv4 server */
@@ -131,18 +131,18 @@ typedef struct xqc_demo_svr_ctx_s {
 
     int                 log_fd;
 
-    xqc_demo_svr_args_t *args;
-} xqc_demo_svr_ctx_t;
+    rqc_demo_svr_args_t *args;
+} rqc_demo_svr_ctx_t;
 
-typedef struct xqc_demo_svr_user_conn_s {
+typedef struct rqc_demo_svr_user_conn_s {
     struct event           *ev_timeout;
     struct sockaddr_in6     peer_addr;
     socklen_t               peer_addrlen;
-    xqc_cid_t               cid;
-    xqc_demo_svr_ctx_t     *ctx;
-} xqc_demo_svr_user_conn_t;
+    rqc_cid_t               cid;
+    rqc_demo_svr_ctx_t     *ctx;
+} rqc_demo_svr_user_conn_t;
 
-typedef struct xqc_demo_svr_resource_s {
+typedef struct rqc_demo_svr_resource_s {
     FILE       *fp;
     off_t       total_len;      /* total len of file */
     off_t       total_offset;   /* total sent offset of file */
@@ -150,11 +150,11 @@ typedef struct xqc_demo_svr_resource_s {
     int         buf_size;       /* send buf size */
     int         buf_len;        /* send buf len */
     int         buf_offset;     /* send buf offset */
-} xqc_demo_svr_resource_t;
+} rqc_demo_svr_resource_t;
 
 #define REQ_BUF_SIZE        2048
-typedef struct xqc_demo_svr_user_stream_s {
-    xqc_hq_request_t           *hq_request;
+typedef struct rqc_demo_svr_user_stream_s {
+    rqc_hq_request_t           *hq_request;
 
     // uint64_t            send_offset;
     int                         header_sent;
@@ -163,21 +163,21 @@ typedef struct xqc_demo_svr_user_stream_s {
     size_t                      recv_body_len;
     char                       *recv_buf;
 
-    // xqc_demo_svr_user_conn_t         *conn;
-    xqc_demo_svr_resource_t     res;  /* resource info */
-} xqc_demo_svr_user_stream_t;
+    // rqc_demo_svr_user_conn_t         *conn;
+    rqc_demo_svr_resource_t     res;  /* resource info */
+} rqc_demo_svr_user_stream_t;
 
 /* the global unique server context */
-xqc_demo_svr_ctx_t svr_ctx;
+rqc_demo_svr_ctx_t svr_ctx;
 
 /******************************************************************************
  *                   start of engine callback functions                       *
  ******************************************************************************/
 
 void
-xqc_demo_svr_set_event_timer(xqc_msec_t wake_after, void *eng_user_data)
+rqc_demo_svr_set_event_timer(rqc_msec_t wake_after, void *eng_user_data)
 {
-    xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t *)eng_user_data;
+    rqc_demo_svr_ctx_t *ctx = (rqc_demo_svr_ctx_t *)eng_user_data;
 
     struct timeval tv;
     tv.tv_sec = wake_after / 1000000;
@@ -186,7 +186,7 @@ xqc_demo_svr_set_event_timer(xqc_msec_t wake_after, void *eng_user_data)
 }
 
 int
-xqc_demo_svr_accept(xqc_engine_t *engine, xqc_connection_t *conn, const xqc_cid_t *cid,
+rqc_demo_svr_accept(rqc_engine_t *engine, rqc_connection_t *conn, const rqc_cid_t *cid,
     void *eng_user_data)
 {
     DEBUG;
@@ -195,7 +195,7 @@ xqc_demo_svr_accept(xqc_engine_t *engine, xqc_connection_t *conn, const xqc_cid_
 }
 
 int
-xqc_demo_svr_open_log_file(xqc_demo_svr_ctx_t *ctx)
+rqc_demo_svr_open_log_file(rqc_demo_svr_ctx_t *ctx)
 {
     ctx->log_fd = open(ctx->args->env_cfg.log_path, (O_WRONLY | O_APPEND | O_CREAT), 0644);
     if (ctx->log_fd <= 0) {
@@ -205,7 +205,7 @@ xqc_demo_svr_open_log_file(xqc_demo_svr_ctx_t *ctx)
 }
 
 int
-xqc_demo_svr_close_log_file(xqc_demo_svr_ctx_t *ctx)
+rqc_demo_svr_close_log_file(rqc_demo_svr_ctx_t *ctx)
 {
     if (ctx->log_fd <= 0) {
         return -1;
@@ -215,9 +215,9 @@ xqc_demo_svr_close_log_file(xqc_demo_svr_ctx_t *ctx)
 }
 
 void
-xqc_demo_svr_write_log_file(xqc_log_level_t lvl, const void *buf, size_t size, void *eng_user_data)
+rqc_demo_svr_write_log_file(rqc_log_level_t lvl, const void *buf, size_t size, void *eng_user_data)
 {
-    xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t*)eng_user_data;
+    rqc_demo_svr_ctx_t *ctx = (rqc_demo_svr_ctx_t*)eng_user_data;
     if (ctx->log_fd <= 0) {
         return;
     }
@@ -234,9 +234,9 @@ xqc_demo_svr_write_log_file(xqc_log_level_t lvl, const void *buf, size_t size, v
 }
 
 void
-xqc_demo_svr_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_t size, void *eng_user_data)
+rqc_demo_svr_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_t size, void *eng_user_data)
 {
-    xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t*)eng_user_data;
+    rqc_demo_svr_ctx_t *ctx = (rqc_demo_svr_ctx_t*)eng_user_data;
     if (ctx->log_fd <= 0) {
         return;
     }
@@ -257,7 +257,7 @@ xqc_demo_svr_write_qlog_file(qlog_event_importance_t imp, const void *buf, size_
  ******************************************************************************/
 
 void
-xqc_demo_svr_close_user_stream_resource(xqc_demo_svr_user_stream_t * user_stream)
+rqc_demo_svr_close_user_stream_resource(rqc_demo_svr_user_stream_t * user_stream)
 {
     if (user_stream->res.buf) {
         free(user_stream->res.buf);
@@ -276,25 +276,25 @@ xqc_demo_svr_close_user_stream_resource(xqc_demo_svr_user_stream_t * user_stream
  ******************************************************************************/
 
 int
-xqc_demo_svr_hq_conn_create_notify(xqc_hq_conn_t *hqc, const xqc_cid_t *cid, void *conn_user_data)
+rqc_demo_svr_hq_conn_create_notify(rqc_hq_conn_t *hqc, const rqc_cid_t *cid, void *conn_user_data)
 {
     DEBUG;
-    xqc_demo_svr_user_conn_t *user_conn = calloc(1, sizeof(xqc_demo_svr_user_conn_t));
-    xqc_hq_conn_set_user_data(hqc, user_conn);
+    rqc_demo_svr_user_conn_t *user_conn = calloc(1, sizeof(rqc_demo_svr_user_conn_t));
+    rqc_hq_conn_set_user_data(hqc, user_conn);
 
     /* set ctx */
     user_conn->ctx = &svr_ctx;
     memcpy(&user_conn->cid, cid, sizeof(*cid));
 
     /* set addr info */
-    xqc_hq_conn_get_peer_addr(hqc, (struct sockaddr *)&user_conn->peer_addr,
+    rqc_hq_conn_get_peer_addr(hqc, (struct sockaddr *)&user_conn->peer_addr,
                               sizeof(user_conn->peer_addr), &user_conn->peer_addrlen);
 
     return 0;
 }
 
 int
-xqc_demo_svr_hq_conn_close_notify(xqc_hq_conn_t *conn, const xqc_cid_t *cid, void *conn_user_data)
+rqc_demo_svr_hq_conn_close_notify(rqc_hq_conn_t *conn, const rqc_cid_t *cid, void *conn_user_data)
 {
     DEBUG;
 
@@ -302,8 +302,8 @@ xqc_demo_svr_hq_conn_close_notify(xqc_hq_conn_t *conn, const xqc_cid_t *cid, voi
         return 0;
     }
 
-    xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t*)conn_user_data;
-    xqc_conn_stats_t stats = xqc_conn_get_stats(user_conn->ctx->engine, cid);
+    rqc_demo_svr_user_conn_t *user_conn = (rqc_demo_svr_user_conn_t*)conn_user_data;
+    rqc_conn_stats_t stats = rqc_conn_get_stats(user_conn->ctx->engine, cid);
     printf("send_count:%u, lost_count:%u, tlp_count:%u, recv_count:%u, srtt:%"PRIu64" "
             "conn_err:%d, ack_info:%s\n",
             stats.send_count, stats.lost_count, stats.tlp_count, stats.recv_count, stats.srtt,
@@ -315,19 +315,19 @@ xqc_demo_svr_hq_conn_close_notify(xqc_hq_conn_t *conn, const xqc_cid_t *cid, voi
 }
 
 void
-xqc_demo_svr_hq_conn_handshake_finished(xqc_hq_conn_t *conn, void *conn_user_data)
+rqc_demo_svr_hq_conn_handshake_finished(rqc_hq_conn_t *conn, void *conn_user_data)
 {
     DEBUG;
-    // printf("xqc_demo_svr_conn_handshake_finished, user_data: %p, conn: %p\n", conn_user_data, conn);
-    // xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
+    // printf("rqc_demo_svr_conn_handshake_finished, user_data: %p, conn: %p\n", conn_user_data, conn);
+    // rqc_demo_svr_user_conn_t *user_conn = (rqc_demo_svr_user_conn_t *)conn_user_data;
 }
 
 int
-xqc_demo_svr_send_rsp_resource(xqc_demo_svr_user_stream_t *user_stream, char *data, ssize_t len,
+rqc_demo_svr_send_rsp_resource(rqc_demo_svr_user_stream_t *user_stream, char *data, ssize_t len,
     int fin)
 {
-    ssize_t ret = xqc_hq_request_send_rsp(user_stream->hq_request, data, len, fin);
-    if (ret == -XQC_EAGAIN) {
+    ssize_t ret = rqc_hq_request_send_rsp(user_stream->hq_request, data, len, fin);
+    if (ret == -RQC_EAGAIN) {
         ret = 0;
     }
 
@@ -335,13 +335,13 @@ xqc_demo_svr_send_rsp_resource(xqc_demo_svr_user_stream_t *user_stream, char *da
 }
 
 int
-xqc_demo_svr_hq_req_create_notify(xqc_hq_request_t *hqr, void *req_user_data)
+rqc_demo_svr_hq_req_create_notify(rqc_hq_request_t *hqr, void *req_user_data)
 {
     DEBUG;
-    xqc_demo_svr_user_stream_t *user_stream = calloc(1, sizeof(xqc_demo_svr_user_stream_t));
+    rqc_demo_svr_user_stream_t *user_stream = calloc(1, sizeof(rqc_demo_svr_user_stream_t));
     user_stream->hq_request = hqr;
 
-    xqc_hq_request_set_user_data(hqr, user_stream);
+    rqc_hq_request_set_user_data(hqr, user_stream);
 
     user_stream->recv_buf = calloc(1, REQ_BUF_SIZE);
 
@@ -349,10 +349,10 @@ xqc_demo_svr_hq_req_create_notify(xqc_hq_request_t *hqr, void *req_user_data)
 }
 
 int
-xqc_demo_svr_hq_req_close_notify(xqc_hq_request_t *hqr, void *req_user_data)
+rqc_demo_svr_hq_req_close_notify(rqc_hq_request_t *hqr, void *req_user_data)
 {
     DEBUG;
-    xqc_demo_svr_user_stream_t *user_stream = (xqc_demo_svr_user_stream_t*)req_user_data;
+    rqc_demo_svr_user_stream_t *user_stream = (rqc_demo_svr_user_stream_t*)req_user_data;
     free(user_stream);
     return 0;
 }
@@ -362,10 +362,10 @@ xqc_demo_svr_hq_req_close_notify(xqc_hq_request_t *hqr, void *req_user_data)
  * [return] > 0: finish send; 0: not finished
  */
 int
-xqc_demo_svr_hq_send_file(xqc_hq_request_t *hqr, xqc_demo_svr_user_stream_t *user_stream)
+rqc_demo_svr_hq_send_file(rqc_hq_request_t *hqr, rqc_demo_svr_user_stream_t *user_stream)
 {
     int ret = 0;
-    xqc_demo_svr_resource_t *res = &user_stream->res;
+    rqc_demo_svr_resource_t *res = &user_stream->res;
     while (res->total_offset < res->total_len) {   /* still have bytes to be sent */
         char *send_buf = NULL;  /* the buf need to be send */
         int send_len = 0;       /* len of the the buf gonna be sent */
@@ -395,7 +395,7 @@ xqc_demo_svr_hq_send_file(xqc_hq_request_t *hqr, xqc_demo_svr_user_stream_t *use
 
         /* send buf */
         int fin = send_len + res->total_offset == res->total_len ? 1 : 0;
-        ret = xqc_demo_svr_send_rsp_resource(user_stream, send_buf, send_len, fin);
+        ret = rqc_demo_svr_send_rsp_resource(user_stream, send_buf, send_len, fin);
         if (ret > 0) {
             res->buf_offset += ret;
             res->total_offset += ret;
@@ -413,7 +413,7 @@ xqc_demo_svr_hq_send_file(xqc_hq_request_t *hqr, xqc_demo_svr_user_stream_t *use
 }
 
 void
-xqc_demo_svr_handle_hq_request(xqc_demo_svr_user_stream_t *user_stream, xqc_hq_request_t *hqr,
+rqc_demo_svr_handle_hq_request(rqc_demo_svr_user_stream_t *user_stream, rqc_hq_request_t *hqr,
     char *resource, ssize_t len)
 {
     int ret = 0;
@@ -429,7 +429,7 @@ xqc_demo_svr_handle_hq_request(xqc_demo_svr_user_stream_t *user_stream, xqc_hq_r
         }
         /* get total len */
         fseek(user_stream->res.fp, 0, SEEK_END);
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
         user_stream->res.total_len = ftell(user_stream->res.fp);
 #else
         user_stream->res.total_len = ftello(user_stream->res.fp);
@@ -454,31 +454,31 @@ xqc_demo_svr_handle_hq_request(xqc_demo_svr_user_stream_t *user_stream, xqc_hq_r
     user_stream->res.buf_size = READ_FILE_BUF_LEN;
 
     /* begin to send file */
-    ret = xqc_demo_svr_hq_send_file(hqr, user_stream);
+    ret = rqc_demo_svr_hq_send_file(hqr, user_stream);
     if (ret == 0) {
         return;
     }
 
 handle_error:
-    xqc_demo_svr_close_user_stream_resource(user_stream);
+    rqc_demo_svr_close_user_stream_resource(user_stream);
 }
 
 int
-xqc_demo_svr_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
+rqc_demo_svr_hq_req_read_notify(rqc_hq_request_t *hqr, void *req_user_data)
 {
     DEBUG;
     unsigned char fin = 0;
-    xqc_demo_svr_user_stream_t *user_stream = (xqc_demo_svr_user_stream_t *)req_user_data;
+    rqc_demo_svr_user_stream_t *user_stream = (rqc_demo_svr_user_stream_t *)req_user_data;
     ssize_t read;
     do {
         char *buf = user_stream->recv_buf + user_stream->recv_body_len;
         size_t buf_size = REQ_BUF_SIZE - user_stream->recv_body_len;
-        read = xqc_hq_request_recv_req(hqr, buf, buf_size, &fin);
-        if (read == -XQC_EAGAIN) {
+        read = rqc_hq_request_recv_req(hqr, buf, buf_size, &fin);
+        if (read == -RQC_EAGAIN) {
             break;
 
         } else if (read < 0) {
-            printf("xqc_stream_recv error %zd\n", read);
+            printf("rqc_stream_recv error %zd\n", read);
             return 0;
         }
 
@@ -486,7 +486,7 @@ xqc_demo_svr_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
     } while (read > 0 && !fin);
 
     if (fin) {
-        xqc_demo_svr_handle_hq_request(user_stream, hqr, user_stream->recv_buf,
+        rqc_demo_svr_handle_hq_request(user_stream, hqr, user_stream->recv_buf,
             user_stream->recv_body_len);
     }
 
@@ -494,15 +494,15 @@ xqc_demo_svr_hq_req_read_notify(xqc_hq_request_t *hqr, void *req_user_data)
 }
 
 int
-xqc_demo_svr_hq_req_write_notify(xqc_hq_request_t *hqr, void *req_user_data)
+rqc_demo_svr_hq_req_write_notify(rqc_hq_request_t *hqr, void *req_user_data)
 {
     DEBUG;
-    //printf("xqc_demo_svr_hq_req_write_notify user_data: %p\n", user_data);
-    xqc_demo_svr_user_stream_t *user_stream = (xqc_demo_svr_user_stream_t*)req_user_data;
-    int ret = xqc_demo_svr_hq_send_file(hqr, user_stream);
+    //printf("rqc_demo_svr_hq_req_write_notify user_data: %p\n", user_data);
+    rqc_demo_svr_user_stream_t *user_stream = (rqc_demo_svr_user_stream_t*)req_user_data;
+    int ret = rqc_demo_svr_hq_send_file(hqr, user_stream);
     if (ret != 0) {
         /* error or finish, close user_stream */
-        xqc_demo_svr_close_user_stream_resource(user_stream);
+        rqc_demo_svr_close_user_stream_resource(user_stream);
     }
 
     return 0;
@@ -513,12 +513,12 @@ xqc_demo_svr_hq_req_write_notify(xqc_hq_request_t *hqr, void *req_user_data)
  ******************************************************************************/
 
 ssize_t
-xqc_demo_svr_write_socket(const unsigned char *buf, size_t size, const struct sockaddr *peer_addr,
+rqc_demo_svr_write_socket(const unsigned char *buf, size_t size, const struct sockaddr *peer_addr,
     socklen_t peer_addrlen, void *conn_user_data)
 {
     ssize_t res;
 
-    // xqc_demo_svr_user_conn_t *user_conn = (xqc_demo_svr_user_conn_t *)conn_user_data;
+    // rqc_demo_svr_user_conn_t *user_conn = (rqc_demo_svr_user_conn_t *)conn_user_data;
 
     int fd = svr_ctx.current_fd;
 
@@ -526,10 +526,10 @@ xqc_demo_svr_write_socket(const unsigned char *buf, size_t size, const struct so
         set_sys_errno(0);
         res = sendto(fd, buf, size, 0, peer_addr, peer_addrlen);
         if (res < 0) {
-            printf("xqc_demo_svr_write_socket err %zd %s, fd: %d\n",
+            printf("rqc_demo_svr_write_socket err %zd %s, fd: %d\n",
                 res, strerror(get_sys_errno()), fd);
             if (get_sys_errno() == EAGAIN) {
-                res = XQC_SOCKET_EAGAIN;
+                res = RQC_SOCKET_EAGAIN;
             }
         }
     } while ((res < 0) && (get_sys_errno() == EINTR));
@@ -538,20 +538,20 @@ xqc_demo_svr_write_socket(const unsigned char *buf, size_t size, const struct so
 }
 
 void
-xqc_demo_svr_socket_write_handler(xqc_demo_svr_ctx_t *ctx, int fd)
+rqc_demo_svr_socket_write_handler(rqc_demo_svr_ctx_t *ctx, int fd)
 {
     DEBUG
 }
 
 void
-xqc_demo_svr_socket_read_handler(xqc_demo_svr_ctx_t *ctx, int fd)
+rqc_demo_svr_socket_read_handler(rqc_demo_svr_ctx_t *ctx, int fd)
 {
     DEBUG;
     ssize_t recv_sum = 0;
     struct sockaddr_in6 peer_addr;
     socklen_t peer_addrlen = sizeof(peer_addr);
     ssize_t recv_size = 0;
-    unsigned char packet_buf[XQC_PACKET_TMP_BUF_LEN];
+    unsigned char packet_buf[RQC_PACKET_TMP_BUF_LEN];
 
     ctx->current_fd = fd;
 
@@ -568,31 +568,31 @@ xqc_demo_svr_socket_read_handler(xqc_demo_svr_ctx_t *ctx, int fd)
         }
         recv_sum += recv_size;
 
-        uint64_t recv_time = xqc_now();
-        xqc_int_t ret = xqc_engine_packet_process(ctx->engine, packet_buf, recv_size,
+        uint64_t recv_time = rqc_now();
+        rqc_int_t ret = rqc_engine_packet_process(ctx->engine, packet_buf, recv_size,
                                       (struct sockaddr *)(&ctx->local_addr), ctx->local_addrlen,
                                       (struct sockaddr *)(&peer_addr), peer_addrlen,
-                                      (xqc_usec_t)recv_time, ctx);
-        if (ret != XQC_OK) {
+                                      (rqc_usec_t)recv_time, ctx);
+        if (ret != RQC_OK) {
             printf("server_read_handler: packet process err, ret: %d\n", ret);
             return;
         }
     } while (recv_size > 0);
 
     printf("recvfrom size:%zu\n", recv_sum);
-    xqc_engine_finish_recv(ctx->engine);
+    rqc_engine_finish_recv(ctx->engine);
 }
 
 static void
-xqc_demo_svr_socket_event_callback(int fd, short what, void *arg)
+rqc_demo_svr_socket_event_callback(int fd, short what, void *arg)
 {
     //DEBUG;
-    xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t *)arg;
+    rqc_demo_svr_ctx_t *ctx = (rqc_demo_svr_ctx_t *)arg;
     if (what & EV_WRITE) {
-        xqc_demo_svr_socket_write_handler(ctx, fd);
+        rqc_demo_svr_socket_write_handler(ctx, fd);
 
     } else if (what & EV_READ) {
-        xqc_demo_svr_socket_read_handler(ctx, fd);
+        rqc_demo_svr_socket_read_handler(ctx, fd);
 
     } else {
         printf("event callback: fd=%d, what=%d\n", fd, what);
@@ -602,7 +602,7 @@ xqc_demo_svr_socket_event_callback(int fd, short what, void *arg)
 
 /* create socket and bind port */
 static int
-xqc_demo_svr_init_socket(int family, uint16_t port,
+rqc_demo_svr_init_socket(int family, uint16_t port,
         struct sockaddr *local_addr, socklen_t local_addrlen)
 {
     int size;
@@ -614,7 +614,7 @@ xqc_demo_svr_init_socket(int family, uint16_t port,
     }
 
     /* non-block */
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
     int flags = 1;
     if (ioctlsocket(fd, FIONBIO, &flags) == SOCKET_ERROR) {
         goto err;
@@ -659,7 +659,7 @@ err:
 }
 
 static int
-xqc_demo_svr_create_socket(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_net_config_t* cfg)
+rqc_demo_svr_create_socket(rqc_demo_svr_ctx_t *ctx, rqc_demo_svr_net_config_t* cfg)
 {
     /* ipv4 socket */
     memset(&ctx->local_addr, 0, sizeof(ctx->local_addr));
@@ -667,7 +667,7 @@ xqc_demo_svr_create_socket(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_net_config_t* c
     ctx->local_addr.sin_port = htons(cfg->port);
     ctx->local_addr.sin_addr.s_addr = htonl(INADDR_ANY);
     ctx->local_addrlen = sizeof(ctx->local_addr);
-    ctx->fd = xqc_demo_svr_init_socket(AF_INET, cfg->port, (struct sockaddr*)&ctx->local_addr,
+    ctx->fd = rqc_demo_svr_init_socket(AF_INET, cfg->port, (struct sockaddr*)&ctx->local_addr,
         ctx->local_addrlen);
     printf("create ipv4 socket fd: %d\n", ctx->fd);
 
@@ -677,7 +677,7 @@ xqc_demo_svr_create_socket(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_net_config_t* c
     ctx->local_addr6.sin6_port = htons(cfg->port);
     ctx->local_addr6.sin6_addr = in6addr_any;
     ctx->local_addrlen6 = sizeof(ctx->local_addr6);
-    ctx->fd6 = xqc_demo_svr_init_socket(AF_INET6, cfg->port, (struct sockaddr*)&ctx->local_addr6,
+    ctx->fd6 = rqc_demo_svr_init_socket(AF_INET6, cfg->port, (struct sockaddr*)&ctx->local_addr6,
         ctx->local_addrlen6);
     printf("create ipv6 socket fd: %d\n", ctx->fd6);
 
@@ -689,24 +689,24 @@ xqc_demo_svr_create_socket(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_net_config_t* c
 }
 
 static void
-xqc_demo_svr_engine_callback(int fd, short what, void *arg)
+rqc_demo_svr_engine_callback(int fd, short what, void *arg)
 {
-    xqc_demo_svr_ctx_t *ctx = (xqc_demo_svr_ctx_t *) arg;
+    rqc_demo_svr_ctx_t *ctx = (rqc_demo_svr_ctx_t *) arg;
 
-    xqc_engine_main_logic(ctx->engine);
+    rqc_engine_main_logic(ctx->engine);
 }
 
 void
-xqc_demo_svr_init_args(xqc_demo_svr_args_t *args)
+rqc_demo_svr_init_args(rqc_demo_svr_args_t *args)
 {
-    memset(args, 0, sizeof(xqc_demo_svr_args_t));
+    memset(args, 0, sizeof(rqc_demo_svr_args_t));
 
     /* net cfg */
     strncpy(args->net_cfg.ip, DEFAULT_IP, sizeof(args->net_cfg.ip) - 1);
     args->net_cfg.port = DEFAULT_PORT;
 
     /* env cfg */
-    args->env_cfg.log_level = XQC_LOG_DEBUG;
+    args->env_cfg.log_level = RQC_LOG_DEBUG;
     strncpy(args->env_cfg.log_path, LOG_PATH, PATH_LEN - 1);
     strncpy(args->env_cfg.source_file_dir, SOURCE_DIR, RESOURCE_LEN - 1);
 
@@ -714,7 +714,7 @@ xqc_demo_svr_init_args(xqc_demo_svr_args_t *args)
 }
 
 void
-xqc_demo_svr_usage(int argc, char *argv[])
+rqc_demo_svr_usage(int argc, char *argv[])
 {
     char *prog = argv[0];
     char *const slash = strrchr(prog, '/');
@@ -727,7 +727,7 @@ xqc_demo_svr_usage(int argc, char *argv[])
             "Options:\n"
             "   -p    Listen port.\n"
             "   -l    Log level. e:error d:debug.\n"
-            "   -L    xquic log path.\n"
+            "   -L    rquic log path.\n"
             "   -d    do not read responses from files\n"
             "   -D    resource directory\n"
             "   -F    MTU size (default: 1200)\n"
@@ -737,7 +737,7 @@ xqc_demo_svr_usage(int argc, char *argv[])
 }
 
 void
-xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
+rqc_demo_svr_parse_args(int argc, char *argv[], rqc_demo_svr_args_t *args)
 {
     int ch = 0;
     while ((ch = getopt(argc, argv, "p:l:L:dD:F:C6")) != -1) {
@@ -784,28 +784,28 @@ xqc_demo_svr_parse_args(int argc, char *argv[], xqc_demo_svr_args_t *args)
 
         default:
             printf("other option :%c\n", ch);
-            xqc_demo_svr_usage(argc, argv);
+            rqc_demo_svr_usage(argc, argv);
             exit(0);
         }
     }
 }
 
 void
-xqc_demo_svr_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t *transport_cbs,
-    xqc_demo_svr_args_t* args)
+rqc_demo_svr_init_callback(rqc_engine_callback_t *cb, rqc_transport_callbacks_t *transport_cbs,
+    rqc_demo_svr_args_t* args)
 {
-    static xqc_engine_callback_t callback = {
-        .set_event_timer = xqc_demo_svr_set_event_timer,
+    static rqc_engine_callback_t callback = {
+        .set_event_timer = rqc_demo_svr_set_event_timer,
         .log_callbacks = {
-            .xqc_log_write_err = xqc_demo_svr_write_log_file,
-            .xqc_log_write_stat = xqc_demo_svr_write_log_file,
-            .xqc_qlog_event_write = xqc_demo_svr_write_qlog_file
+            .rqc_log_write_err = rqc_demo_svr_write_log_file,
+            .rqc_log_write_stat = rqc_demo_svr_write_log_file,
+            .rqc_qlog_event_write = rqc_demo_svr_write_qlog_file
         },
     };
 
-    static xqc_transport_callbacks_t tcb = {
-        .server_accept = xqc_demo_svr_accept,
-        .write_socket = xqc_demo_svr_write_socket,
+    static rqc_transport_callbacks_t tcb = {
+        .server_accept = rqc_demo_svr_accept,
+        .write_socket = rqc_demo_svr_write_socket,
     };
 
     *cb = callback;
@@ -814,21 +814,21 @@ xqc_demo_svr_init_callback(xqc_engine_callback_t *cb, xqc_transport_callbacks_t 
 
 /* init server ctx */
 void
-xqc_demo_svr_init_ctx(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *args)
+rqc_demo_svr_init_ctx(rqc_demo_svr_ctx_t *ctx, rqc_demo_svr_args_t *args)
 {
-    memset(ctx, 0, sizeof(xqc_demo_svr_ctx_t));
+    memset(ctx, 0, sizeof(rqc_demo_svr_ctx_t));
     ctx->current_fd = -1;
     ctx->args = args;
-    xqc_demo_svr_open_log_file(ctx);
+    rqc_demo_svr_open_log_file(ctx);
 }
 
 void
-xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
+rqc_demo_svr_init_conn_settings(rqc_engine_t *engine, rqc_demo_svr_args_t *args)
 {
     /* init connection settings */
-    xqc_conn_settings_t conn_settings = {
+    rqc_conn_settings_t conn_settings = {
         .pacing_on  =   args->net_cfg.pacing,
-        .cong_ctrl_callback = xqc_bbr_cb,
+        .cong_ctrl_callback = rqc_bbr_cb,
         .cc_params = {
             .customize_on = 1,
             .init_cwnd = 32,
@@ -840,30 +840,30 @@ xqc_demo_svr_init_conn_settings(xqc_engine_t *engine, xqc_demo_svr_args_t *args)
         .adaptive_ack_frequency = 1,
     };
 
-    xqc_server_set_conn_settings(engine, &conn_settings);
+    rqc_server_set_conn_settings(engine, &conn_settings);
 }
 
 int
-xqc_demo_svr_init_alpn_ctx(xqc_demo_svr_ctx_t *ctx)
+rqc_demo_svr_init_alpn_ctx(rqc_demo_svr_ctx_t *ctx)
 {
     int ret = 0;
 
-    xqc_hq_callbacks_t hq_cbs = {
+    rqc_hq_callbacks_t hq_cbs = {
         .hqc_cbs = {
-            .conn_create_notify = xqc_demo_svr_hq_conn_create_notify,
-            .conn_close_notify = xqc_demo_svr_hq_conn_close_notify,
+            .conn_create_notify = rqc_demo_svr_hq_conn_create_notify,
+            .conn_close_notify = rqc_demo_svr_hq_conn_close_notify,
         },
         .hqr_cbs = {
-            .req_create_notify = xqc_demo_svr_hq_req_create_notify,
-            .req_close_notify = xqc_demo_svr_hq_req_close_notify,
-            .req_read_notify = xqc_demo_svr_hq_req_read_notify,
-            .req_write_notify = xqc_demo_svr_hq_req_write_notify,
+            .req_create_notify = rqc_demo_svr_hq_req_create_notify,
+            .req_close_notify = rqc_demo_svr_hq_req_close_notify,
+            .req_read_notify = rqc_demo_svr_hq_req_read_notify,
+            .req_write_notify = rqc_demo_svr_hq_req_write_notify,
         }
     };
 
     /* init hq context */
-    ret = xqc_hq_ctx_init(ctx->engine, &hq_cbs);
-    if (ret != XQC_OK) {
+    ret = rqc_hq_ctx_init(ctx->engine, &hq_cbs);
+    if (ret != RQC_OK) {
         printf("init hq context error, ret: %d\n", ret);
         return ret;
     }
@@ -871,53 +871,53 @@ xqc_demo_svr_init_alpn_ctx(xqc_demo_svr_ctx_t *ctx)
     return ret;
 }
 
-/* init xquic server engine */
+/* init rquic server engine */
 int
-xqc_demo_svr_init_xquic_engine(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *args)
+rqc_demo_svr_init_rquic_engine(rqc_demo_svr_ctx_t *ctx, rqc_demo_svr_args_t *args)
 {
     /* init engine callbacks */
-    xqc_engine_callback_t callback;
-    xqc_transport_callbacks_t transport_cbs;
-    xqc_demo_svr_init_callback(&callback, &transport_cbs, args);
+    rqc_engine_callback_t callback;
+    rqc_transport_callbacks_t transport_cbs;
+    rqc_demo_svr_init_callback(&callback, &transport_cbs, args);
 
     /* init engine config */
-    xqc_config_t config;
-    if (xqc_engine_get_default_config(&config, XQC_ENGINE_SERVER) < 0) {
-        return XQC_ERROR;
+    rqc_config_t config;
+    if (rqc_engine_get_default_config(&config, RQC_ENGINE_SERVER) < 0) {
+        return RQC_ERROR;
     }
 
     config.cid_len = 12;
 
     switch (args->env_cfg.log_level) {
     case 'd':
-        config.cfg_log_level = XQC_LOG_DEBUG;
+        config.cfg_log_level = RQC_LOG_DEBUG;
         break;
     case 'i':
-        config.cfg_log_level = XQC_LOG_INFO;
+        config.cfg_log_level = RQC_LOG_INFO;
         break;
     case 'w':
-        config.cfg_log_level = XQC_LOG_WARN;
+        config.cfg_log_level = RQC_LOG_WARN;
         break;
     case 'e':
-        config.cfg_log_level = XQC_LOG_ERROR;
+        config.cfg_log_level = RQC_LOG_ERROR;
         break;
     default:
-        config.cfg_log_level = XQC_LOG_DEBUG;
+        config.cfg_log_level = RQC_LOG_DEBUG;
         break;
     }
 
     /* create server engine */
-    ctx->engine = xqc_engine_create(XQC_ENGINE_SERVER, &config,
+    ctx->engine = rqc_engine_create(RQC_ENGINE_SERVER, &config,
                                     &callback, &transport_cbs, ctx);
     if (ctx->engine == NULL) {
-        printf("xqc_engine_create error\n");
+        printf("rqc_engine_create error\n");
         return -1;
     }
 
     /* init server connection settings */
-    xqc_demo_svr_init_conn_settings(ctx->engine, args);
+    rqc_demo_svr_init_conn_settings(ctx->engine, args);
 
-    if (xqc_demo_svr_init_alpn_ctx(ctx) < 0) {
+    if (rqc_demo_svr_init_alpn_ctx(ctx) < 0) {
         printf("init alpn ctx error!");
         return -1;
     }
@@ -929,16 +929,16 @@ xqc_demo_svr_init_xquic_engine(xqc_demo_svr_ctx_t *ctx, xqc_demo_svr_args_t *arg
 void stop(int signo)
 {
     event_base_loopbreak(eb);
-    xqc_engine_destroy(ctx.engine);
+    rqc_engine_destroy(ctx.engine);
     fflush(stdout);
     exit(0);
 }
 #endif
 
 void
-xqc_demo_svr_free_ctx(xqc_demo_svr_ctx_t *ctx)
+rqc_demo_svr_free_ctx(rqc_demo_svr_ctx_t *ctx)
 {
-    xqc_demo_svr_close_log_file(ctx);
+    rqc_demo_svr_close_log_file(ctx);
 
     if (ctx->args) {
         free(ctx->args);
@@ -952,7 +952,7 @@ void
 th3_demo_proxy_sig_hndlr(int signo)
 {
     if (signo == SIGTERM) {
-        xqc_demo_svr_ctx_t *ctx = &svr_ctx;
+        rqc_demo_svr_ctx_t *ctx = &svr_ctx;
         event_base_loopbreak(ctx->eb);
     }
 }
@@ -961,49 +961,49 @@ int
 main(int argc, char *argv[])
 {
     /* init env if necessary */
-    xqc_platform_init_env();
+    rqc_platform_init_env();
 
     signal(SIGTERM, th3_demo_proxy_sig_hndlr);
 
     /* get input server args */
-    xqc_demo_svr_args_t *args = calloc(1, sizeof(xqc_demo_svr_args_t));
-    xqc_demo_svr_init_args(args);
-    xqc_demo_svr_parse_args(argc, argv, args);
+    rqc_demo_svr_args_t *args = calloc(1, sizeof(rqc_demo_svr_args_t));
+    rqc_demo_svr_init_args(args);
+    rqc_demo_svr_parse_args(argc, argv, args);
 
     /* init server ctx */
-    xqc_demo_svr_ctx_t *ctx = &svr_ctx;
-    xqc_demo_svr_init_ctx(ctx, args);
+    rqc_demo_svr_ctx_t *ctx = &svr_ctx;
+    rqc_demo_svr_init_ctx(ctx, args);
 
     /* engine event */
     struct event_base *eb = event_base_new();
-    ctx->ev_engine = event_new(eb, -1, 0, xqc_demo_svr_engine_callback, ctx);
+    ctx->ev_engine = event_new(eb, -1, 0, rqc_demo_svr_engine_callback, ctx);
     ctx->eb = eb;
 
-    if (xqc_demo_svr_init_xquic_engine(ctx, args) < 0) {
+    if (rqc_demo_svr_init_rquic_engine(ctx, args) < 0) {
         return -1;
     }
 
     /* init socket */
-    int ret = xqc_demo_svr_create_socket(ctx, &args->net_cfg);
+    int ret = rqc_demo_svr_create_socket(ctx, &args->net_cfg);
     if (ret < 0) {
-        printf("xqc_create_socket error\n");
+        printf("rqc_create_socket error\n");
         return 0;
     }
 
     /* socket event */
     ctx->ev_socket = event_new(eb, ctx->fd, EV_READ | EV_PERSIST,
-        xqc_demo_svr_socket_event_callback, ctx);
+        rqc_demo_svr_socket_event_callback, ctx);
     event_add(ctx->ev_socket, NULL);
 
     /* socket event */
     ctx->ev_socket6 = event_new(eb, ctx->fd6, EV_READ | EV_PERSIST,
-        xqc_demo_svr_socket_event_callback, ctx);
+        rqc_demo_svr_socket_event_callback, ctx);
     event_add(ctx->ev_socket6, NULL);
 
     event_base_dispatch(eb);
 
-    xqc_engine_destroy(ctx->engine);
-    // xqc_demo_svr_free_ctx(ctx);
+    rqc_engine_destroy(ctx->engine);
+    // rqc_demo_svr_free_ctx(ctx);
 
     return 0;
 }

@@ -5,9 +5,9 @@ endif()
 
 set(
     HQ_SOURCES
-    "xqc_hq_ctx.c"
-    "xqc_hq_conn.c"
-    "xqc_hq_request.c"
+    "rqc_hq_ctx.c"
+    "rqc_hq_conn.c"
+    "rqc_hq_request.c"
 )
 
 set(
@@ -49,13 +49,13 @@ include_directories(
 # link libraries
 if(CMAKE_SYSTEM_NAME MATCHES "Windows")
     set(APP_DEPEND_LIBS
-        xquic
+        rquic
         ${LIBEVENT_LIBRARY}
         -lm
     )
 else()
     set(APP_DEPEND_LIBS
-        xquic
+        rquic
         ${LIBEVENT_LIBRARY}
         m
         dl

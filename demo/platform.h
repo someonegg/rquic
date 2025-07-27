@@ -6,10 +6,10 @@
 #define PLATFORM_H
 
 #if defined(_WIN64) || defined(WIN64) || defined(_WIN32) || defined(WIN32)
-#define XQC_SYS_WINDOWS
+#define RQC_SYS_WINDOWS
 #endif
 
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
 # define EAGAIN  WSAEWOULDBLOCK
 # define EINTR WSAEINTR
 #endif
@@ -22,7 +22,7 @@
 static inline int get_sys_errno()
 {
     int err = 0;
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
     err = WSAGetLastError();
 #else
     err = errno;
@@ -32,7 +32,7 @@ static inline int get_sys_errno()
 
 static inline void set_sys_errno(int err)
 {
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
     WSASetLastError(err);
 #else
     errno = err;
@@ -43,9 +43,9 @@ static inline void set_sys_errno(int err)
  * @brief init platform env if necessary
  *
  */
-static inline void xqc_platform_init_env()
+static inline void rqc_platform_init_env()
 {
-#ifdef XQC_SYS_WINDOWS
+#ifdef RQC_SYS_WINDOWS
     int result = 0;
     // Initialize Winsock
     WSADATA wsaData;
