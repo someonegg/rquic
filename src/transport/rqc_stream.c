@@ -899,42 +899,6 @@ rqc_passive_create_stream(rqc_connection_t *conn, rqc_stream_id_t stream_id, voi
     return stream;
 }
 
-rqc_int_t
-rqc_stream_update_settings(rqc_stream_t *stream,
-    rqc_stream_settings_t *settings)
-{
-    rqc_connection_t *conn = NULL;
-    rqc_usec_t max_srtt = 0;
-    uint64_t new_offset = 0;
-
-    if (stream && settings
-        && settings->stream_priority)
-    {
-        stream->stream_priority = settings->stream_priority;
-    }
-
-    if (stream && settings
-        && settings->recv_rate_bytes_per_sec)
-    {
-        conn = stream->stream_conn;
-        if (conn->conn_settings.enable_stream_rate_limit) {
-            stream->recv_rate_bytes_per_sec = settings->recv_rate_bytes_per_sec;
-            max_srtt = rqc_conn_get_max_srtt(conn);
-            stream->stream_flow_ctl.fc_stream_recv_window_size = stream->recv_rate_bytes_per_sec * max_srtt / 1000000;
-            stream->stream_flow_ctl.fc_stream_recv_window_size = rqc_max(conn->conn_settings.init_recv_window, stream->stream_flow_ctl.fc_stream_recv_window_size);
-            stream->stream_flow_ctl.fc_stream_recv_window_size = rqc_min(RQC_MAX_RECV_WINDOW, stream->stream_flow_ctl.fc_stream_recv_window_size);
-            new_offset = stream->stream_data_in.next_read_offset + stream->stream_flow_ctl.fc_stream_recv_window_size;
-
-            if(new_offset > stream->stream_flow_ctl.fc_max_stream_data_can_recv) {
-                stream->stream_flow_ctl.fc_max_stream_data_can_recv = new_offset;
-                rqc_write_max_stream_data_to_packet(conn, stream->stream_id, stream->stream_flow_ctl.fc_max_stream_data_can_recv, RQC_PTYPE_NUM);
-            }
-        }
-    }
-
-    return RQC_OK;
-}
-
 ssize_t
 rqc_stream_recv(rqc_stream_t *stream, unsigned char *recv_buf, size_t recv_buf_size, uint8_t *fin)
 {

@@ -2724,10 +2724,12 @@ rqc_conn_process_handshake(rqc_connection_t *conn,
     if (conn->conn_type == RQC_CONN_TYPE_CLIENT) {
         if (conn->conn_state != RQC_CONN_STATE_CLIENT_HANDSHAKE ||
             rqc_conn_is_handshake_recvd(conn)) {
+            rqc_log(conn->log, RQC_LOG_INFO, "|rqc_conn_process_handshake ignore dups|");
             return RQC_OK;
         }
     } else if (conn->conn_type == RQC_CONN_TYPE_SERVER) {
         if (conn->conn_state != RQC_CONN_STATE_SERVER_INIT) {
+            rqc_log(conn->log, RQC_LOG_INFO, "|rqc_conn_process_handshake ignore dups|");
             return RQC_OK;
         }
     }

@@ -928,8 +928,6 @@ rqc_write_handshake_frame_to_packet(rqc_connection_t *conn,
 
     packet_out->po_used_size += ret;
 
-    rqc_send_queue_move_to_high_pri(&packet_out->po_list, conn->conn_send_queue);
-
     return RQC_OK;
 
 error:

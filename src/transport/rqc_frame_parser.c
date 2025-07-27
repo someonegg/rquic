@@ -1376,6 +1376,6 @@ rqc_parse_handshake_frame(rqc_packet_in_t *packet_in, rqc_connection_t *conn,
     packet_in->pos = p;
     packet_in->pi_frame_types |= RQC_FRAME_BIT_HANDSHAKE;
 
-    rqc_log_event(conn->log, TRA_FRAMES_PROCESSED, RQC_FRAME_BIT_HANDSHAKE, *alpn_len, *tp_len);
+    rqc_log_event(conn->log, TRA_FRAMES_PROCESSED, RQC_FRAME_HANDSHAKE, *alpn_len, *tp_len);
     return RQC_OK;
 }
