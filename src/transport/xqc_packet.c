@@ -51,9 +51,9 @@ xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         return -XQC_EILLPKT;
     }
 
-    // TODOXXXX
     if (XQC_PACKET_IS_SHORT_HEADER(pos)) {
-        if (!xqc_conn_is_handshake_done(c)) {
+        if ((c->conn_type == XQC_CONN_TYPE_CLIENT && !xqc_conn_is_handshake_done(c)) ||
+            (c->conn_type == XQC_CONN_TYPE_SERVER && !xqc_conn_is_handshake_sent(c))) {
             xqc_log(c->log, XQC_LOG_INFO,
                     "|1RTT packet before handshake done|");
             return -XQC_EIGNORE_PKT;
@@ -67,12 +67,6 @@ xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
         }
 
     } else if (XQC_PACKET_IS_LONG_HEADER(pos)) {
-        if (XQC_UNLIKELY(xqc_conn_is_established(c))) {
-            xqc_log(c->log, XQC_LOG_INFO, "|initial packet should be discarded"
-                    "|curr_stat:%d|", c->conn_state);
-            return -XQC_EIGNORE_PKT;
-        }
-
         ret = xqc_packet_parse_long_header(c, packet_in);
         if (XQC_OK != ret) {
             xqc_log(c->log, XQC_LOG_ERROR,
@@ -90,13 +84,13 @@ xqc_packet_parse_single(xqc_connection_t *c, xqc_packet_in_t *packet_in)
 }
 
 xqc_int_t
-xqc_packet_process_single(xqc_connection_t *c,
+xqc_packet_process_single(xqc_connection_t *conn,
     xqc_packet_in_t *packet_in)
 {
     xqc_int_t ret = XQC_ERROR;
 
     /* parse packet */
-    ret = xqc_packet_parse_single(c, packet_in);
+    ret = xqc_packet_parse_single(conn, packet_in);
     if (XQC_OK != ret) {
         return ret;
     }
@@ -107,9 +101,9 @@ xqc_packet_process_single(xqc_connection_t *c,
     }
 
     /* process frames */
-    ret = xqc_process_frames(c, packet_in);
+    ret = xqc_process_frames(conn, packet_in);
     if (ret != XQC_OK) {
-        xqc_log(c->log, XQC_LOG_ERROR, "|xqc_process_frames error|%d|", ret);
+        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_process_frames error|%d|", ret);
         return ret;
     }
 

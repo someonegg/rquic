@@ -86,4 +86,10 @@ ssize_t xqc_gen_path_response_frame(xqc_packet_out_t *packet_out, unsigned char 
 
 xqc_int_t xqc_parse_path_response_frame(xqc_packet_in_t *packet_in, unsigned char *data);
 
+ssize_t xqc_gen_handshake_frame(xqc_packet_out_t *packet_out, const unsigned char *alpn, size_t alpn_len, uint8_t *tp, size_t tp_len);
+
+xqc_int_t xqc_parse_handshake_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn,
+    unsigned char *alpn, size_t alpn_cap, size_t *alpn_len,
+    unsigned char *tp, size_t tp_cap, size_t *tp_len);
+
 #endif /*_XQC_FRAME_PARSER_H_INCLUDED_*/

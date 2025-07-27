@@ -37,7 +37,7 @@ xqc_config_t default_client_config = {
     .support_version_count     = 1,
     .support_version_list[0]   = XQC_VERSION_V1_VALUE,
     .cid_len                   = XQC_DEFAULT_CID_LEN,
-    .cid_negotiate             = 0,
+    .cid_negotiate             = 1,
     .sendmmsg_on               = 0,
     .manually_triggered_send   = 0,
 };

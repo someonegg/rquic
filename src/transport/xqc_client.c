@@ -106,11 +106,6 @@ xqc_client_create_connection(xqc_engine_t *engine,
     const char *server_host, const char *alpn,
     void *user_data)
 {
-    // TODOXXXX
-    // xqc_int_t               ret;
-    // xqc_transport_params_t  tp;
-    // xqc_trans_settings_t   *local_settings;
-
     xqc_connection_t *xc = xqc_conn_create(engine, &dcid, &scid, settings, user_data,
                                            XQC_CONN_TYPE_CLIENT);
     if (xc == NULL) {
@@ -121,6 +116,10 @@ xqc_client_create_connection(xqc_engine_t *engine,
     xqc_cid_copy(&(xc->original_dcid), &(xc->dcid_set.current_dcid));
 
     if (xqc_conn_client_on_alpn(xc, alpn, strlen(alpn)) != XQC_OK) {
+        goto fail;
+    }
+
+    if (xqc_conn_send_handshake(xc) != XQC_OK) {
         goto fail;
     }
 

@@ -71,12 +71,6 @@ xqc_int_t xqc_encode_transport_params(const xqc_transport_params_t *params,
 xqc_int_t xqc_decode_transport_params(xqc_transport_params_t *params,
     const uint8_t *in, size_t in_len);
 
-xqc_int_t xqc_read_transport_params(char *tp_data, size_t tp_data_len,
-    xqc_transport_params_t *params);
-
-ssize_t xqc_write_transport_params(char *tp_buf, size_t cap,
-    const xqc_transport_params_t *params);
-
 void xqc_init_transport_params(xqc_transport_params_t *params);
 
 #endif /* XQC_TRANSPORT_PARAMS_H_ */

@@ -11,6 +11,7 @@ typedef enum {
     XQC_FRAME_PADDING,
     XQC_FRAME_PING,
     XQC_FRAME_ACK,
+    XQC_FRAME_HANDSHAKE,
     XQC_FRAME_RESET_STREAM,
     XQC_FRAME_STOP_SENDING,
     XQC_FRAME_STREAM,
@@ -31,6 +32,7 @@ typedef enum {
     XQC_FRAME_BIT_PADDING               = 1ULL << XQC_FRAME_PADDING,
     XQC_FRAME_BIT_PING                  = 1ULL << XQC_FRAME_PING,
     XQC_FRAME_BIT_ACK                   = 1ULL << XQC_FRAME_ACK,
+    XQC_FRAME_BIT_HANDSHAKE             = 1ULL << XQC_FRAME_HANDSHAKE,
     XQC_FRAME_BIT_RESET_STREAM          = 1ULL << XQC_FRAME_RESET_STREAM,
     XQC_FRAME_BIT_STOP_SENDING          = 1ULL << XQC_FRAME_STOP_SENDING,
     XQC_FRAME_BIT_STREAM                = 1ULL << XQC_FRAME_STREAM,
@@ -112,5 +114,7 @@ xqc_int_t xqc_process_max_streams_frame(xqc_connection_t *conn, xqc_packet_in_t 
 xqc_int_t xqc_process_path_challenge_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 xqc_int_t xqc_process_path_response_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
+
+xqc_int_t xqc_process_handshake_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in);
 
 #endif /* _XQC_FRAME_H_INCLUDED_ */

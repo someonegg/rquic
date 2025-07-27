@@ -21,6 +21,7 @@ static const char * const frame_type_2_str[XQC_FRAME_NUM] = {
     [XQC_FRAME_PADDING]              = "PADDING",
     [XQC_FRAME_PING]                 = "PING",
     [XQC_FRAME_ACK]                  = "ACK",
+    [XQC_FRAME_HANDSHAKE]            = "HANDSHAKE",
     [XQC_FRAME_RESET_STREAM]         = "RESET_STREAM",
     [XQC_FRAME_STOP_SENDING]         = "STOP_SENDING",
     [XQC_FRAME_STREAM]               = "STREAM",
@@ -187,6 +188,9 @@ xqc_process_frames(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
             break;
         case 0x05:
             ret = xqc_process_stop_sending_frame(conn, packet_in);
+            break;
+        case 0x06:
+            ret = xqc_process_handshake_frame(conn, packet_in);
             break;
         case 0x08:
         case 0x09:
@@ -941,6 +945,31 @@ xqc_process_path_response_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_
         path->rebinding_addrlen = 0;
         path->rebinding_check_response = 0;
         xqc_timer_unset(&path->path_send_ctl->path_timer_manager, XQC_TIMER_NAT_REBINDING);
+    }
+
+    return XQC_OK;
+}
+
+xqc_int_t
+xqc_process_handshake_frame(xqc_connection_t *conn, xqc_packet_in_t *packet_in)
+{
+    xqc_int_t ret;
+    unsigned char alpn[XQC_MAX_ALPN_BUF_LEN];
+    size_t alpn_len;
+    unsigned char tp[XQC_MAX_TRANSPORT_PARAM_BUF_LEN];
+    size_t tp_len;
+
+    ret = xqc_parse_handshake_frame(packet_in, conn, alpn, sizeof(alpn)-1, &alpn_len, tp, sizeof(tp), &tp_len);
+    if (ret != XQC_OK) {
+        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_parse_handshake_frame error|%d|", ret);
+        return ret;
+    }
+
+    ret = xqc_conn_process_handshake(conn, alpn, alpn_len, tp, tp_len);
+    if (ret != XQC_OK) {
+        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_conn_process_handshake error|%d|state:%s|flag:%s|", ret,
+            xqc_conn_state_2_str(conn->conn_state), xqc_conn_flag_2_str(conn, conn->conn_flag));
+        return ret;
     }
 
     return XQC_OK;
