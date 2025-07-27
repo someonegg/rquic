@@ -1278,3 +1278,104 @@ xqc_parse_path_response_frame(xqc_packet_in_t *packet_in, unsigned char *data)
 
     return XQC_OK;
 }
+
+/*
+ * HANDSHAKE Frame {
+ *    Type (i) = 0x06,
+ *    ALPN Len  (i),
+ *    ALPN Data (*),
+ *    TP   Len  (i),
+ *    TP   Data (*),
+ * }
+ *
+ */
+
+ssize_t
+xqc_gen_handshake_frame(xqc_packet_out_t *packet_out, const unsigned char *alpn, size_t alpn_len, uint8_t *tp, size_t tp_len)
+{
+    unsigned char *dst_buf = packet_out->po_buf + packet_out->po_used_size;
+    size_t dst_buf_len = xqc_get_po_remained_size(packet_out);
+
+    unsigned char alpn_len_bits = xqc_vint_get_2bit(alpn_len);
+    unsigned alpn_len_vlen = xqc_vint_len(alpn_len_bits);
+    unsigned char tp_len_bits = xqc_vint_get_2bit(tp_len);
+    unsigned tp_len_vlen = xqc_vint_len(tp_len_bits);
+
+    ssize_t need = 1 + alpn_len_vlen + alpn_len + tp_len_vlen + tp_len;
+    if (need > dst_buf_len) {
+        return -XQC_ENOBUF;
+    }
+
+    *dst_buf++ = 0x06;
+
+    /* ALPN Len  (i) */
+    xqc_vint_write(dst_buf, alpn_len, alpn_len_bits, alpn_len_vlen);
+    dst_buf += alpn_len_vlen;
+
+    /* ALPN Data (*) */
+    xqc_memcpy(dst_buf, alpn, alpn_len);
+    dst_buf += alpn_len;
+
+    /* TP   Len  (i) */
+    xqc_vint_write(dst_buf, tp_len, tp_len_bits, tp_len_vlen);
+    dst_buf += tp_len_vlen;
+
+    /* TP   Data (*) */
+    xqc_memcpy(dst_buf, tp, tp_len);
+    dst_buf += tp_len;
+
+    packet_out->po_frame_types |= XQC_FRAME_BIT_HANDSHAKE;
+
+    return need;
+}
+
+xqc_int_t
+xqc_parse_handshake_frame(xqc_packet_in_t *packet_in, xqc_connection_t *conn,
+    unsigned char *alpn, size_t alpn_cap, size_t *alpn_len,
+    unsigned char *tp, size_t tp_cap, size_t *tp_len)
+{
+    unsigned char *p = packet_in->pos;
+    const unsigned char *end = packet_in->last;
+    p++;
+
+    int vlen;
+    uint64_t length;
+
+    /* ALPN */
+    vlen = xqc_vint_read(p, end, &length);
+    if (vlen < 0) {
+        return -XQC_EVINTREAD;
+    }
+    p += vlen;
+    if (p + length > end) {
+        return -XQC_EILLFRAME;
+    }
+    if (alpn_cap < length) {
+        return XQC_ENOBUF;
+    }
+    xqc_memcpy(alpn, p, length);
+    *alpn_len = length;
+    p += length;
+
+    /* TP */
+    vlen = xqc_vint_read(p, end, &length);
+    if (vlen < 0) {
+        return -XQC_EVINTREAD;
+    }
+    p += vlen;
+    if (p + length > end) {
+        return -XQC_EILLFRAME;
+    }
+    if (tp_cap < length) {
+        return XQC_ENOBUF;
+    }
+    xqc_memcpy(tp, p, length);
+    *tp_len = length;
+    p += length;
+
+    packet_in->pos = p;
+    packet_in->pi_frame_types |= XQC_FRAME_BIT_HANDSHAKE;
+
+    xqc_log_event(conn->log, TRA_FRAMES_PROCESSED, XQC_FRAME_BIT_HANDSHAKE, *alpn_len, *tp_len);
+    return XQC_OK;
+}

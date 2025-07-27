@@ -153,6 +153,9 @@ xqc_int_t xqc_write_path_challenge_frame_to_packet(xqc_connection_t *conn, xqc_p
 xqc_int_t xqc_write_path_response_frame_to_packet(xqc_connection_t *conn, xqc_path_ctx_t *path,
     unsigned char *path_response_data);
 
+xqc_int_t xqc_write_handshake_frame_to_packet(xqc_connection_t *conn,
+    const unsigned char *alpn, size_t alpn_len, uint8_t *tp, size_t tp_len);
+
 /**
  * @brief Get remained space size in packet out buff.
  *

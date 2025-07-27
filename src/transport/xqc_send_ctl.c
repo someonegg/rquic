@@ -506,9 +506,9 @@ xqc_send_ctl_on_packet_sent(xqc_send_ctl_t *send_ctl, xqc_pn_ctl_t *pn_ctl, xqc_
         }
     }
 
-    /* TODOXXXX if (packet_out->po_frame_types & XQC_FRAME_BIT_HANDSHAKE_DONE) {
-        send_ctl->ctl_conn->conn_flag |= XQC_CONN_FLAG_HANDSHAKE_DONE_SENT;
-    }*/
+    if (packet_out->po_frame_types & XQC_FRAME_BIT_HANDSHAKE) {
+        send_ctl->ctl_conn->conn_flag |= XQC_CONN_FLAG_HANDSHAKE_SENT;
+    }
 
     send_ctl->ctl_conn->conn_last_send_time = now;
 
@@ -1035,9 +1035,9 @@ xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl,
     xqc_connection_t *conn = send_ctl->ctl_conn;
     xqc_bool_t notify_ping;
 
-    /* TODOXXXX if ((conn->conn_type == XQC_CONN_TYPE_SERVER) && (acked_packet->po_frame_types & XQC_FRAME_BIT_HANDSHAKE_DONE)) {
-        conn->conn_flag |= XQC_CONN_FLAG_HANDSHAKE_DONE_ACKED;
-    } */
+    if (acked_packet->po_frame_types & XQC_FRAME_BIT_HANDSHAKE) {
+        xqc_conn_on_handshake_acked(conn);
+    }
 
     xqc_conn_decrease_unacked_stream_ref(send_ctl->ctl_conn, packet_out);
 
@@ -1048,10 +1048,6 @@ xqc_send_ctl_on_packet_acked(xqc_send_ctl_t *send_ctl,
         if (packet_out->po_frame_types & XQC_FRAME_BIT_RESET_STREAM) {
             xqc_send_ctl_on_reset_stream_acked(send_ctl, packet_out);
         }
-
-        /* TODOXXXX if (packet_out->po_frame_types & XQC_FRAME_BIT_CRYPTO && packet_out->po_pkt.pkt_pns == XQC_PNS_HSK) {
-            conn->conn_flag |= XQC_CONN_FLAG_HSK_ACKED;
-        } */
 
         if (packet_out->po_frame_types & XQC_FRAME_BIT_PING) {
             if (conn->app_proto_cbs.conn_cbs.conn_ping_acked

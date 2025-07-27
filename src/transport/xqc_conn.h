@@ -329,12 +329,12 @@ xqc_conn_get_mss(xqc_connection_t *conn) {
 }
 
 static inline void *
-xqc_conn_get_user_data(xqc_connection_t *c)
+xqc_conn_get_user_data(xqc_connection_t *conn)
 {
-    if (NULL == c) {
+    if (NULL == conn) {
         return NULL;
     }
-    return c->user_data;
+    return conn->user_data;
 }
 
 /* get idle timeout in milliseconds */
@@ -391,8 +391,8 @@ xqc_connection_t *xqc_conn_server_create(xqc_engine_t *engine, const struct sock
 xqc_int_t xqc_conn_immediate_close(xqc_connection_t *conn);
 void xqc_conn_destroy(xqc_connection_t *xc);
 
-xqc_int_t xqc_conn_version_check(xqc_connection_t *c, uint32_t version);
-xqc_int_t xqc_conn_send_version_negotiation(xqc_connection_t *c);
+xqc_int_t xqc_conn_version_check(xqc_connection_t *conn, uint32_t version);
+xqc_int_t xqc_conn_send_version_negotiation(xqc_connection_t *conn);
 
 xqc_int_t xqc_conn_client_on_alpn(xqc_connection_t *conn, const unsigned char *alpn, size_t alpn_len);
 xqc_int_t xqc_conn_server_on_alpn(xqc_connection_t *conn, const unsigned char *alpn, size_t alpn_len);
@@ -404,7 +404,7 @@ xqc_usec_t xqc_conn_next_wakeup_time(xqc_connection_t *conn);
 void xqc_conn_timer_expire(xqc_connection_t *conn, xqc_usec_t now);
 
 /* process an UDP datagram */
-xqc_int_t xqc_conn_process_packet(xqc_connection_t *c, const unsigned char *packet_in_buf,
+xqc_int_t xqc_conn_process_packet(xqc_connection_t *conn, const unsigned char *packet_in_buf,
     size_t packet_in_size, xqc_usec_t recv_time);
 
 void xqc_conn_process_packet_recved_path(xqc_connection_t *conn, xqc_cid_t *scid,
@@ -449,5 +449,11 @@ void xqc_path_send_one_or_two_ack_elicit_pkts(xqc_path_ctx_t *path);
 xqc_int_t xqc_conn_send_ping_internal(xqc_connection_t *conn, void *ping_user_data, xqc_bool_t notify);
 xqc_ping_record_t* xqc_conn_create_ping_record(xqc_connection_t *conn);
 void xqc_conn_destroy_ping_record(xqc_ping_record_t *pr);
+
+xqc_int_t xqc_conn_send_handshake(xqc_connection_t *conn);
+xqc_int_t xqc_conn_process_handshake(xqc_connection_t *conn,
+    const unsigned char *alpn, size_t alpn_len,
+    const unsigned char *tp, size_t tp_len);
+void xqc_conn_on_handshake_acked(xqc_connection_t *conn);
 
 #endif /* _XQC_CONN_H_INCLUDED_ */

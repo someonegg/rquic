@@ -908,6 +908,35 @@ error:
     return ret;
 }
 
+xqc_int_t
+xqc_write_handshake_frame_to_packet(xqc_connection_t *conn,
+    const unsigned char *alpn, size_t alpn_len, uint8_t *tp, size_t tp_len)
+{
+    xqc_int_t ret = XQC_ERROR;
+
+    xqc_packet_out_t *packet_out = xqc_write_new_packet(conn, XQC_PTYPE_INIT);
+    if (packet_out == NULL) {
+        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_write_new_packet error|");
+        return -XQC_EWRITE_PKT;
+    }
+
+    ret = xqc_gen_handshake_frame(packet_out, alpn, alpn_len, tp, tp_len);
+    if (ret < 0) {
+        xqc_log(conn->log, XQC_LOG_ERROR, "|xqc_gen_handshake_frame error|%d|", ret);
+        goto error;
+    }
+
+    packet_out->po_used_size += ret;
+
+    xqc_send_queue_move_to_high_pri(&packet_out->po_list, conn->conn_send_queue);
+
+    return XQC_OK;
+
+error:
+    xqc_maybe_recycle_packet_out(packet_out, conn);
+    return ret;
+}
+
 size_t
 xqc_get_po_remained_size(xqc_packet_out_t *po)
 {
