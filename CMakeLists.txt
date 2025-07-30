@@ -5,7 +5,10 @@ project (rquic)
 
 set (rquic_VERSION_MAJOR 0)
 set (rquic_VERSION_MINOR 1)
-set (CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+
+include(CMakePackageConfigHelpers)
+include(CheckCCompilerFlag)
+include(GNUInstallDirs)
 
 option (RQC_ENABLE_BBR2 "enable bbr2" OFF)
 option (RQC_PROTECT_POOL_MEM "enable write protection for pool memory (for debug)" OFF)
@@ -16,31 +19,20 @@ if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
 endif()
 
-if(NOT (CMAKE_C_COMPILER_ID MATCHES "MSVC" OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC"))
-    set(CMAKE_C_FLAGS_OPTION "-Werror -Wno-unused -Wno-pointer-sign")
-endif()
-
-# C_FLAGS
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=gnu11 -Wall ${CMAKE_C_FLAGS_OPTION} -DNDEBUG_PRINT -DNPRINT_MALLOC")
-set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS} -g -O0 -std=gnu11 -Wall ${CMAKE_C_FLAGS_OPTION} -DNDEBUG_PRINT -DNPRINT_MALLOC -DRQC_DEBUG")
-
-if(ASAN)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer")
-endif()
-
-if(CMAKE_SYSTEM_NAME MATCHES "Windows")
-    add_definitions(-DRQC_SYS_WINDOWS=1)
-    set(CMAKE_C_FLAGS_OPTION " ")
+if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+    add_definitions(-DRQC_DEBUG)
+else()
+    add_definitions(-DRQC_RELEASE)
 endif()
 
 # print only error log
 if(RQC_ONLY_ERROR_LOG)
-    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -DRQC_ONLY_ERROR_LOG")
+    add_definitions(-DRQC_ONLY_ERROR_LOG)
 endif()
 
 # enable event log
 if(RQC_ENABLE_EVENT_LOG)
-    set(CMAKE_C_FLAGS   "${CMAKE_C_FLAGS} -DRQC_ENABLE_EVENT_LOG")
+    add_definitions(-DRQC_ENABLE_EVENT_LOG)
 endif()
 
 # sendmmsg
@@ -48,19 +40,34 @@ if(RQC_SUPPORT_SENDMMSG_BUILD)
     add_definitions(-DRQC_SUPPORT_SENDMMSG)
 endif()
 
+if(NOT (CMAKE_C_COMPILER_ID MATCHES "MSVC" OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC"))
+    set(CMAKE_C_FLAGS_OPTION "-Werror -Wno-unused -Wno-pointer-sign")
+endif()
+
+if (IOS)
+    set(CMAKE_C_FLAGS_OPTION "${CMAKE_C_FLAGS_OPTION} -Wno-shorten-64-to-32")
+endif ()
+
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=gnu11 -Wall ${CMAKE_C_FLAGS_OPTION}")
+
+if(ASAN)
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer")
+endif()
+
 # coverity
 if(GCOV STREQUAL "on")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
+endif()
+
+if(CMAKE_SYSTEM_NAME MATCHES "Windows")
+    add_definitions(-DRQC_SYS_WINDOWS=1)
+    set(CMAKE_C_FLAGS_OPTION " ")
 endif()
 
 # configure file
 configure_file (
     "${CMAKE_CURRENT_SOURCE_DIR}/rqc_configure.h.in"
     "${CMAKE_CURRENT_SOURCE_DIR}/include/rquic/rqc_configure.h"
-)
-
-include_directories(include
-    ${CMAKE_CURRENT_SOURCE_DIR}
 )
 
 # common source
@@ -132,7 +139,42 @@ add_library(
     ${RQC_SOURCE}
 )
 
+target_include_directories(rquic
+    PUBLIC
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
+    PRIVATE
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
+)
+
 # testing
 if(RQC_ENABLE_TESTING)
     add_subdirectory(demo)
 endif(RQC_ENABLE_TESTING)
+
+#install
+
+install(TARGETS rquic EXPORT rquicTargets)
+
+install(
+    DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
+    DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}
+)
+
+install(
+    EXPORT rquicTargets
+    NAMESPACE rquic::
+    FILE rquicTargets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rquic
+)
+
+configure_package_config_file(
+    ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
+    "${CMAKE_CURRENT_BINARY_DIR}/rquicConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rquic
+)
+
+install(
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/rquicConfig.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rquic
+)

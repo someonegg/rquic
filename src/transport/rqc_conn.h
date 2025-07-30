@@ -30,13 +30,6 @@
 
 static const uint32_t MAX_RSP_CONN_CLOSE_CNT = 3;
 
-/* for debugging, will be deleted later */
-#ifdef DEBUG_PRINT
-#define RQC_DEBUG_PRINT printf("%s:%d (%s)\n", __FILE__, __LINE__, __FUNCTION__);
-#else
-#define RQC_DEBUG_PRINT
-#endif
-
 #define RQC_CONN_CLOSE_MSG(conn, msg) do {          \
     if ((conn)->conn_close_msg == NULL) {           \
         (conn)->conn_close_msg = (msg);             \
