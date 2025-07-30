@@ -163,7 +163,7 @@ install(
 
 install(
     EXPORT rquicTargets
-    NAMESPACE rquic::
+    NAMESPACE RQUIC::
     FILE rquicTargets.cmake
     DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rquic
 )
