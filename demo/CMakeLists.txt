@@ -1,3 +1,4 @@
+set (CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
 find_package(LibEvent)
 if(NOT LIBEVENT_FOUND)
     message(FATAL_ERROR "libevent with required version not found")
