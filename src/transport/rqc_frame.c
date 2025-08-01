@@ -972,5 +972,7 @@ rqc_process_handshake_frame(rqc_connection_t *conn, rqc_packet_in_t *packet_in)
         return ret;
     }
 
+    rqc_log(conn->log, RQC_LOG_INFO, "|rqc_conn_process_handshake ok|state:%s|flag:%s|",
+        rqc_conn_state_2_str(conn->conn_state), rqc_conn_flag_2_str(conn, conn->conn_flag));
     return RQC_OK;
 }
