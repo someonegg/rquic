@@ -59,10 +59,14 @@ if(GCOV STREQUAL "on")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif()
 
-if(CMAKE_SYSTEM_NAME MATCHES "Windows")
+if(WIN32)
     add_definitions(-DRQC_SYS_WINDOWS=1)
     set(CMAKE_C_FLAGS_OPTION " ")
 endif()
+
+if (MSVC)
+    add_compile_options("/source-charset:utf-8")
+endif ()
 
 # configure file
 configure_file (
