@@ -93,7 +93,7 @@ static const float rqc_bbr_rtt_compensation_cwnd_factor = 1;
 static void rqc_bbr_enter_probe_bw(rqc_bbr_t *bbr, rqc_sample_t *sampler);
 
 size_t
-rqc_bbr_size()
+rqc_bbr_size(void)
 {
     return sizeof(rqc_bbr_t);
 }
