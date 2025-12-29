@@ -103,7 +103,7 @@ static void rqc_bbr2_save_cwnd(rqc_bbr2_t *bbr2);
 static bool rqc_bbr2_is_probing_bandwidth(rqc_bbr2_t *bbr2);
 
 size_t
-rqc_bbr2_size()
+rqc_bbr2_size(void)
 {
     return sizeof(rqc_bbr2_t);
 }

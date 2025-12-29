@@ -98,7 +98,7 @@ static inline void
 rqc_free_wrap_default(void *opaque, void *ptr)
 {
     (void)opaque;
-    return rqc_free(ptr);
+    rqc_free(ptr);
 }
 
 static rqc_allocator_t rqc_default_allocator = {

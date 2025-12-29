@@ -40,33 +40,26 @@ if(RQC_SUPPORT_SENDMMSG_BUILD)
     add_definitions(-DRQC_SUPPORT_SENDMMSG)
 endif()
 
-if(NOT (CMAKE_C_COMPILER_ID MATCHES "MSVC" OR CMAKE_CXX_COMPILER_ID MATCHES "MSVC"))
-    set(CMAKE_C_FLAGS_OPTION "-Werror -Wno-unused -Wno-pointer-sign")
+if(MSVC)
+    set(CMAKE_C_FLAGS_OPTION "/W1")
+    add_compile_options("/source-charset:utf-8")
+else()
+    set(CMAKE_C_FLAGS_OPTION "-Wall -Werror -Wno-unused -Wno-pointer-sign")
+    if(IOS)
+        set(CMAKE_C_FLAGS_OPTION "${CMAKE_C_FLAGS_OPTION} -Wno-shorten-64-to-32")
+    endif()
 endif()
 
-if (IOS)
-    set(CMAKE_C_FLAGS_OPTION "${CMAKE_C_FLAGS_OPTION} -Wno-shorten-64-to-32")
-endif ()
-
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=gnu11 -Wall ${CMAKE_C_FLAGS_OPTION}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=gnu11 ${CMAKE_C_FLAGS_OPTION}")
 
 if(ASAN)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -w -fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer")
+    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer")
 endif()
 
 # coverity
 if(GCOV STREQUAL "on")
     set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
 endif()
-
-if(WIN32)
-    add_definitions(-DRQC_SYS_WINDOWS=1)
-    set(CMAKE_C_FLAGS_OPTION " ")
-endif()
-
-if (MSVC)
-    add_compile_options("/source-charset:utf-8")
-endif ()
 
 # configure file
 configure_file (
