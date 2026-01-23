@@ -1528,6 +1528,7 @@ void
 rqc_demo_cli_init_ctx(rqc_demo_cli_ctx_t *pctx, rqc_demo_cli_client_args_t *args)
 {
     strncpy(pctx->log_path, args->env_cfg.log_path, sizeof(pctx->log_path) - 1);
+    pctx->log_path[sizeof(pctx->log_path) - 1] = '\0';
     pctx->args = args;
     rqc_demo_cli_open_log_file(pctx);
 }

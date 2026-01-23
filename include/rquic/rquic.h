@@ -11,7 +11,7 @@
 #include "rqc_configure.h"
 #include "rquic_typedef.h"
 
-#if defined(RQC_SYS_WINDOWS) && !defined(RQC_ON_MINGW)
+#if defined(RQC_SYS_WINDOWS)
 #include <winsock2.h>
 #include <ws2tcpip.h>
 #else

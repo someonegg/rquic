@@ -50,6 +50,11 @@ else()
     endif()
 endif()
 
+if (WIN32)
+    add_definitions(-DWIN32_LEAN_AND_MEAN)
+    add_definitions(-D_WIN32_WINNT=0x0600)
+endif ()
+
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=gnu11 ${CMAKE_C_FLAGS_OPTION}")
 
 if(ASAN)
@@ -151,7 +156,7 @@ endif(RQC_ENABLE_TESTING)
 
 #install
 
-install(TARGETS rquic EXPORT rquicTargets)
+install(TARGETS rquic EXPORT RQUICTargets)
 
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
@@ -159,19 +164,19 @@ install(
 )
 
 install(
-    EXPORT rquicTargets
+    EXPORT RQUICTargets
     NAMESPACE RQUIC::
-    FILE rquicTargets.cmake
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rquic
+    FILE RQUICTargets.cmake
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/RQUIC
 )
 
 configure_package_config_file(
     ${CMAKE_CURRENT_SOURCE_DIR}/cmake/Config.cmake.in
-    "${CMAKE_CURRENT_BINARY_DIR}/rquicConfig.cmake"
-    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rquic
+    "${CMAKE_CURRENT_BINARY_DIR}/RQUICConfig.cmake"
+    INSTALL_DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/RQUIC
 )
 
 install(
-    FILES "${CMAKE_CURRENT_BINARY_DIR}/rquicConfig.cmake"
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/rquic
+    FILES "${CMAKE_CURRENT_BINARY_DIR}/RQUICConfig.cmake"
+    DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/RQUIC
 )
