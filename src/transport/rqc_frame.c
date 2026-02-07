@@ -958,14 +958,18 @@ rqc_process_handshake_frame(rqc_connection_t *conn, rqc_packet_in_t *packet_in)
     size_t alpn_len;
     unsigned char tp[RQC_MAX_TRANSPORT_PARAM_BUF_LEN];
     size_t tp_len;
+    unsigned char proto_ext[RQC_MAX_PROTO_EXT_LEN];
+    size_t proto_ext_len;
 
-    ret = rqc_parse_handshake_frame(packet_in, conn, alpn, sizeof(alpn)-1, &alpn_len, tp, sizeof(tp), &tp_len);
+    ret = rqc_parse_handshake_frame(packet_in, conn, alpn, sizeof(alpn)-1, &alpn_len,
+                                    tp, sizeof(tp), &tp_len,
+                                    proto_ext, sizeof(proto_ext), &proto_ext_len);
     if (ret != RQC_OK) {
         rqc_log(conn->log, RQC_LOG_ERROR, "|rqc_parse_handshake_frame error|%d|", ret);
         return ret;
     }
 
-    ret = rqc_conn_process_handshake(conn, alpn, alpn_len, tp, tp_len);
+    ret = rqc_conn_process_handshake(conn, alpn, alpn_len, tp, tp_len, proto_ext, proto_ext_len);
     if (ret != RQC_OK) {
         rqc_log(conn->log, RQC_LOG_ERROR, "|rqc_conn_process_handshake error|%d|state:%s|flag:%s|", ret,
             rqc_conn_state_2_str(conn->conn_state), rqc_conn_flag_2_str(conn, conn->conn_flag));

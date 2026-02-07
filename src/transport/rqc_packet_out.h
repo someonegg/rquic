@@ -154,7 +154,8 @@ rqc_int_t rqc_write_path_response_frame_to_packet(rqc_connection_t *conn, rqc_pa
     unsigned char *path_response_data);
 
 rqc_int_t rqc_write_handshake_frame_to_packet(rqc_connection_t *conn,
-    const unsigned char *alpn, size_t alpn_len, uint8_t *tp, size_t tp_len);
+    const unsigned char *alpn, size_t alpn_len, const uint8_t *tp, size_t tp_len,
+    const uint8_t *proto_ext, size_t proto_ext_len);
 
 /**
  * @brief Get remained space size in packet out buff.

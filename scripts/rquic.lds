@@ -32,6 +32,8 @@ RQUIC_VERS_1.0 {
         rqc_conn_continue_send_by_conn;
         rqc_conn_continue_send;
         rqc_conn_set_alp_user_data;
+        rqc_conn_get_peer_proto_ext;
+        rqc_conn_get_self_proto_ext;
         rqc_conn_send_ping;
         rqc_stream_create;
         rqc_stream_set_user_data;

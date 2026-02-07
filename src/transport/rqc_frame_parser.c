@@ -1286,12 +1286,15 @@ rqc_parse_path_response_frame(rqc_packet_in_t *packet_in, unsigned char *data)
  *    ALPN Data (*),
  *    TP   Len  (i),
  *    TP   Data (*),
+ *    ProtoExt Len (i),
+ *    ProtoExt Data (*),
  * }
  *
  */
 
 ssize_t
-rqc_gen_handshake_frame(rqc_packet_out_t *packet_out, const unsigned char *alpn, size_t alpn_len, uint8_t *tp, size_t tp_len)
+rqc_gen_handshake_frame(rqc_packet_out_t *packet_out, const unsigned char *alpn, size_t alpn_len,
+    const uint8_t *tp, size_t tp_len, const uint8_t *proto_ext, size_t proto_ext_len)
 {
     unsigned char *dst_buf = packet_out->po_buf + packet_out->po_used_size;
     size_t dst_buf_len = rqc_get_po_remained_size(packet_out);
@@ -1300,8 +1303,11 @@ rqc_gen_handshake_frame(rqc_packet_out_t *packet_out, const unsigned char *alpn,
     unsigned alpn_len_vlen = rqc_vint_len(alpn_len_bits);
     unsigned char tp_len_bits = rqc_vint_get_2bit(tp_len);
     unsigned tp_len_vlen = rqc_vint_len(tp_len_bits);
+    unsigned char proto_ext_len_bits = rqc_vint_get_2bit(proto_ext_len);
+    unsigned proto_ext_len_vlen = rqc_vint_len(proto_ext_len_bits);
 
-    ssize_t need = 1 + alpn_len_vlen + alpn_len + tp_len_vlen + tp_len;
+    ssize_t need = 1 + alpn_len_vlen + alpn_len + tp_len_vlen + tp_len
+        + proto_ext_len_vlen + proto_ext_len;
     if (need > dst_buf_len) {
         return -RQC_ENOBUF;
     }
@@ -1324,6 +1330,16 @@ rqc_gen_handshake_frame(rqc_packet_out_t *packet_out, const unsigned char *alpn,
     rqc_memcpy(dst_buf, tp, tp_len);
     dst_buf += tp_len;
 
+    /* ProtoExt Len (i) */
+    rqc_vint_write(dst_buf, proto_ext_len, proto_ext_len_bits, proto_ext_len_vlen);
+    dst_buf += proto_ext_len_vlen;
+
+    /* ProtoExt Data (*) */
+    if (proto_ext_len > 0) {
+        rqc_memcpy(dst_buf, proto_ext, proto_ext_len);
+        dst_buf += proto_ext_len;
+    }
+
     packet_out->po_frame_types |= RQC_FRAME_BIT_HANDSHAKE;
 
     return need;
@@ -1332,7 +1348,8 @@ rqc_gen_handshake_frame(rqc_packet_out_t *packet_out, const unsigned char *alpn,
 rqc_int_t
 rqc_parse_handshake_frame(rqc_packet_in_t *packet_in, rqc_connection_t *conn,
     unsigned char *alpn, size_t alpn_cap, size_t *alpn_len,
-    unsigned char *tp, size_t tp_cap, size_t *tp_len)
+    unsigned char *tp, size_t tp_cap, size_t *tp_len,
+    unsigned char *proto_ext, size_t proto_ext_cap, size_t *proto_ext_len)
 {
     unsigned char *p = packet_in->pos;
     const unsigned char *end = packet_in->last;
@@ -1371,6 +1388,22 @@ rqc_parse_handshake_frame(rqc_packet_in_t *packet_in, rqc_connection_t *conn,
     }
     rqc_memcpy(tp, p, length);
     *tp_len = length;
+    p += length;
+
+    /* ProtoExt */
+    vlen = rqc_vint_read(p, end, &length);
+    if (vlen < 0) {
+        return -RQC_EVINTREAD;
+    }
+    p += vlen;
+    if (p + length > end) {
+        return -RQC_EILLFRAME;
+    }
+    if (proto_ext_cap < length) {
+        return RQC_ENOBUF;
+    }
+    rqc_memcpy(proto_ext, p, length);
+    *proto_ext_len = length;
     p += length;
 
     packet_in->pos = p;
