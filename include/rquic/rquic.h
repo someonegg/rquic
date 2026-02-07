@@ -178,14 +178,23 @@ typedef rqc_int_t (*rqc_conn_closing_notify_pt)(rqc_connection_t *conn,
     const rqc_cid_t *cid, rqc_int_t err_code, void *conn_user_data);
 
 /**
- * @brief general callback function definition for connection create and close
+ * @brief callback function definition for connection create
  *
  * @param conn_user_data the user_data which will be used in callback functions
  * between rquic transport connection and application
  * @param conn_proto_data the user_data which will be used in callback functions
  * between rquic transport connection and application-layer-protocol
+ * @param proto_ext the protocol extension sent by peer in handshake
+ * @param resp_proto_ext output protocol extension to send in handshake response (server only)
  */
 typedef int (*rqc_conn_notify_pt)(rqc_connection_t *conn, const rqc_cid_t *cid,
+    void *conn_user_data, void *conn_proto_data,
+    const rqc_proto_ext_t *proto_ext, rqc_proto_ext_t *resp_proto_ext);
+
+/**
+ * @brief callback function definition for connection close
+ */
+typedef int (*rqc_conn_close_notify_pt)(rqc_connection_t *conn, const rqc_cid_t *cid,
     void *conn_user_data, void *conn_proto_data);
 
 /**
@@ -379,7 +388,7 @@ typedef struct rqc_conn_callbacks_s {
      * this function will be invoked after QUIC connection is closed. user can free application
      * level context created in conn_create_notify callback function
      */
-    rqc_conn_notify_pt                  conn_close_notify;
+    rqc_conn_close_notify_pt            conn_close_notify;
 
     /**
      * handshake complete callback. OPTIONAL for client and server
@@ -955,6 +964,7 @@ rqc_connection_t *rqc_engine_get_conn_by_scid(rqc_engine_t *engine,
  * @param conn_settings settings of connection
  * @param server_host server domain
  * @param alpn Application-Layer-Protocol, MUST NOT be NULL
+ * @param proto_ext protocol extension sent in handshake, can be NULL
  * @param peer_addr address of peer
  * @param peer_addrlen length of peer_addr
  * @param user_data application data, for connection usage
@@ -963,7 +973,7 @@ rqc_connection_t *rqc_engine_get_conn_by_scid(rqc_engine_t *engine,
 RQC_EXPORT_PUBLIC_API
 const rqc_cid_t *rqc_connect(rqc_engine_t *engine,
     const rqc_conn_settings_t *conn_settings,
-    const char *server_host, const char *alpn,
+    const char *server_host, const char *alpn, const rqc_proto_ext_t *proto_ext,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen,
     void *user_data);
 
@@ -1005,6 +1015,12 @@ void rqc_conn_set_transport_user_data(rqc_connection_t *conn, void *user_data);
  */
 RQC_EXPORT_PUBLIC_API
 void rqc_conn_set_alp_user_data(rqc_connection_t *conn, void *proto_data);
+
+RQC_EXPORT_PUBLIC_API
+const rqc_proto_ext_t *rqc_conn_get_peer_proto_ext(rqc_connection_t *conn);
+
+RQC_EXPORT_PUBLIC_API
+const rqc_proto_ext_t *rqc_conn_get_self_proto_ext(rqc_connection_t *conn);
 
 /**
  * Server should get peer addr when conn_create_notify callbacks

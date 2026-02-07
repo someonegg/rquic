@@ -58,6 +58,7 @@ rqc_hq_connect(rqc_engine_t *engine,
     /* HQ is also known as HTTP/0.9, here it is used as interop protocol */
     const rqc_cid_t *cid = rqc_connect(engine, conn_settings,
         server_host, rqc_hq_alpn[conn_settings->proto_version],
+        NULL,
         peer_addr, peer_addrlen, user_data);
 
     return cid;
@@ -84,8 +85,11 @@ rqc_hq_conn_get_peer_addr(rqc_hq_conn_t *hqc, struct sockaddr *addr, socklen_t a
 
 rqc_int_t
 rqc_hq_conn_create_notify(rqc_connection_t *conn, const rqc_cid_t *cid,
-    void *conn_user_data, void *conn_proto_data)
+    void *conn_user_data, void *conn_proto_data,
+    const rqc_proto_ext_t *proto_ext, rqc_proto_ext_t *resp_proto_ext)
 {
+    (void)proto_ext;
+    (void)resp_proto_ext;
     /* here conn_user_data is the app-layer user_data */
     rqc_hq_conn_t *hqc = rqc_hq_conn_create(conn, cid, conn_user_data);
     if (NULL == hqc) {

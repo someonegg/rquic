@@ -86,10 +86,12 @@ ssize_t rqc_gen_path_response_frame(rqc_packet_out_t *packet_out, unsigned char 
 
 rqc_int_t rqc_parse_path_response_frame(rqc_packet_in_t *packet_in, unsigned char *data);
 
-ssize_t rqc_gen_handshake_frame(rqc_packet_out_t *packet_out, const unsigned char *alpn, size_t alpn_len, uint8_t *tp, size_t tp_len);
+ssize_t rqc_gen_handshake_frame(rqc_packet_out_t *packet_out, const unsigned char *alpn, size_t alpn_len,
+    const uint8_t *tp, size_t tp_len, const uint8_t *proto_ext, size_t proto_ext_len);
 
 rqc_int_t rqc_parse_handshake_frame(rqc_packet_in_t *packet_in, rqc_connection_t *conn,
     unsigned char *alpn, size_t alpn_cap, size_t *alpn_len,
-    unsigned char *tp, size_t tp_cap, size_t *tp_len);
+    unsigned char *tp, size_t tp_cap, size_t *tp_len,
+    unsigned char *proto_ext, size_t proto_ext_cap, size_t *proto_ext_len);
 
 #endif /*_RQC_FRAME_PARSER_H_INCLUDED_*/

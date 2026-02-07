@@ -15,7 +15,7 @@
 rqc_connection_t *
 rqc_client_connect(rqc_engine_t *engine,
     const rqc_conn_settings_t *conn_settings,
-    const char *server_host, const char *alpn,
+    const char *server_host, const char *alpn, const rqc_proto_ext_t *proto_ext,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen,
     void *user_data)
 {
@@ -31,7 +31,7 @@ rqc_client_connect(rqc_engine_t *engine,
     }
 
     rqc_connection_t *xc = rqc_client_create_connection(engine, dcid, scid, conn_settings,
-                                                        server_host, alpn, user_data);
+                                                        server_host, alpn, proto_ext, user_data);
     if (xc == NULL) {
         rqc_log(engine->log, RQC_LOG_ERROR,
                 "|create connection error|");
@@ -51,7 +51,8 @@ rqc_client_connect(rqc_engine_t *engine,
 
     /* conn_create callback */
     if (xc->app_proto_cbs.conn_cbs.conn_create_notify) {
-        if (xc->app_proto_cbs.conn_cbs.conn_create_notify(xc, &xc->scid_set.user_scid, user_data, NULL)) {
+        if (xc->app_proto_cbs.conn_cbs.conn_create_notify(xc, &xc->scid_set.user_scid,
+                user_data, NULL, NULL, NULL)) {
             rqc_log(engine->log, RQC_LOG_INFO, "|destroy conn as create_notify return failure|conn:%p|%s",
                     xc, rqc_conn_addr_str(xc));
             rqc_conn_destroy(xc);
@@ -79,7 +80,7 @@ rqc_client_connect(rqc_engine_t *engine,
 
 const rqc_cid_t *rqc_connect(rqc_engine_t *engine,
     const rqc_conn_settings_t *conn_settings,
-    const char *server_host, const char *alpn,
+    const char *server_host, const char *alpn, const rqc_proto_ext_t *proto_ext,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen,
     void *user_data)
 {
@@ -89,8 +90,14 @@ const rqc_cid_t *rqc_connect(rqc_engine_t *engine,
         return NULL;
     }
 
+    if (proto_ext && (proto_ext->len > RQC_MAX_PROTO_EXT_LEN
+        || (proto_ext->len > 0 && proto_ext->data == NULL)))
+    {
+        return NULL;
+    }
+
     conn = rqc_client_connect(engine, conn_settings, server_host, alpn,
-                              peer_addr, peer_addrlen, user_data);
+                              proto_ext, peer_addr, peer_addrlen, user_data);
     if (conn) {
         return &conn->scid_set.user_scid;
     }
@@ -103,7 +110,7 @@ rqc_connection_t *
 rqc_client_create_connection(rqc_engine_t *engine,
     rqc_cid_t dcid, rqc_cid_t scid,
     const rqc_conn_settings_t *settings,
-    const char *server_host, const char *alpn,
+    const char *server_host, const char *alpn, const rqc_proto_ext_t *proto_ext,
     void *user_data)
 {
     rqc_connection_t *xc = rqc_conn_create(engine, &dcid, &scid, settings, user_data,
@@ -117,6 +124,11 @@ rqc_client_create_connection(rqc_engine_t *engine,
 
     if (rqc_conn_client_on_alpn(xc, alpn, strlen(alpn)) != RQC_OK) {
         goto fail;
+    }
+
+    if (proto_ext && proto_ext->len > 0) {
+        rqc_memcpy(xc->self_proto_ext_buf, proto_ext->data, proto_ext->len);
+        xc->self_proto_ext.len = proto_ext->len;
     }
 
     if (rqc_conn_send_handshake(xc) != RQC_OK) {

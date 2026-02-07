@@ -18,7 +18,7 @@
 #define RQC_DEFAULT_MAX_UDP_PAYLOAD_SIZE        1500
 
 /* max buffer length of encoded transport parameter */
-#define RQC_MAX_TRANSPORT_PARAM_BUF_LEN         512
+#define RQC_MAX_TRANSPORT_PARAM_BUF_LEN         256
 
 /**
  * @brief definition of transport parameter types

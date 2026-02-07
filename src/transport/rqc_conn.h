@@ -201,6 +201,10 @@ struct rqc_connection_s {
     /* callback function and user_data to application-layer-protocol layer */
     char                           *alpn;
     size_t                          alpn_len;
+    uint8_t                         self_proto_ext_buf[RQC_MAX_PROTO_EXT_LEN];
+    rqc_proto_ext_t                 self_proto_ext;
+    uint8_t                         peer_proto_ext_buf[RQC_MAX_PROTO_EXT_LEN];
+    rqc_proto_ext_t                 peer_proto_ext;
     rqc_app_proto_callbacks_t       app_proto_cbs;
     void                           *proto_data;
 
@@ -446,7 +450,8 @@ void rqc_conn_destroy_ping_record(rqc_ping_record_t *pr);
 rqc_int_t rqc_conn_send_handshake(rqc_connection_t *conn);
 rqc_int_t rqc_conn_process_handshake(rqc_connection_t *conn,
     const unsigned char *alpn, size_t alpn_len,
-    const unsigned char *tp, size_t tp_len);
+    const unsigned char *tp, size_t tp_len,
+    const unsigned char *proto_ext, size_t proto_ext_len);
 void rqc_conn_on_handshake_acked(rqc_connection_t *conn);
 
 #endif /* _RQC_CONN_H_INCLUDED_ */
