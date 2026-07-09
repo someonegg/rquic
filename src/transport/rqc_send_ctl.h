@@ -168,8 +168,13 @@ typedef struct rqc_send_ctl_s {
 static inline rqc_usec_t
 rqc_send_ctl_calc_pto(rqc_send_ctl_t *send_ctl)
 {
+    /*
+     * Per RFC 9002 6.2.1, PTO must use the peer-reported max_ack_delay.
+     * PNS-specific Initial/Handshake handling is done in
+     * rqc_send_ctl_get_pto_time.
+     */
     return send_ctl->ctl_srtt + rqc_max(4 * send_ctl->ctl_rttvar, RQC_kGranularity * 1000)
-        + send_ctl->ctl_conn->local_settings.max_ack_delay * 1000;
+        + send_ctl->ctl_conn->remote_settings.max_ack_delay * 1000;
 }
 
 int rqc_send_ctl_indirectly_ack_or_drop_po(rqc_connection_t *conn, rqc_packet_out_t *po);

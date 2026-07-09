@@ -37,7 +37,7 @@ const uint32_t rqc_bbr_minrtt_win_size = 10;
 /* Minimum time spent in BBR_PROBE_RTT, in us*/
 const uint32_t rqc_bbr_probertt_time_us = 100000;
 /* Initial rtt before any samples are received, in ms  */
-const uint64_t rqc_bbr_initial_rtt_ms = 100;
+/* const uint64_t rqc_bbr_initial_rtt_ms = 100; */
 /* The gain of pacing rate for START_UP, 2/(ln2) */
 const float rqc_bbr_high_gain = 2.885;
 /* Gain in BBR_DRAIN */

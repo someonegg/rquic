@@ -764,8 +764,17 @@ rqc_send_ctl_update_rtt(rqc_send_ctl_t *send_ctl, rqc_usec_t *latest_rtt, rqc_us
     } else {
         send_ctl->ctl_minrtt = rqc_min(*latest_rtt, send_ctl->ctl_minrtt);
 
+        /*
+         * RFC 9002 5.3: ack_delay must be clamped by max_ack_delay before
+         * being subtracted from latest_rtt. Before handshake completion, the
+         * peer is required to use the default max_ack_delay.
+         */
         if (rqc_conn_is_handshake_done(send_ctl->ctl_conn)) {
-            ack_delay = rqc_min(ack_delay, send_ctl->ctl_conn->remote_settings.max_ack_delay * 1000);
+            ack_delay = rqc_min(ack_delay,
+                                send_ctl->ctl_conn->remote_settings.max_ack_delay * 1000);
+
+        } else {
+            ack_delay = rqc_min(ack_delay, RQC_DEFAULT_MAX_ACK_DELAY * 1000);
         }
 
         /* Adjust for ack delay if it's plausible. */
@@ -943,6 +952,21 @@ rqc_send_ctl_detect_lost(rqc_send_ctl_t *send_ctl, rqc_send_queue_t *send_queue,
         {
             /* For loss-based CCs, it means we are gonna slow start again. */
             send_ctl->ctl_max_bytes_in_flight = 0;
+
+            /*
+             * RFC 9002 5.2: reset the RTT estimator after persistent
+             * congestion so the next RTT sample re-seeds the path estimate.
+             */
+            rqc_log(conn->log, RQC_LOG_DEBUG,
+                    "|OnLostDetection|persistent_congestion|reset_rtt"
+                    "|old_srtt:%ui|old_rttvar:%ui|old_minrtt:%ui|",
+                    send_ctl->ctl_srtt, send_ctl->ctl_rttvar,
+                    send_ctl->ctl_minrtt);
+            send_ctl->ctl_minrtt = RQC_MAX_UINT32_VALUE;
+            send_ctl->ctl_srtt = send_ctl->ctl_conn->conn_settings.initial_rtt;
+            send_ctl->ctl_rttvar = send_ctl->ctl_srtt / 2;
+            send_ctl->ctl_first_rtt_sample_time = 0;
+
             /* we reset BBR's cwnd here */
             send_ctl->ctl_cong_callback->rqc_cong_ctl_reset_cwnd(send_ctl->ctl_cong);
         }

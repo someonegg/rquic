@@ -199,6 +199,7 @@ rqc_parse_stream_frame(rqc_packet_in_t *packet_in, rqc_connection_t *conn,
 {
     uint64_t offset;
     uint64_t length;
+    uint64_t max_stream_data_offset = ((uint64_t)1 << 62) - 1;
     int      vlen;
 
     const unsigned char *p = packet_in->pos;
@@ -239,6 +240,16 @@ rqc_parse_stream_frame(rqc_packet_in_t *packet_in, rqc_connection_t *conn,
 
     } else {
         frame->data_length = end - p;
+        length = frame->data_length;
+    }
+
+    /* RFC 9000 19.8: offset + length MUST NOT exceed 2^62 - 1. */
+    if (length > max_stream_data_offset - frame->data_offset) {
+        rqc_log(conn->log, RQC_LOG_ERROR,
+                "|stream offset+length exceeds 2^62-1|offset:%ui|length:%ui|",
+                frame->data_offset, length);
+        RQC_CONN_ERR(conn, TRA_FRAME_ENCODING_ERROR);
+        return -RQC_EILLFRAME;
     }
 
     if (first_byte & 0x01) {
@@ -554,6 +565,29 @@ rqc_parse_ack_frame(rqc_packet_in_t *packet_in, rqc_connection_t *conn, rqc_ack_
     }
 
     ack_info->n_ranges = n_ranges;
+
+    if (frame_type == 0x03) {
+        uint64_t ecn_count;
+
+        vlen = rqc_vint_read(p, end, &ecn_count);
+        if (vlen < 0) {
+            return -RQC_EVINTREAD;
+        }
+        p += vlen;
+
+        vlen = rqc_vint_read(p, end, &ecn_count);
+        if (vlen < 0) {
+            return -RQC_EVINTREAD;
+        }
+        p += vlen;
+
+        vlen = rqc_vint_read(p, end, &ecn_count);
+        if (vlen < 0) {
+            return -RQC_EVINTREAD;
+        }
+        p += vlen;
+    }
+
     packet_in->pos = p;
     packet_in->pi_frame_types |= RQC_FRAME_BIT_ACK;
 
