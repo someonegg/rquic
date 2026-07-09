@@ -61,8 +61,10 @@ rqc_log_CON_CONNECTION_CLOSED_callback(rqc_log_t *log, const char *func, rqc_con
                 rqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[idx], conn->conn_create_time) / 1000,
                 rqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[(idx + 1) % 3], conn->conn_create_time) / 1000,
                 rqc_calc_delay(path->path_send_ctl->ctl_recent_cwnd_limitation_time[(idx + 2) % 3], conn->conn_create_time) / 1000);
-            if (p != last) {
+            if (p < last) {
                 *p = '\0';
+            } else {
+                *(last - 1) = '\0';
             }
         }
         rqc_qlog_implement(log, CON_CONNECTION_CLOSED, func,
@@ -112,8 +114,10 @@ rqc_log_TRA_VERSION_INFORMATION_callback(rqc_log_t *log, const char *func, uint3
         p = rqc_sprintf(p, last, " %d", remote_version[i]);
     }
 
-    if (p != last) {
+    if (p < last) {
         *p = '\0';
+    } else {
+        *(last - 1) = '\0';
     }
 
     rqc_qlog_implement(log, TRA_VERSION_INFORMATION, func,
@@ -286,8 +290,10 @@ rqc_log_TRA_FRAMES_PROCESSED_callback(rqc_log_t *log, const char *func, ...)
         }
 
         p = rqc_sprintf(p, last, "}");
-        if (p != last) {
+        if (p < last) {
             *p = '\0';
+        } else {
+            *(last - 1) = '\0';
         }
 
         rqc_qlog_implement(log, TRA_FRAMES_PROCESSED, func,

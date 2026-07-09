@@ -572,7 +572,7 @@ rqc_bbr_enter_probe_bw(rqc_bbr_t *bbr, rqc_sample_t *sampler)
 {
     bbr->mode = BBR_PROBE_BW;
     bbr->cwnd_gain = rqc_bbr_cwnd_gain;
-    bbr->cycle_idx = rqc_random() % (RQC_BBR_CYCLE_LENGTH - 1);
+    bbr->cycle_idx = (uint32_t)(rqc_random() % (RQC_BBR_CYCLE_LENGTH - 1));
     bbr->cycle_idx = bbr->cycle_idx == 0 ? bbr->cycle_idx : bbr->cycle_idx + 1;
     bbr->pacing_gain = rqc_bbr_get_pacing_gain(bbr, bbr->cycle_idx);
     bbr->cycle_start_stamp = sampler->now;
