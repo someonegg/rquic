@@ -23,8 +23,7 @@
 /* The RECOMMENDED value is the minimum of 10 * kMaxDatagramSize and max(2* kMaxDatagramSize, 14720)) */
 /* same init window as cubic */
 /* 32 is too aggressive. we have observed heavy bufferbloat events from online deployment */
-/* 1440 * 10 / 1200 = 12 */
-#define RQC_BBR_INITIAL_WINDOW  (32 * RQC_BBR_MAX_DATAGRAMSIZE)
+#define RQC_BBR_INITIAL_WINDOW  (14 * RQC_BBR_MAX_DATAGRAMSIZE)
 /* Pacing gain cycle rounds */
 #define RQC_BBR_CYCLE_LENGTH    8
 #define RQC_BBR_INF             0x7fffffff
@@ -43,15 +42,15 @@ const float rqc_bbr_high_gain = 2.885;
 /* Gain in BBR_DRAIN */
 const float rqc_bbr_drain_gain = 1.0 / 2.885;
 /* Gain for cwnd in probe_bw, like slow start*/
-const float rqc_bbr_cwnd_gain = 2.5;
+const float rqc_bbr_cwnd_gain = 2.25;
 /* Cycle of gains in PROBE_BW for pacing rate */
 const float rqc_bbr_pacing_gain[] = {1.25, 0.75, 1, 1, 1, 1, 1, 1};
 const float rqc_bbr_low_pacing_gain[] = {1.1, 0.9, 1, 1, 1, 1, 1, 1};
 /* Minimum packets that need to ensure ack if there is delayed ack */
 const uint32_t rqc_bbr_min_cwnd = 4 * RQC_BBR_MAX_DATAGRAMSIZE;
-/* If bandwidth has increased by 1.25, there may be more bandwidth available */
-const float rqc_bbr_fullbw_thresh = 1.1;
-/* After 3 rounds bandwidth less than (1.25x), estimate the pipe is full */
+/* If bandwidth has increased by 1.15, there may be more bandwidth available */
+const float rqc_bbr_fullbw_thresh = 1.15;
+/* After 3 rounds bandwidth less than (1.15x), estimate the pipe is full */
 const uint32_t rqc_bbr_fullbw_cnt = 3;
 const float rqc_bbr_probe_rtt_gain = 0.75;
 const uint32_t rqc_bbr_extra_ack_gain = 2;
