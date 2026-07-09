@@ -917,7 +917,7 @@ rqc_process_path_response_frame(rqc_connection_t *conn, rqc_packet_in_t *packet_
      * MAY generate a connection error of type PROTOCOL_VIOLATION.
      */
 
-    if (memcmp(path->path_challenge_data, path_response_data, RQC_PATH_CHALLENGE_DATA_LEN) != 0) {
+    if (memcmp(path->path_challenge_data, path_response_data, (size_t)RQC_PATH_CHALLENGE_DATA_LEN) != 0) {
         rqc_log(conn->log, RQC_LOG_ERROR, "|path:%ui|ignore|no match path challenge data|", path->path_id);
         return RQC_OK;
     }

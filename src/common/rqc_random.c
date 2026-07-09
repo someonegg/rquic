@@ -23,11 +23,11 @@
 
 long rqc_random(void) {
 #ifdef RQC_SYS_WINDOWS
-    unsigned int  val;
-    if (rand_s(&val)) {
+    unsigned int  val = 0;
+    if (rand_s(&val) != 0) {
         val = rand();
     }
-    return (long)val & 0xFFFFFFFF;
+    return (long)(val & 0x7FFFFFFF);
 #else
     return random();
 #endif

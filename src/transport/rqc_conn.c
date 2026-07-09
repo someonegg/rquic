@@ -1714,7 +1714,7 @@ rqc_conn_log_sent_packet(rqc_connection_t *c, rqc_packet_out_t *po,
 static ssize_t
 rqc_send(rqc_connection_t *conn, rqc_path_ctx_t *path, unsigned char *data, unsigned int len)
 {
-    ssize_t sent;
+    ssize_t sent = -RQC_ESOCKET;
 
     if (conn->pkt_filter_cb) {
         sent = conn->pkt_filter_cb(data, len, (struct sockaddr *)conn->peer_addr,
