@@ -931,7 +931,6 @@ rqc_demo_cli_init_conneciton_settings(rqc_conn_settings_t* settings,
     settings->spurious_loss_detect_on = 1;
     settings->recv_rate_bytes_per_sec = args->quic_cfg.recv_rate;
     settings->max_pkt_out_size = args->quic_cfg.max_pkt_sz;
-    settings->max_udp_payload_size = args->quic_cfg.max_pkt_sz;
     settings->adaptive_ack_frequency = 1;
 }
 
@@ -956,7 +955,7 @@ rqc_demo_cli_init_args(rqc_demo_cli_client_args_t *args)
     /* quic cfg */
     args->quic_cfg.alpn_type = ALPN_HQ;
     strncpy(args->quic_cfg.alpn, "hq-interop", sizeof(args->quic_cfg.alpn));
-    args->quic_cfg.max_pkt_sz = 1200;
+    args->quic_cfg.max_pkt_sz = 1350;
     args->quic_cfg.quic_version = RQC_VERSION_V1;
 }
 

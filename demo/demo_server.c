@@ -710,7 +710,7 @@ rqc_demo_svr_init_args(rqc_demo_svr_args_t *args)
     strncpy(args->env_cfg.log_path, LOG_PATH, PATH_LEN - 1);
     strncpy(args->env_cfg.source_file_dir, SOURCE_DIR, RESOURCE_LEN - 1);
 
-    args->quic_cfg.max_pkt_sz = 1200;
+    args->quic_cfg.max_pkt_sz = 1350;
 }
 
 void
