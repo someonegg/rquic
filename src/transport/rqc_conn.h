@@ -338,16 +338,41 @@ rqc_conn_get_user_data(rqc_connection_t *conn)
 static inline rqc_msec_t
 rqc_conn_get_idle_timeout(rqc_connection_t *conn)
 {
+    rqc_msec_t local_to, remote_to, idle_timeout;
+
     if (conn->conn_type == RQC_CONN_TYPE_SERVER && !rqc_conn_is_handshake_done(conn))
     {
         /* only server will limit idle timeout to init_idle_time_out before handshake done */
         return conn->conn_settings.init_idle_time_out == 0
             ? RQC_CONN_INITIAL_IDLE_TIMEOUT : conn->conn_settings.init_idle_time_out;
+    }
+
+    local_to = conn->local_settings.max_idle_timeout;
+
+    /*
+     * RFC 9000 10.1: the effective idle timeout is the minimum of the
+     * max_idle_timeout values advertised by both endpoints, where 0 means
+     * no limit. Remote transport parameters are authoritative only after
+     * handshake completion.
+     */
+    if (rqc_conn_is_handshake_done(conn)) {
+        remote_to = conn->remote_settings.max_idle_timeout;
+
+        if (local_to == 0) {
+            idle_timeout = remote_to;
+
+        } else if (remote_to == 0) {
+            idle_timeout = local_to;
+
+        } else {
+            idle_timeout = rqc_min(local_to, remote_to);
+        }
 
     } else {
-        return conn->local_settings.max_idle_timeout == 0
-            ? RQC_CONN_DEFAULT_IDLE_TIMEOUT : conn->local_settings.max_idle_timeout;
+        idle_timeout = local_to;
     }
+
+    return idle_timeout == 0 ? RQC_CONN_DEFAULT_IDLE_TIMEOUT : idle_timeout;
 }
 
 static inline void
