@@ -5,5 +5,7 @@
 .cache/
 .coverage/
 
+/_features/
+
 /build/
 /build_test/

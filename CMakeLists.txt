@@ -1,10 +1,12 @@
 # Copyright (c) 2022, Alibaba Group Holding Limited
 
 cmake_minimum_required (VERSION 3.10)
-project (rquic)
 
-set (rquic_VERSION_MAJOR 0)
-set (rquic_VERSION_MINOR 1)
+project(rquic
+    VERSION 1.0.0
+    DESCRIPTION "Trimmed QUIC transport library"
+    LANGUAGES C
+)
 
 include(CMakePackageConfigHelpers)
 include(CheckCCompilerFlag)
@@ -12,8 +14,8 @@ include(GNUInstallDirs)
 
 option (RQC_ENABLE_BBR2 "enable bbr2" OFF)
 option (RQC_PROTECT_POOL_MEM "enable write protection for pool memory (for debug)" OFF)
+option (RQC_ENABLE_DEMO "Enable Demo" OFF)
 option (RQC_ENABLE_TESTING "Enable Testing" OFF)
-option (GCOV "Test Coverage" OFF)
 
 if(NOT CMAKE_BUILD_TYPE)
     set(CMAKE_BUILD_TYPE Release)
@@ -56,15 +58,6 @@ if (WIN32)
 endif ()
 
 set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=gnu11 ${CMAKE_C_FLAGS_OPTION}")
-
-if(ASAN)
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fsanitize=address -fsanitize-address-use-after-scope -fno-omit-frame-pointer")
-endif()
-
-# coverity
-if(GCOV STREQUAL "on")
-    set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -fprofile-arcs -ftest-coverage")
-endif()
 
 # configure file
 configure_file (
@@ -149,10 +142,19 @@ target_include_directories(rquic
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
 )
 
-# testing
+# demo and testing
 if(RQC_ENABLE_TESTING)
+    set(RQC_ENABLE_DEMO ON CACHE BOOL "Enable Demo" FORCE)
+endif()
+
+if(RQC_ENABLE_DEMO)
     add_subdirectory(demo)
-endif(RQC_ENABLE_TESTING)
+endif()
+
+if(RQC_ENABLE_TESTING)
+    enable_testing()
+    add_subdirectory(tests)
+endif()
 
 #install
 
