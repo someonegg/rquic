@@ -57,7 +57,7 @@ if (WIN32)
     add_definitions(-D_WIN32_WINNT=0x0600)
 endif ()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -O2 -std=gnu11 ${CMAKE_C_FLAGS_OPTION}")
+set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=gnu11 ${CMAKE_C_FLAGS_OPTION}")
 
 # configure file
 configure_file (
