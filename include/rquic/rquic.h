@@ -603,8 +603,9 @@ typedef struct rqc_config_s {
     int             sendmmsg_on;
 
     /**
-     * @brief manually call mainlogic after stream/request send
-     *
+     * Batch stream sends until rqc_engine_finish_send() is called. In this mode,
+     * a successful rqc_stream_send() only means data entered the internal packet
+     * queue; applications must finish every logical send batch explicitly.
      */
     uint8_t         manually_triggered_send;
 
@@ -943,10 +944,9 @@ RQC_EXPORT_PUBLIC_API
 void rqc_engine_finish_recv(rqc_engine_t *engine);
 
 /**
- * @brief only useful for manually triggered send mode
- *
- * @param engine
- * @return RQC_EXPORT_PUBLIC_API
+ * @brief Flush a logical application send batch in manually triggered send mode.
+ * Applications must call this after every batch, including batches ending in a
+ * partial write or -RQC_EAGAIN.
  */
 RQC_EXPORT_PUBLIC_API
 void rqc_engine_finish_send(rqc_engine_t *engine);

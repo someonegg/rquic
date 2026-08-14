@@ -49,6 +49,9 @@ typedef struct rqc_engine_s {
     /* for user */
     void                           *user_data;
 
+    /* last relative interval passed to set_event_timer */
+    rqc_usec_t                      last_wake_after;
+
     /* callback functions for connection transport events */
     rqc_transport_callbacks_t       transport_cbs;
 

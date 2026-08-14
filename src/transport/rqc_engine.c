@@ -115,6 +115,7 @@ rqc_set_config(rqc_config_t *dst, const rqc_config_t *src)
     dst->cfg_log_timestamp = src->cfg_log_timestamp;
     dst->cfg_log_level_name = src->cfg_log_level_name;
     dst->sendmmsg_on = src->sendmmsg_on;
+    dst->manually_triggered_send = src->manually_triggered_send;
 
     return RQC_OK;
 }
@@ -276,13 +277,23 @@ rqc_engine_wakeup_after(rqc_engine_t *engine)
     return 0;
 }
 
+static void
+rqc_engine_set_event_timer(rqc_engine_t *engine, rqc_usec_t wake_after)
+{
+    if (engine->eng_callback.set_event_timer) {
+        if (engine->last_wake_after == 1) {
+            return;
+        }
+
+        engine->last_wake_after = wake_after;
+        engine->eng_callback.set_event_timer(wake_after, engine->user_data);
+    }
+}
+
 void
 rqc_engine_wakeup_once(rqc_engine_t *engine)
 {
-    /* if interval is smaller, trigger the event with the new interval */
-    if (engine->eng_callback.set_event_timer) {
-        engine->eng_callback.set_event_timer(1, engine->user_data);
-    }
+    rqc_engine_set_event_timer(engine, 1);
 }
 
 void
@@ -635,7 +646,7 @@ finish:
     } else {
         wake_after = rqc_engine_wakeup_after(engine);
         if (wake_after > 0) {
-            engine->eng_callback.set_event_timer(wake_after, engine->user_data);
+            rqc_engine_set_event_timer(engine, wake_after);
         }
     }
 
@@ -653,6 +664,7 @@ rqc_engine_main_logic(rqc_engine_t *engine)
         return;
     }
     engine->eng_flag |= RQC_ENG_FLAG_RUNNING;
+    engine->last_wake_after = 0;
 
     rqc_usec_t now = rqc_monotonic_timestamp();
     rqc_connection_t *conn;
@@ -731,7 +743,7 @@ rqc_engine_main_logic(rqc_engine_t *engine)
 
     rqc_usec_t wake_after = rqc_engine_wakeup_after(engine);
     if (wake_after > 0) {
-        engine->eng_callback.set_event_timer(wake_after, engine->user_data);
+        rqc_engine_set_event_timer(engine, wake_after);
     }
 
     engine->eng_flag &= ~RQC_ENG_FLAG_RUNNING;
@@ -881,7 +893,7 @@ after_process:
     if (++conn->packet_need_process_count >= RQC_MAX_PACKET_PROCESS_BATCH
         || conn->conn_err != 0 || conn->conn_flag & RQC_CONN_FLAG_NEED_RUN)
     {
-        rqc_engine_main_logic_internal(engine);
+        rqc_engine_conn_logic(engine, conn);
         if (rqc_engine_conns_hash_find(engine, &scid, 's') == NULL) {
             /* to inform upper module when destroy connection in main logic  */
             return  -RQC_ECONN_NFOUND;

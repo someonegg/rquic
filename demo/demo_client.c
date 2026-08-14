@@ -25,6 +25,7 @@ struct demo_client_s {
     const char *path;
     const char *output_path;
     rqc_log_level_t log_level;
+    int manual_send;
 
     demo_event_runtime_t event_runtime;
     rqc_engine_t *engine;
@@ -45,7 +46,7 @@ static void
 demo_client_usage(const char *prog)
 {
     fprintf(stderr,
-        "Usage: %s [--host ADDR] [--port PORT] [--path /resource] [--output FILE] [--log-level LEVEL]\n"
+        "Usage: %s [--host ADDR] [--port PORT] [--path /resource] [--output FILE] [--log-level LEVEL] [--manual-send]\n"
         "\n"
         "Defaults: --host %s --port %d --path %s --log-level error\n",
         prog, DEMO_DEFAULT_HOST, DEMO_DEFAULT_PORT, DEMO_DEFAULT_PATH);
@@ -91,6 +92,10 @@ demo_client_parse_args(int argc, char **argv, demo_client_t *client)
                 fprintf(stderr, "invalid --log-level value\n");
                 return -1;
             }
+            continue;
+        }
+        if (strcmp(argv[i], "--manual-send") == 0) {
+            client->manual_send = 1;
             continue;
         }
 
@@ -216,9 +221,13 @@ demo_client_hq_stream_write(demo_hq_stream_t *stream, void *stream_user_data)
 {
     ssize_t ret;
 
-    (void)stream_user_data;
-
     ret = demo_hq_stream_send_pending_request(stream);
+    if (stream_user_data != NULL) {
+        demo_client_t *client = stream_user_data;
+        if (client->manual_send) {
+            rqc_engine_finish_send(client->engine);
+        }
+    }
     if (ret < 0 && ret != -RQC_EAGAIN) {
         fprintf(stderr, "client failed to continue request: %zd\n", ret);
         return -1;
@@ -287,6 +296,7 @@ demo_client_init_engine(demo_client_t *client)
         return -1;
     }
     config.cfg_log_level = client->log_level;
+    config.manually_triggered_send = client->manual_send;
 
     memset(&engine_cb, 0, sizeof(engine_cb));
     engine_cb.set_event_timer = demo_set_event_timer;
@@ -364,6 +374,9 @@ demo_client_start_request(demo_client_t *client)
     }
 
     sent = demo_hq_stream_send_pending_request(client->stream);
+    if (client->manual_send) {
+        rqc_engine_finish_send(client->engine);
+    }
     if (sent < 0 && sent != -RQC_EAGAIN) {
         fprintf(stderr, "client failed to send request: %zd\n", sent);
         return -1;

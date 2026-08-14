@@ -1083,8 +1083,10 @@ do_buff:
     /* update max_pto stats */
     stream->stream_stats.max_pto_backoff = rqc_max(stream->stream_stats.max_pto_backoff, rqc_conn_get_max_pto_backoff(conn, 1));
 
-    /* application layer call the main logic */
-    rqc_engine_conn_logic(conn->engine, conn);
+    /* application layer call the main logic unless sends are explicitly batched */
+    if (!conn->engine->config->manually_triggered_send) {
+        rqc_engine_conn_logic(conn->engine, conn);
+    }
 
     if (offset == 0 && !fin_only_done) {
         if (ret == -RQC_EAGAIN) {

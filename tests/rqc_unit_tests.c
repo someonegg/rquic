@@ -19,6 +19,8 @@
 typedef struct test_ctx_s {
     int handshake_finished;
     int conn_create;
+    int timer_calls;
+    rqc_usec_t wake_after;
 } test_ctx_t;
 
 typedef struct test_engine_s {
@@ -87,8 +89,11 @@ test_qlog_write(qlog_event_importance_t imp, const void *buf, size_t size, void 
 static void
 test_set_event_timer(rqc_usec_t wake_after, void *engine_user_data)
 {
-    (void)wake_after;
-    (void)engine_user_data;
+    test_ctx_t *ctx = engine_user_data;
+    if (ctx != NULL) {
+        ctx->timer_calls++;
+        ctx->wake_after = wake_after;
+    }
 }
 
 static ssize_t
@@ -369,6 +374,72 @@ create_server_conn(test_engine_t *eng)
     make_cid(&scid, 0xd0);
 
     return rqc_conn_create(eng->engine, &dcid, &scid, &settings, &eng->ctx, RQC_CONN_TYPE_SERVER);
+}
+
+int
+rqc_test_manual_send_config(void)
+{
+    rqc_config_t config;
+    test_engine_t eng = create_test_engine(RQC_ENGINE_CLIENT);
+
+    CHECK_NE((uintptr_t)eng.engine, 0);
+    CHECK_EQ(rqc_engine_get_default_config(&config, RQC_ENGINE_CLIENT), RQC_OK);
+    CHECK_EQ(config.manually_triggered_send, 0);
+
+    config.manually_triggered_send = 1;
+    CHECK_EQ(rqc_engine_set_config(eng.engine, &config), RQC_OK);
+    CHECK_EQ(eng.engine->config->manually_triggered_send, 1);
+
+    config.manually_triggered_send = 0;
+    CHECK_EQ(rqc_engine_set_config(eng.engine, &config), RQC_OK);
+    CHECK_EQ(eng.engine->config->manually_triggered_send, 0);
+
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
+rqc_test_fast_wakeup_dedup(void)
+{
+    test_engine_t eng = create_test_engine(RQC_ENGINE_CLIENT);
+    rqc_connection_t *conn;
+
+    CHECK_NE((uintptr_t)eng.engine, 0);
+    eng.engine->user_data = &eng.ctx;
+    eng.ctx.timer_calls = 0;
+
+    rqc_engine_wakeup_once(eng.engine);
+    CHECK_EQ(eng.ctx.timer_calls, 1);
+    CHECK_EQ(eng.ctx.wake_after, 1);
+    CHECK_EQ(eng.engine->last_wake_after, 1);
+
+    rqc_engine_wakeup_once(eng.engine);
+    CHECK_EQ(eng.ctx.timer_calls, 1);
+
+    eng.engine->eng_flag |= RQC_ENG_FLAG_RUNNING;
+    rqc_engine_main_logic(eng.engine);
+    CHECK_EQ(eng.engine->last_wake_after, 1);
+    eng.engine->eng_flag &= ~RQC_ENG_FLAG_RUNNING;
+
+    rqc_engine_main_logic(eng.engine);
+    CHECK_EQ(eng.engine->last_wake_after, 0);
+    rqc_engine_wakeup_once(eng.engine);
+    CHECK_EQ(eng.ctx.timer_calls, 2);
+
+    eng.engine->last_wake_after = 25;
+    rqc_engine_wakeup_once(eng.engine);
+    CHECK_EQ(eng.ctx.timer_calls, 3);
+    CHECK_EQ(eng.ctx.wake_after, 1);
+
+    conn = create_client_conn(&eng, NULL, 0);
+    CHECK_NE((uintptr_t)conn, 0);
+    rqc_conn_continue_send_by_conn(conn);
+    CHECK_EQ(eng.ctx.timer_calls, 3);
+    CHECK_EQ(eng.ctx.wake_after, 1);
+    CHECK_EQ(eng.engine->last_wake_after, 1);
+
+    rqc_engine_destroy(eng.engine);
+    return 0;
 }
 
 int
