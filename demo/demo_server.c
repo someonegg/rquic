@@ -39,6 +39,7 @@ struct demo_server_s {
     unsigned short port;
     const char *www_root;
     rqc_log_level_t log_level;
+    int manual_send;
 
     demo_event_runtime_t event_runtime;
     rqc_engine_t *engine;
@@ -53,7 +54,7 @@ static void
 demo_server_usage(const char *prog)
 {
     fprintf(stderr,
-        "Usage: %s [--host ADDR] [--port PORT] [--www-root DIR] [--log-level LEVEL]\n"
+        "Usage: %s [--host ADDR] [--port PORT] [--www-root DIR] [--log-level LEVEL] [--manual-send]\n"
         "\n"
         "Defaults: --host %s --port %d --log-level error\n",
         prog, DEMO_DEFAULT_HOST, DEMO_DEFAULT_PORT);
@@ -91,6 +92,10 @@ demo_server_parse_args(int argc, char **argv, demo_server_t *server)
                 fprintf(stderr, "invalid --log-level value\n");
                 return -1;
             }
+            continue;
+        }
+        if (strcmp(argv[i], "--manual-send") == 0) {
+            server->manual_send = 1;
             continue;
         }
 
@@ -401,6 +406,14 @@ demo_server_send_file_response(demo_server_stream_t *server_stream)
     return 0;
 }
 
+static void
+demo_server_finish_send_batch(demo_server_stream_t *server_stream)
+{
+    if (server_stream->server->manual_send) {
+        rqc_engine_finish_send(server_stream->server->engine);
+    }
+}
+
 static int
 demo_server_hq_stream_read(demo_hq_stream_t *stream, void *stream_user_data)
 {
@@ -424,12 +437,15 @@ demo_server_hq_stream_read(demo_hq_stream_t *stream, void *stream_user_data)
             return -1;
         }
         if (server_stream->file_response) {
-            if (demo_server_send_file_response(server_stream) != 0) {
+            ret = demo_server_send_file_response(server_stream);
+            demo_server_finish_send_batch(server_stream);
+            if (ret != 0) {
                 fprintf(stderr, "server failed to send file response\n");
                 return -1;
             }
         } else {
             ret = demo_hq_stream_send_pending_response(stream);
+            demo_server_finish_send_batch(server_stream);
             if (ret < 0 && ret != -RQC_EAGAIN) {
                 fprintf(stderr, "server failed to send response: %zd\n", ret);
                 return -1;
@@ -451,7 +467,9 @@ demo_server_hq_stream_write(demo_hq_stream_t *stream, void *stream_user_data)
     }
 
     if (server_stream->file_response) {
-        if (demo_server_send_file_response(server_stream) != 0) {
+        ret = demo_server_send_file_response(server_stream);
+        demo_server_finish_send_batch(server_stream);
+        if (ret != 0) {
             fprintf(stderr, "server failed to continue file response\n");
             return -1;
         }
@@ -459,6 +477,7 @@ demo_server_hq_stream_write(demo_hq_stream_t *stream, void *stream_user_data)
     }
 
     ret = demo_hq_stream_send_pending_response(stream);
+    demo_server_finish_send_batch(server_stream);
     if (ret < 0 && ret != -RQC_EAGAIN) {
         fprintf(stderr, "server failed to continue response: %zd\n", ret);
         return -1;
@@ -480,6 +499,7 @@ demo_server_init_engine(demo_server_t *server)
         return -1;
     }
     config.cfg_log_level = server->log_level;
+    config.manually_triggered_send = server->manual_send;
 
     memset(&engine_cb, 0, sizeof(engine_cb));
     engine_cb.set_event_timer = demo_set_event_timer;

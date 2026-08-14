@@ -66,6 +66,14 @@ Check the downloaded content:
 cmp /tmp/rquic-www/payload.bin /tmp/rquic-download.bin
 ```
 
+To batch stream writes explicitly, enable manual send mode on both endpoints:
+
+```sh
+./build/demo/demo_server --port 8443 --www-root /tmp/rquic-www --manual-send
+./build/demo/demo_client --host 127.0.0.1 --port 8443 \
+    --path /payload.bin --output /tmp/rquic-download.bin --manual-send
+```
+
 ## Options
 
 Server:
@@ -75,6 +83,7 @@ Server:
 --port PORT
 --www-root DIR
 --log-level error|warn|info|debug
+--manual-send
 ```
 
 Client:
@@ -85,4 +94,5 @@ Client:
 --path /resource
 --output FILE
 --log-level error|warn|info|debug
+--manual-send
 ```
