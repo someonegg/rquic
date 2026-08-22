@@ -602,13 +602,6 @@ typedef struct rqc_config_s {
      */
     int             sendmmsg_on;
 
-    /**
-     * Batch stream sends until rqc_engine_finish_send() is called. In this mode,
-     * a successful rqc_stream_send() only means data entered the internal packet
-     * queue; applications must finish every logical send batch explicitly.
-     */
-    uint8_t         manually_triggered_send;
-
     /** for warning when the number of elements in one bucket exceeds the value of hash_conflict_threshold*/
     uint32_t        hash_conflict_threshold;
 } rqc_config_t;
@@ -944,9 +937,9 @@ RQC_EXPORT_PUBLIC_API
 void rqc_engine_finish_recv(rqc_engine_t *engine);
 
 /**
- * @brief Flush a logical application send batch in manually triggered send mode.
- * Applications must call this after every batch, including batches ending in a
- * partial write or -RQC_EAGAIN.
+ * @brief Flush all active connections at the end of a logical application send batch.
+ * Applications batching stream sends with flush=0 must call this after every
+ * batch, including batches ending in a partial write or -RQC_EAGAIN.
  */
 RQC_EXPORT_PUBLIC_API
 void rqc_engine_finish_send(rqc_engine_t *engine);
@@ -1112,6 +1105,24 @@ RQC_EXPORT_PUBLIC_API
 rqc_int_t rqc_stream_close(rqc_stream_t *stream);
 
 /**
+ * Peek data in stream without consuming it.
+ *
+ * Copies up to peek_buf_size bytes starting at the current read offset and
+ * returns the total number of contiguous readable bytes in readable_bytes.
+ * fin is set when those readable bytes reach the final stream offset.
+ *
+ * Like rqc_stream_recv, this acknowledges the current read notification.
+ * Applications should drain complete application messages in the read
+ * callback until this function returns -RQC_EAGAIN. New stream data will
+ * trigger another read notification.
+ *
+ * @return bytes copied, -RQC_EAGAIN when no data is readable, <0 for error
+ */
+RQC_EXPORT_PUBLIC_API
+ssize_t rqc_stream_peek(rqc_stream_t *stream, unsigned char *peek_buf,
+    size_t peek_buf_size, uint64_t *readable_bytes, uint8_t *fin);
+
+/**
  * Recv data in stream.
  * @return bytes read, -RQC_EAGAIN try next time, <0 for error
  */
@@ -1121,12 +1132,17 @@ ssize_t rqc_stream_recv(rqc_stream_t *stream, unsigned char *recv_buf, size_t re
 
 /**
  * Send data in stream.
- * @param fin  0 or 1,  1 - final data block send in this stream.
+ * Data is queued internally by default. fin controls only the STREAM frame FIN
+ * and final size; it does not imply a flush.
+ * @param fin    0 or 1, 1 - final data block sent in this stream.
+ * @param flush  0 or 1, 1 - drive this stream's connection after scheduling.
+ *               A flush is attempted even when no new data is written or this
+ *               call returns -RQC_EAGAIN, so previously queued data can proceed.
  * @return bytes sent, -RQC_EAGAIN try next time, <0 for error
  */
 RQC_EXPORT_PUBLIC_API
 ssize_t rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data_size,
-    uint8_t fin);
+    uint8_t fin, uint8_t flush);
 
 /**
  * Get dcid and scid before process packet

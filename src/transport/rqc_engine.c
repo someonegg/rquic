@@ -39,7 +39,6 @@ rqc_config_t default_client_config = {
     .cid_len                   = RQC_DEFAULT_CID_LEN,
     .cid_negotiate             = 1,
     .sendmmsg_on               = 0,
-    .manually_triggered_send   = 0,
 };
 
 rqc_config_t default_server_config = {
@@ -59,7 +58,6 @@ rqc_config_t default_server_config = {
     .cid_len                   = RQC_DEFAULT_CID_LEN,
     .cid_negotiate             = 0,
     .sendmmsg_on               = 0,
-    .manually_triggered_send   = 0,
 };
 
 void
@@ -115,7 +113,6 @@ rqc_set_config(rqc_config_t *dst, const rqc_config_t *src)
     dst->cfg_log_timestamp = src->cfg_log_timestamp;
     dst->cfg_log_level_name = src->cfg_log_level_name;
     dst->sendmmsg_on = src->sendmmsg_on;
-    dst->manually_triggered_send = src->manually_triggered_send;
 
     return RQC_OK;
 }

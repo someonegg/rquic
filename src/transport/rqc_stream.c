@@ -900,6 +900,77 @@ rqc_passive_create_stream(rqc_connection_t *conn, rqc_stream_id_t stream_id, voi
 }
 
 ssize_t
+rqc_stream_peek(rqc_stream_t *stream, unsigned char *peek_buf, size_t peek_buf_size,
+    uint64_t *readable_bytes, uint8_t *fin)
+{
+    rqc_list_head_t *pos;
+    rqc_stream_frame_t *stream_frame;
+    uint64_t cursor, frame_end, readable;
+    size_t copied = 0;
+    size_t copy_size;
+
+    if (stream == NULL || readable_bytes == NULL || fin == NULL
+        || (peek_buf == NULL && peek_buf_size > 0))
+    {
+        return -RQC_EPARAM;
+    }
+
+    *readable_bytes = 0;
+    *fin = 0;
+
+    if (stream->stream_state_recv >= RQC_RECV_STREAM_ST_RESET_RECVD) {
+        stream->stream_state_recv = RQC_RECV_STREAM_ST_RESET_READ;
+        rqc_stream_shutdown_read(stream);
+        rqc_stream_maybe_need_close(stream);
+        return -RQC_ESTREAM_RESET;
+    }
+
+    if (stream->stream_data_in.merged_offset_end
+        < stream->stream_data_in.next_read_offset)
+    {
+        rqc_stream_shutdown_read(stream);
+        return -RQC_ESTATE;
+    }
+
+    readable = stream->stream_data_in.merged_offset_end
+               - stream->stream_data_in.next_read_offset;
+    *readable_bytes = readable;
+    *fin = stream->stream_data_in.stream_determined
+           && stream->stream_data_in.merged_offset_end
+              == stream->stream_data_in.stream_length;
+
+    cursor = stream->stream_data_in.next_read_offset;
+    rqc_list_for_each(pos, &stream->stream_data_in.frames_tailq) {
+        stream_frame = rqc_list_entry(pos, rqc_stream_frame_t, sf_list);
+        frame_end = stream_frame->data_offset + stream_frame->data_length;
+
+        if (frame_end <= cursor) {
+            continue;
+        }
+
+        if (stream_frame->data_offset > cursor || copied >= peek_buf_size) {
+            break;
+        }
+
+        copy_size = (size_t)rqc_min(frame_end - cursor,
+                                    (uint64_t)(peek_buf_size - copied));
+        memcpy(peek_buf + copied,
+               stream_frame->data + cursor - stream_frame->data_offset,
+               copy_size);
+        cursor += copy_size;
+        copied += copy_size;
+    }
+
+    rqc_stream_shutdown_read(stream);
+
+    if (copied < rqc_min(readable, (uint64_t)peek_buf_size)) {
+        return -RQC_ESTATE;
+    }
+
+    return (readable == 0 && !*fin) ? -RQC_EAGAIN : (ssize_t)copied;
+}
+
+ssize_t
 rqc_stream_recv(rqc_stream_t *stream, unsigned char *recv_buf, size_t recv_buf_size, uint8_t *fin)
 {
     rqc_list_head_t *pos, *next;
@@ -997,8 +1068,13 @@ rqc_stream_recv(rqc_stream_t *stream, unsigned char *recv_buf, size_t recv_buf_s
 }
 
 ssize_t
-rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data_size, uint8_t fin)
+rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data_size,
+    uint8_t fin, uint8_t flush)
 {
+    if (stream == NULL || (send_data == NULL && send_data_size != 0)) {
+        return -RQC_EPARAM;
+    }
+
     rqc_connection_t *conn = stream->stream_conn;
     if (conn->conn_state >= RQC_CONN_STATE_CLOSING) {
         rqc_conn_log(conn, RQC_LOG_INFO, "|conn closing, cannot send|stream_id:%ui|", stream->stream_id);
@@ -1013,12 +1089,17 @@ rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data
     if (stream->stream_flag & RQC_STREAM_FLAG_FIN_WRITE) {
         rqc_conn_log(conn, RQC_LOG_WARN, "|fin write, cannot send|stream_id:%ui|", stream->stream_id);
         rqc_stream_shutdown_write(stream);
+        if (flush) {
+            rqc_engine_conn_logic(conn->engine, conn);
+        }
         return 0;
     }
-    int ret;
+    int ret = RQC_OK;
     rqc_stream_ready_to_write(stream);
     size_t send_data_written = 0;
     size_t offset = 0; /* the written offset in send_data */
+    unsigned char empty_payload = 0;
+    unsigned char *payload = send_data != NULL ? send_data : &empty_payload;
     uint8_t fin_only = fin && !send_data_size;
     uint8_t fin_only_done = 0;
     rqc_pkt_type_t pkt_type = RQC_PTYPE_SHORT_HEADER;
@@ -1052,7 +1133,7 @@ rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data
 
         ret = rqc_write_stream_frame_to_packet(conn, stream, pkt_type,
                                                fin,
-                                               send_data + offset,
+                                               payload + offset,
                                                send_data_size - offset,
                                                &send_data_written);
         if (ret) {
@@ -1083,18 +1164,19 @@ do_buff:
     /* update max_pto stats */
     stream->stream_stats.max_pto_backoff = rqc_max(stream->stream_stats.max_pto_backoff, rqc_conn_get_max_pto_backoff(conn, 1));
 
-    /* application layer call the main logic unless sends are explicitly batched */
-    if (!conn->engine->config->manually_triggered_send) {
+    /* A connection-local flush also advances data queued by its other streams. */
+    if (flush) {
         rqc_engine_conn_logic(conn->engine, conn);
     }
 
     if (offset == 0 && !fin_only_done) {
         if (ret == -RQC_EAGAIN) {
             return -RQC_EAGAIN; /* -RQC_EAGAIN not means error */
-        } else {
+        } else if (ret != RQC_OK) {
             RQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
             return ret;
         }
+        return 0;
     }
     return offset;
 }
