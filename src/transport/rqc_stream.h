@@ -11,6 +11,7 @@
 #include "src/transport/rqc_packet.h"
 
 #define RQC_UNDEFINE_STREAM_ID RQC_MAX_UINT64_VALUE
+#define RQC_STREAM_ATOMIC_FIXED_CAPACITY 4096
 
 #define RQC_STREAM_CLOSE_MSG(stream, msg) do {      \
     if ((stream)->stream_close_msg == NULL) {       \
@@ -55,6 +56,15 @@ typedef struct rqc_stream_data_in_s {
     uint64_t                stream_length;
     rqc_bool_t              stream_determined;
 } rqc_stream_data_in_t;
+
+typedef struct rqc_stream_atomic_ctx_s {
+    uint8_t                fixed_buf[RQC_STREAM_ATOMIC_FIXED_CAPACITY];
+    uint8_t               *dynamic_buf;
+    size_t                 pending_len;
+    size_t                 pending_offset;
+    uint8_t                fin;
+    uint8_t                flush;
+} rqc_stream_atomic_ctx_t;
 
 struct rqc_stream_s {
     rqc_connection_t       *stream_conn;
@@ -113,6 +123,7 @@ struct rqc_stream_s {
     uint64_t                recv_rate_bytes_per_sec;
 
     rqc_stream_priority_t   stream_priority;
+    rqc_stream_atomic_ctx_t *atomic_ctx;
 };
 
 static inline rqc_stream_type_t

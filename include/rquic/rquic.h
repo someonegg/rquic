@@ -1145,6 +1145,41 @@ ssize_t rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t s
     uint8_t fin, uint8_t flush);
 
 /**
+ * Atomically submit a logical stream message made of multiple data blocks.
+ * Empty blocks are ignored. fin applies to the whole group and is delayed until
+ * all bytes have been accepted by QUIC, including bytes retained internally
+ * after a partial write. On a normal return (including -RQC_EAGAIN), flush
+ * drives the connection once after the function has finished consuming or
+ * retaining the caller's blocks. It drives the connection again after any
+ * retained remainder is drained. While retained data exists,
+ * rqc_stream_send() and rqc_stream_sendv_atomic() return -RQC_EAGAIN.
+ *
+ * Success means that all bytes were accepted or retained by QUIC; it does not
+ * mean that they reached the UDP socket. This API adds no receiving-side
+ * framing: a QUIC stream remains a byte stream.
+ *
+ * If allocation of a retained remainder larger than 4 KiB fails after a
+ * partial write, the function returns the number of bytes actually accepted,
+ * does not retain the remainder, and does not apply fin. The normal-return
+ * flush is still performed. The caller must resume at that byte offset and
+ * repeat fin; repeating flush is safe. This is the only case in which a
+ * positive return can be less than the sum of all iov lengths.
+ *
+ * @param iov     NULL is valid only when iovcnt is zero. A block data pointer
+ *                may be NULL only when its length is zero.
+ * @param iovcnt  number of blocks.
+ * @param fin     0 or 1, applied after the final non-empty block.
+ * @param flush   0 or 1, drive the connection once on normal return (including
+ *                -RQC_EAGAIN), and again after retained data is finally drained.
+ * @return total bytes in iov on success, -RQC_EAGAIN if no first byte (or a
+ *         FIN-only request) can be accepted, -RQC_EPARAM for invalid input or
+ *         a total length greater than SSIZE_MAX, or another negative error.
+ */
+RQC_EXPORT_PUBLIC_API
+ssize_t rqc_stream_sendv_atomic(rqc_stream_t *stream, const rquic_iovec_t *iov,
+    unsigned iovcnt, uint8_t fin, uint8_t flush);
+
+/**
  * Get dcid and scid before process packet
  */
 RQC_EXPORT_PUBLIC_API
