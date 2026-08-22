@@ -40,6 +40,7 @@ RQUIC_VERS_1.0 {
         rqc_get_conn_user_data_by_stream;
         rqc_stream_id;
         rqc_stream_close;
+        rqc_stream_peek;
         rqc_stream_recv;
         rqc_stream_send;
         rqc_stream_get_stats;

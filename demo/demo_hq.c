@@ -341,7 +341,7 @@ demo_hq_stream_set_request(demo_hq_stream_t *stream, const char *resource)
 
 static ssize_t
 demo_hq_send_pending(rqc_stream_t *rqc_stream, unsigned char *buf, size_t len,
-    size_t *off)
+    size_t *off, uint8_t flush)
 {
     ssize_t ret;
     size_t sent = 0;
@@ -352,7 +352,7 @@ demo_hq_send_pending(rqc_stream_t *rqc_stream, unsigned char *buf, size_t len,
 
     while (*off < len) {
         uint8_t fin = (*off + (len - *off)) == len ? 1 : 0;
-        ret = rqc_stream_send(rqc_stream, buf + *off, len - *off, fin);
+        ret = rqc_stream_send(rqc_stream, buf + *off, len - *off, fin, flush);
         if (ret == -RQC_EAGAIN) {
             return (ssize_t)sent;
         }
@@ -378,7 +378,7 @@ demo_hq_stream_send_pending_request(demo_hq_stream_t *stream)
     }
 
     return demo_hq_send_pending(stream->stream, stream->request_buf,
-        stream->request_len, &stream->request_off);
+        stream->request_len, &stream->request_off, 1);
 }
 
 int
@@ -401,11 +401,11 @@ demo_hq_stream_send_pending_response(demo_hq_stream_t *stream)
     }
 
     if (stream->response_len == 0) {
-        return rqc_stream_send(stream->stream, (unsigned char *)"", 0, 1);
+        return rqc_stream_send(stream->stream, (unsigned char *)"", 0, 1, 1);
     }
 
     return demo_hq_send_pending(stream->stream, stream->response_buf,
-        stream->response_len, &stream->response_off);
+        stream->response_len, &stream->response_off, 1);
 }
 
 ssize_t
@@ -416,7 +416,7 @@ demo_hq_stream_send_response_chunk(demo_hq_stream_t *stream,
         return -RQC_EPARAM;
     }
 
-    return rqc_stream_send(stream->stream, (unsigned char *)data, data_len, fin);
+    return rqc_stream_send(stream->stream, (unsigned char *)data, data_len, fin, 0);
 }
 
 static ssize_t

@@ -66,13 +66,11 @@ Check the downloaded content:
 cmp /tmp/rquic-www/payload.bin /tmp/rquic-download.bin
 ```
 
-To batch stream writes explicitly, enable manual send mode on both endpoints:
-
-```sh
-./build/demo/demo_server --port 8443 --www-root /tmp/rquic-www --manual-send
-./build/demo/demo_client --host 127.0.0.1 --port 8443 \
-    --path /payload.bin --output /tmp/rquic-download.bin --manual-send
-```
+The file response demonstrates batched sending: file chunks are queued with
+`flush=0`, then each logical batch is completed with
+`rqc_engine_finish_send()`. Small requests and responses use `flush=1` so they
+drive their connection immediately. STREAM FIN and flushing are independent;
+the final file chunk still uses `flush=0` and relies on the batch finish call.
 
 ## Options
 
@@ -83,7 +81,6 @@ Server:
 --port PORT
 --www-root DIR
 --log-level error|warn|info|debug
---manual-send
 ```
 
 Client:
@@ -94,5 +91,4 @@ Client:
 --path /resource
 --output FILE
 --log-level error|warn|info|debug
---manual-send
 ```
