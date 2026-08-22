@@ -43,6 +43,7 @@ RQUIC_VERS_1.0 {
         rqc_stream_peek;
         rqc_stream_recv;
         rqc_stream_send;
+        rqc_stream_sendv_atomic;
         rqc_stream_get_stats;
         rqc_stream_update_settings;
         rqc_bbr_cb;

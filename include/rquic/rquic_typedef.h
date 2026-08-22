@@ -183,6 +183,12 @@ typedef enum {
     RQC_STREAM_UNI  = 1
 } rqc_stream_direction_t;
 
+/** A data block accepted by rqc_stream_sendv_atomic(). */
+typedef struct rquic_iovec_s {
+    const uint8_t *data;
+    unsigned       len;
+} rquic_iovec_t;
+
 /* max alpn buffer length */
 #define RQC_MAX_ALPN_BUF_LEN    256
 /* max handshake protocol extension payload length */

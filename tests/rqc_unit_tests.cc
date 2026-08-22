@@ -7,6 +7,9 @@ int rqc_test_client_handshake_state(void);
 int rqc_test_server_handshake_state(void);
 int rqc_test_abnormal_handshake_input(void);
 int rqc_test_stream_send_flush_on_eagain(void);
+int rqc_test_stream_sendv_validation_and_empty(void);
+int rqc_test_stream_sendv_complete_and_fixed_pending(void);
+int rqc_test_stream_sendv_dynamic_multidrain_and_close(void);
 int rqc_test_fast_wakeup_dedup(void);
 int rqc_test_stream_peek(void);
 }
@@ -39,6 +42,21 @@ TEST(RqcUnitTest, AbnormalHandshakeInput)
 TEST(RqcUnitTest, StreamSendFlushOnEagain)
 {
     EXPECT_EQ(rqc_test_stream_send_flush_on_eagain(), 0);
+}
+
+TEST(RqcUnitTest, StreamSendvValidationAndEmpty)
+{
+    EXPECT_EQ(rqc_test_stream_sendv_validation_and_empty(), 0);
+}
+
+TEST(RqcUnitTest, StreamSendvCompleteAndFixedPending)
+{
+    EXPECT_EQ(rqc_test_stream_sendv_complete_and_fixed_pending(), 0);
+}
+
+TEST(RqcUnitTest, StreamSendvDynamicMultidrainAndClose)
+{
+    EXPECT_EQ(rqc_test_stream_sendv_dynamic_multidrain_and_close(), 0);
 }
 
 TEST(RqcUnitTest, FastWakeupDedup)

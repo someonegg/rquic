@@ -16,6 +16,53 @@
 #include "src/transport/rqc_utils.h"
 #include "src/transport/rqc_pacing.h"
 
+#include <limits.h>
+
+#ifndef SSIZE_MAX
+#define SSIZE_MAX ((ssize_t)(SIZE_MAX >> 1))
+#endif
+
+static void
+rqc_stream_atomic_clear_pending(rqc_stream_t *stream)
+{
+    rqc_stream_atomic_ctx_t *ctx = stream->atomic_ctx;
+    if (ctx == NULL) {
+        return;
+    }
+
+    if (ctx->dynamic_buf != NULL) {
+        rqc_free(ctx->dynamic_buf);
+        ctx->dynamic_buf = NULL;
+    }
+    ctx->pending_len = 0;
+    ctx->pending_offset = 0;
+    ctx->fin = 0;
+    ctx->flush = 0;
+}
+
+static void
+rqc_stream_atomic_destroy(rqc_stream_t *stream)
+{
+    if (stream->atomic_ctx != NULL) {
+        rqc_stream_atomic_clear_pending(stream);
+        rqc_free(stream->atomic_ctx);
+        stream->atomic_ctx = NULL;
+    }
+}
+
+static rqc_bool_t
+rqc_stream_has_atomic_pending(const rqc_stream_t *stream)
+{
+    return stream->atomic_ctx != NULL
+        && stream->atomic_ctx->pending_offset < stream->atomic_ctx->pending_len;
+}
+
+static unsigned char *
+rqc_stream_atomic_pending_buf(rqc_stream_atomic_ctx_t *ctx)
+{
+    return ctx->dynamic_buf != NULL ? ctx->dynamic_buf : ctx->fixed_buf;
+}
+
 static rqc_stream_id_t
 rqc_gen_stream_id(rqc_connection_t *conn, rqc_stream_type_t type)
 {
@@ -697,6 +744,9 @@ rqc_destroy_stream(rqc_stream_t *stream)
         }
     }
 
+    /* Pending atomic data must not outlive, or be observable from, close notify. */
+    rqc_stream_atomic_destroy(stream);
+
     if (stream->stream_if->stream_close_notify
         && !(stream->stream_flag & RQC_STREAM_FLAG_DISCARDED))
     {
@@ -770,6 +820,8 @@ rqc_stream_close(rqc_stream_t *stream)
 {
     rqc_int_t ret;
     rqc_connection_t *conn = stream->stream_conn;
+
+    rqc_stream_atomic_clear_pending(stream);
     rqc_log(conn->log, RQC_LOG_INFO, "|stream_id:%ui|stream_state_send:%d|stream_state_recv:%d|conn:%p|conn_state:%s|flag:%s|",
             stream->stream_id, stream->stream_state_send, stream->stream_state_recv, conn,
             rqc_conn_state_2_str(conn->conn_state), rqc_conn_flag_2_str(conn, conn->conn_flag));
@@ -1067,8 +1119,8 @@ rqc_stream_recv(rqc_stream_t *stream, unsigned char *recv_buf, size_t recv_buf_s
     return (read == 0 && *fin == 0) ? -RQC_EAGAIN : read;
 }
 
-ssize_t
-rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data_size,
+static ssize_t
+rqc_stream_send_scalar(rqc_stream_t *stream, const unsigned char *send_data, size_t send_data_size,
     uint8_t fin, uint8_t flush)
 {
     if (stream == NULL || (send_data == NULL && send_data_size != 0)) {
@@ -1099,7 +1151,7 @@ rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data
     size_t send_data_written = 0;
     size_t offset = 0; /* the written offset in send_data */
     unsigned char empty_payload = 0;
-    unsigned char *payload = send_data != NULL ? send_data : &empty_payload;
+    const unsigned char *payload = send_data != NULL ? send_data : &empty_payload;
     uint8_t fin_only = fin && !send_data_size;
     uint8_t fin_only_done = 0;
     rqc_pkt_type_t pkt_type = RQC_PTYPE_SHORT_HEADER;
@@ -1181,6 +1233,243 @@ do_buff:
     return offset;
 }
 
+ssize_t
+rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t send_data_size,
+    uint8_t fin, uint8_t flush)
+{
+    if (stream == NULL) {
+        return -RQC_EPARAM;
+    }
+    if (rqc_stream_has_atomic_pending(stream)) {
+        if (flush) {
+            rqc_engine_conn_logic(stream->stream_conn->engine, stream->stream_conn);
+        }
+        return -RQC_EAGAIN;
+    }
+    if (send_data == NULL && send_data_size != 0) {
+        return -RQC_EPARAM;
+    }
+    return rqc_stream_send_scalar(stream, send_data, send_data_size, fin, flush);
+}
+
+static rqc_int_t
+rqc_stream_atomic_ensure_ctx(rqc_stream_t *stream)
+{
+    if (stream->atomic_ctx == NULL) {
+        stream->atomic_ctx = rqc_calloc(1, sizeof(*stream->atomic_ctx));
+        if (stream->atomic_ctx == NULL) {
+            return -RQC_EMALLOC;
+        }
+    }
+    return RQC_OK;
+}
+
+static rqc_int_t
+rqc_stream_atomic_save_pending(rqc_stream_t *stream, const rquic_iovec_t *iov,
+    unsigned iovcnt, unsigned current, size_t current_offset, size_t remaining,
+    uint8_t fin, uint8_t flush)
+{
+    rqc_stream_atomic_ctx_t *ctx = stream->atomic_ctx;
+    unsigned char *dst;
+    size_t copied = 0;
+
+    rqc_stream_atomic_clear_pending(stream);
+    if (remaining > RQC_STREAM_ATOMIC_FIXED_CAPACITY) {
+        ctx->dynamic_buf = rqc_malloc(remaining);
+        if (ctx->dynamic_buf == NULL) {
+            return -RQC_EMALLOC;
+        }
+    }
+    dst = rqc_stream_atomic_pending_buf(ctx);
+
+    for (unsigned i = current; i < iovcnt; ++i) {
+        size_t skip = (i == current) ? current_offset : 0;
+        size_t len = iov[i].len - skip;
+        if (len != 0) {
+            rqc_memcpy(dst + copied, iov[i].data + skip, len);
+            copied += len;
+        }
+    }
+
+    ctx->pending_len = copied;
+    ctx->pending_offset = 0;
+    ctx->fin = fin;
+    ctx->flush = flush;
+    rqc_stream_ready_to_write(stream);
+    return copied == remaining ? RQC_OK : -RQC_EPARAM;
+}
+
+ssize_t
+rqc_stream_sendv_atomic(rqc_stream_t *stream, const rquic_iovec_t *iov, unsigned iovcnt,
+    uint8_t fin, uint8_t flush)
+{
+    size_t total = 0;
+    size_t accepted = 0;
+    unsigned last_nonempty = iovcnt;
+    rqc_int_t ret;
+    ssize_t result;
+
+    if (stream == NULL) {
+        return -RQC_EPARAM;
+    }
+    if (rqc_stream_has_atomic_pending(stream)) {
+        result = -RQC_EAGAIN;
+        goto normal_return;
+    }
+    if (iov == NULL && iovcnt != 0) {
+        return -RQC_EPARAM;
+    }
+
+    for (unsigned i = 0; i < iovcnt; ++i) {
+        if (iov[i].data == NULL && iov[i].len != 0) {
+            return -RQC_EPARAM;
+        }
+        if ((size_t)iov[i].len > (size_t)SSIZE_MAX - total) {
+            return -RQC_EPARAM;
+        }
+        total += iov[i].len;
+        if (iov[i].len != 0) {
+            last_nonempty = i;
+        }
+    }
+
+    if (stream->stream_conn->conn_state >= RQC_CONN_STATE_CLOSING) {
+        rqc_stream_shutdown_write(stream);
+        return -RQC_CLOSING;
+    }
+    if (stream->stream_state_send >= RQC_SEND_STREAM_ST_RESET_SENT) {
+        rqc_stream_shutdown_write(stream);
+        return -RQC_ESTREAM_RESET;
+    }
+
+    /* Preserve scalar-send behavior for an already finalized stream. */
+    if (stream->stream_flag & RQC_STREAM_FLAG_FIN_WRITE) {
+        result = 0;
+        goto normal_return;
+    }
+
+    if (last_nonempty == iovcnt) {
+        if (!fin) {
+            result = 0;
+            goto normal_return;
+        }
+        result = rqc_stream_send_scalar(stream, NULL, 0, fin, 0);
+        if (result < 0 && result != -RQC_EAGAIN) {
+            return result;
+        }
+        goto normal_return;
+    }
+
+    /* Allocate the reusable context before the first byte can be written. */
+    ret = rqc_stream_atomic_ensure_ctx(stream);
+    if (ret != RQC_OK) {
+        return ret;
+    }
+
+    for (unsigned i = 0; i <= last_nonempty; ++i) {
+        ssize_t written;
+        size_t current_written;
+
+        if (iov[i].len == 0) {
+            continue;
+        }
+
+        written = rqc_stream_send_scalar(stream, iov[i].data, iov[i].len,
+                                         fin && i == last_nonempty,
+                                         0);
+        if (written < 0 && written != -RQC_EAGAIN) {
+            return written;
+        }
+        current_written = written > 0 ? (size_t)written : 0;
+        if (current_written > iov[i].len) {
+            RQC_CONN_ERR(stream->stream_conn, TRA_INTERNAL_ERROR);
+            return -RQC_EWRITE_PKT;
+        }
+        accepted += current_written;
+
+        if (current_written == iov[i].len) {
+            continue;
+        }
+
+        if (accepted == 0 && written == -RQC_EAGAIN) {
+            result = -RQC_EAGAIN;
+            goto normal_return;
+        }
+
+        ret = rqc_stream_atomic_save_pending(stream, iov, iovcnt, i,
+                                             current_written, total - accepted,
+                                             fin, flush);
+        if (ret == -RQC_EMALLOC) {
+            /* Documented non-atomic escape hatch for a large remainder. */
+            result = (ssize_t)accepted;
+            goto normal_return;
+        }
+        if (ret != RQC_OK) {
+            RQC_CONN_ERR(stream->stream_conn, TRA_INTERNAL_ERROR);
+            return ret;
+        }
+        result = (ssize_t)total;
+        goto normal_return;
+    }
+
+    result = (ssize_t)total;
+
+normal_return:
+    /* All caller-owned data has been consumed or retained before callbacks run. */
+    if (flush) {
+        rqc_engine_conn_logic(stream->stream_conn->engine, stream->stream_conn);
+    }
+    return result;
+}
+
+/* Returns 0 when the application callback may run, 1 when it must be skipped. */
+static rqc_int_t
+rqc_stream_atomic_drain(rqc_stream_t *stream)
+{
+    rqc_stream_atomic_ctx_t *ctx = stream->atomic_ctx;
+    unsigned char *buf;
+    size_t remaining;
+    ssize_t written;
+
+    if (!rqc_stream_has_atomic_pending(stream)) {
+        return RQC_OK;
+    }
+
+    buf = rqc_stream_atomic_pending_buf(ctx);
+    remaining = ctx->pending_len - ctx->pending_offset;
+    written = rqc_stream_send_scalar(stream, buf + ctx->pending_offset,
+                                     remaining, ctx->fin, 0);
+    if (written == -RQC_EAGAIN || written == 0) {
+        rqc_stream_ready_to_write(stream);
+        return 1;
+    }
+    if (written < 0) {
+        rqc_stream_atomic_clear_pending(stream);
+        if (written == -RQC_CLOSING || written == -RQC_ESTREAM_RESET) {
+            return 1;
+        }
+        return (rqc_int_t)written;
+    }
+
+    if ((size_t)written > remaining) {
+        rqc_stream_atomic_clear_pending(stream);
+        return -RQC_EWRITE_PKT;
+    }
+    ctx->pending_offset += (size_t)written;
+    if (ctx->pending_offset < ctx->pending_len) {
+        rqc_stream_ready_to_write(stream);
+        return 1;
+    }
+
+    uint8_t flush = ctx->flush;
+    rqc_stream_atomic_clear_pending(stream);
+    if (flush) {
+        /* rqc_engine_conn_logic already avoids recursive engine execution. */
+        rqc_engine_conn_logic(stream->stream_conn->engine, stream->stream_conn);
+    }
+    return RQC_OK;
+}
+
 void
 rqc_process_write_streams(rqc_connection_t *conn)
 {
@@ -1194,6 +1483,19 @@ rqc_process_write_streams(rqc_connection_t *conn)
             || conn->conn_flag & RQC_CONN_FLAG_DATA_BLOCKED)
         {
             continue;
+        }
+        if (rqc_stream_has_atomic_pending(stream)) {
+            ret = rqc_stream_atomic_drain(stream);
+            if (ret > 0) {
+                continue;
+            }
+            if (ret < 0) {
+                rqc_log(conn->log, RQC_LOG_ERROR,
+                        "|atomic stream drain err:%d|flag:%d|stream_id:%ui|conn:%p|",
+                        ret, stream->stream_flag, stream->stream_id, stream->stream_conn);
+                RQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
+                return;
+            }
         }
         if (stream->stream_if->stream_write_notify == NULL) {
             rqc_log(conn->log, RQC_LOG_ERROR, "|stream_write_notify is NULL|flag:%d|stream_id:%ui|conn:%p|",
@@ -1282,6 +1584,9 @@ rqc_stream_send_state_update(rqc_stream_t *stream, rqc_send_stream_state_t state
 {
     rqc_log_event(stream->stream_conn->log, TRA_STREAM_STATE_UPDATED, stream, RQC_LOG_STREAM_SEND, state);
     stream->stream_state_send = state;
+    if (state >= RQC_SEND_STREAM_ST_RESET_SENT) {
+        rqc_stream_atomic_clear_pending(stream);
+    }
 }
 
 void
