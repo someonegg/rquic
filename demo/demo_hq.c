@@ -537,7 +537,9 @@ demo_hq_conn_create_notify(rqc_connection_t *conn, const rqc_cid_t *cid,
     demo_hq_conn_t *hq_conn;
 
     (void)proto_ext;
-    (void)resp_proto_ext;
+    if (resp_proto_ext != NULL) {
+        resp_proto_ext->len = 0;
+    }
 
     if (ctx == NULL) {
         ctx = demo_hq_client_ctx;

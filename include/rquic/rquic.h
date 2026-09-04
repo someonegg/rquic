@@ -185,7 +185,10 @@ typedef rqc_int_t (*rqc_conn_closing_notify_pt)(rqc_connection_t *conn,
  * @param conn_proto_data the user_data which will be used in callback functions
  * between rquic transport connection and application-layer-protocol
  * @param proto_ext the protocol extension sent by peer in handshake
- * @param resp_proto_ext output protocol extension to send in handshake response (server only)
+ * @param resp_proto_ext output protocol extension to send in handshake response (server only).
+ * Its len is 0 on entry. To include an extension in the response, write at most
+ * RQC_MAX_PROTO_EXT_LEN bytes to data, then set len to the actual number of bytes written.
+ * Keep len as 0 to send no extension.
  */
 typedef int (*rqc_conn_notify_pt)(rqc_connection_t *conn, const rqc_cid_t *cid,
     void *conn_user_data, void *conn_proto_data,

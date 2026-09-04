@@ -201,9 +201,7 @@ struct rqc_connection_s {
     /* callback function and user_data to application-layer-protocol layer */
     char                           *alpn;
     size_t                          alpn_len;
-    uint8_t                         self_proto_ext_buf[RQC_MAX_PROTO_EXT_LEN];
     rqc_proto_ext_t                 self_proto_ext;
-    uint8_t                         peer_proto_ext_buf[RQC_MAX_PROTO_EXT_LEN];
     rqc_proto_ext_t                 peer_proto_ext;
     rqc_app_proto_callbacks_t       app_proto_cbs;
     void                           *proto_data;

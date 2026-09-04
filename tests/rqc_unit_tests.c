@@ -17,6 +17,13 @@
 
 #define TEST_ALPN "rqc-test"
 
+typedef enum test_resp_proto_ext_mode_e {
+    TEST_RESP_PROTO_EXT_NONE = 0,
+    TEST_RESP_PROTO_EXT_NORMAL,
+    TEST_RESP_PROTO_EXT_MAXIMUM,
+    TEST_RESP_PROTO_EXT_OVERSIZED,
+} test_resp_proto_ext_mode_t;
+
 typedef struct test_ctx_s {
     int handshake_finished;
     int conn_create;
@@ -26,6 +33,10 @@ typedef struct test_ctx_s {
     rqc_usec_t wake_after;
     unsigned char *mutate_on_socket_write;
     size_t mutate_on_socket_write_len;
+    int conn_create_ret;
+    test_resp_proto_ext_mode_t resp_proto_ext_mode;
+    uint8_t *resp_proto_ext_data;
+    size_t resp_proto_ext_len_on_entry;
 } test_ctx_t;
 
 typedef struct test_engine_s {
@@ -132,11 +143,33 @@ test_conn_create_notify(rqc_connection_t *conn, const rqc_cid_t *cid,
     (void)cid;
     (void)conn_proto_data;
     (void)proto_ext;
-    (void)resp_proto_ext;
     if (ctx != NULL) {
         ctx->conn_create++;
+        if (resp_proto_ext == NULL) {
+            return 0;
+        }
+
+        ctx->resp_proto_ext_data = resp_proto_ext->data;
+        ctx->resp_proto_ext_len_on_entry = resp_proto_ext->len;
+        switch (ctx->resp_proto_ext_mode) {
+        case TEST_RESP_PROTO_EXT_NONE:
+            resp_proto_ext->len = 0;
+            break;
+        case TEST_RESP_PROTO_EXT_NORMAL:
+            resp_proto_ext->data[0] = 0x31;
+            resp_proto_ext->data[1] = 0x32;
+            resp_proto_ext->len = 2;
+            break;
+        case TEST_RESP_PROTO_EXT_MAXIMUM:
+            memset(resp_proto_ext->data, 0x5a, RQC_MAX_PROTO_EXT_LEN);
+            resp_proto_ext->len = RQC_MAX_PROTO_EXT_LEN;
+            break;
+        case TEST_RESP_PROTO_EXT_OVERSIZED:
+            resp_proto_ext->len = RQC_MAX_PROTO_EXT_LEN + 1;
+            break;
+        }
     }
-    return 0;
+    return ctx != NULL ? ctx->conn_create_ret : 0;
 }
 
 static int
@@ -379,12 +412,14 @@ create_client_conn(test_engine_t *eng, const uint8_t *proto_ext, size_t proto_ex
 {
     rqc_conn_settings_t settings;
     rqc_cid_t dcid, scid;
-    rqc_proto_ext_t ext;
+    rqc_proto_ext_t ext = {0};
 
     init_conn_settings(&settings);
     make_cid(&dcid, 0xa0);
     make_cid(&scid, 0xb0);
-    ext.data = proto_ext;
+    if (proto_ext_len > 0) {
+        memcpy(ext.data, proto_ext, proto_ext_len);
+    }
     ext.len = proto_ext_len;
 
     return rqc_client_create_connection(eng->engine, dcid, scid, &settings,
@@ -820,6 +855,102 @@ rqc_test_server_handshake_state(void)
     CHECK_EQ(server_eng.ctx.handshake_finished, 1);
 
     rqc_engine_destroy(server_eng.engine);
+    return 0;
+}
+
+int
+rqc_test_server_response_proto_ext_uses_embedded_array(void)
+{
+    const test_resp_proto_ext_mode_t modes[] = {
+        TEST_RESP_PROTO_EXT_NONE,
+        TEST_RESP_PROTO_EXT_NORMAL,
+        TEST_RESP_PROTO_EXT_MAXIMUM,
+    };
+    uint8_t tp[RQC_MAX_TRANSPORT_PARAM_BUF_LEN];
+    size_t tp_len = 0;
+
+    CHECK_EQ(encode_test_tp(tp, sizeof(tp), &tp_len), RQC_OK);
+    for (size_t i = 0; i < sizeof(modes) / sizeof(modes[0]); i++) {
+        test_engine_t server_eng;
+        rqc_connection_t *server;
+        size_t expected_len;
+
+        create_test_engine(&server_eng, RQC_ENGINE_SERVER);
+        CHECK_NE((uintptr_t)server_eng.engine, 0);
+        server_eng.ctx.resp_proto_ext_mode = modes[i];
+        server = create_server_conn(&server_eng);
+        CHECK_NE((uintptr_t)server, 0);
+        server->version = RQC_VERSION_V1;
+
+        CHECK_EQ(rqc_conn_process_handshake(server,
+                                            (const unsigned char *)TEST_ALPN, strlen(TEST_ALPN),
+                                            tp, tp_len, NULL, 0), RQC_OK);
+        CHECK_EQ((uintptr_t)server_eng.ctx.resp_proto_ext_data,
+                 (uintptr_t)server->self_proto_ext.data);
+        CHECK_EQ(server_eng.ctx.resp_proto_ext_len_on_entry, 0);
+
+        expected_len = modes[i] == TEST_RESP_PROTO_EXT_NONE ? 0
+            : modes[i] == TEST_RESP_PROTO_EXT_NORMAL ? 2 : RQC_MAX_PROTO_EXT_LEN;
+        CHECK_EQ(server->self_proto_ext.len, expected_len);
+        if (modes[i] == TEST_RESP_PROTO_EXT_NORMAL) {
+            CHECK_EQ(server->self_proto_ext.data[0], 0x31);
+            CHECK_EQ(server->self_proto_ext.data[1], 0x32);
+        } else if (modes[i] == TEST_RESP_PROTO_EXT_MAXIMUM) {
+            CHECK_EQ(server->self_proto_ext.data[0], 0x5a);
+            CHECK_EQ(server->self_proto_ext.data[RQC_MAX_PROTO_EXT_LEN - 1], 0x5a);
+        }
+
+        rqc_engine_destroy(server_eng.engine);
+    }
+
+    return 0;
+}
+
+int
+rqc_test_server_rejects_invalid_response_proto_ext(void)
+{
+    uint8_t tp[RQC_MAX_TRANSPORT_PARAM_BUF_LEN];
+    size_t tp_len = 0;
+
+    CHECK_EQ(encode_test_tp(tp, sizeof(tp), &tp_len), RQC_OK);
+    test_engine_t server_eng;
+    rqc_connection_t *server;
+
+    create_test_engine(&server_eng, RQC_ENGINE_SERVER);
+    CHECK_NE((uintptr_t)server_eng.engine, 0);
+    server_eng.ctx.resp_proto_ext_mode = TEST_RESP_PROTO_EXT_OVERSIZED;
+    server = create_server_conn(&server_eng);
+    CHECK_NE((uintptr_t)server, 0);
+    server->version = RQC_VERSION_V1;
+
+    CHECK_EQ(rqc_conn_process_handshake(server,
+                                        (const unsigned char *)TEST_ALPN, strlen(TEST_ALPN),
+                                        tp, tp_len, NULL, 0), -RQC_EPARAM);
+    CHECK_EQ(server->conn_err, TRA_INTERNAL_ERROR);
+    CHECK_EQ(server->conn_state, RQC_CONN_STATE_SERVER_INIT);
+    CHECK_EQ(server->self_proto_ext.len, 0);
+    CHECK_EQ((uintptr_t)rqc_conn_get_self_proto_ext(server), 0);
+
+    rqc_engine_destroy(server_eng.engine);
+
+    create_test_engine(&server_eng, RQC_ENGINE_SERVER);
+    CHECK_NE((uintptr_t)server_eng.engine, 0);
+    server_eng.ctx.resp_proto_ext_mode = TEST_RESP_PROTO_EXT_NORMAL;
+    server_eng.ctx.conn_create_ret = -1;
+    server = create_server_conn(&server_eng);
+    CHECK_NE((uintptr_t)server, 0);
+    server->version = RQC_VERSION_V1;
+
+    CHECK_EQ(rqc_conn_process_handshake(server,
+                                        (const unsigned char *)TEST_ALPN, strlen(TEST_ALPN),
+                                        tp, tp_len, NULL, 0), -TRA_INTERNAL_ERROR);
+    CHECK_EQ(server->conn_err, TRA_INTERNAL_ERROR);
+    CHECK_EQ(server->conn_state, RQC_CONN_STATE_SERVER_INIT);
+    CHECK_EQ(server->self_proto_ext.len, 0);
+    CHECK_EQ((uintptr_t)rqc_conn_get_self_proto_ext(server), 0);
+
+    rqc_engine_destroy(server_eng.engine);
+
     return 0;
 }
 

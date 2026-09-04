@@ -5,6 +5,8 @@ int rqc_test_handshake_frame_round_trip(void);
 int rqc_test_malformed_handshake_frame(void);
 int rqc_test_client_handshake_state(void);
 int rqc_test_server_handshake_state(void);
+int rqc_test_server_response_proto_ext_uses_embedded_array(void);
+int rqc_test_server_rejects_invalid_response_proto_ext(void);
 int rqc_test_abnormal_handshake_input(void);
 int rqc_test_stream_send_flush_on_eagain(void);
 int rqc_test_stream_sendv_validation_and_empty(void);
@@ -32,6 +34,16 @@ TEST(RqcUnitTest, ClientHandshakeState)
 TEST(RqcUnitTest, ServerHandshakeState)
 {
     EXPECT_EQ(rqc_test_server_handshake_state(), 0);
+}
+
+TEST(RqcUnitTest, ServerResponseProtoExtUsesEmbeddedArray)
+{
+    EXPECT_EQ(rqc_test_server_response_proto_ext_uses_embedded_array(), 0);
+}
+
+TEST(RqcUnitTest, ServerRejectsInvalidResponseProtoExt)
+{
+    EXPECT_EQ(rqc_test_server_rejects_invalid_response_proto_ext(), 0);
 }
 
 TEST(RqcUnitTest, AbnormalHandshakeInput)
