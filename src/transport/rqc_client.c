@@ -90,9 +90,7 @@ const rqc_cid_t *rqc_connect(rqc_engine_t *engine,
         return NULL;
     }
 
-    if (proto_ext && (proto_ext->len > RQC_MAX_PROTO_EXT_LEN
-        || (proto_ext->len > 0 && proto_ext->data == NULL)))
-    {
+    if (proto_ext && proto_ext->len > RQC_MAX_PROTO_EXT_LEN) {
         return NULL;
     }
 
@@ -127,7 +125,7 @@ rqc_client_create_connection(rqc_engine_t *engine,
     }
 
     if (proto_ext && proto_ext->len > 0) {
-        rqc_memcpy(xc->self_proto_ext_buf, proto_ext->data, proto_ext->len);
+        rqc_memcpy(xc->self_proto_ext.data, proto_ext->data, proto_ext->len);
         xc->self_proto_ext.len = proto_ext->len;
     }
 

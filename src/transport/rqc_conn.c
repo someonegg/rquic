@@ -745,9 +745,7 @@ rqc_conn_create(rqc_engine_t *engine, rqc_cid_t *dcid, rqc_cid_t *scid,
     xc->conn_type = type;
     xc->conn_flag = 0;
     xc->conn_state = (type == RQC_CONN_TYPE_SERVER) ? RQC_CONN_STATE_SERVER_INIT : RQC_CONN_STATE_CLIENT_INIT;
-    xc->self_proto_ext.data = xc->self_proto_ext_buf;
     xc->self_proto_ext.len = 0;
-    xc->peer_proto_ext.data = xc->peer_proto_ext_buf;
     xc->peer_proto_ext.len = 0;
     rqc_log_event(xc->log, CON_CONNECTION_STATE_UPDATED, xc);
     xc->conn_create_time = rqc_monotonic_timestamp();
@@ -1352,29 +1350,21 @@ rqc_conn_server_on_alpn(rqc_connection_t *conn, const unsigned char *alpn, size_
 
     /* do callback */
     if (conn->app_proto_cbs.conn_cbs.conn_create_notify) {
-        rqc_proto_ext_t proto_ext = {
-            .data = conn->peer_proto_ext_buf,
-            .len = conn->peer_proto_ext.len,
-        };
-        rqc_proto_ext_t resp_proto_ext = {0};
+        conn->self_proto_ext.len = 0;
         if (conn->app_proto_cbs.conn_cbs.conn_create_notify(conn, &conn->scid_set.user_scid,
-            conn->user_data, conn->proto_data, &proto_ext, &resp_proto_ext))
+            conn->user_data, conn->proto_data, &conn->peer_proto_ext, &conn->self_proto_ext))
         {
+            conn->self_proto_ext.len = 0;
             goto err;
         }
 
-        if (resp_proto_ext.len > RQC_MAX_PROTO_EXT_LEN
-            || (resp_proto_ext.len > 0 && resp_proto_ext.data == NULL))
-        {
-            rqc_log(conn->log, RQC_LOG_ERROR, "|invalid resp proto ext|len:%uz|", resp_proto_ext.len);
+        if (conn->self_proto_ext.len > RQC_MAX_PROTO_EXT_LEN) {
+            rqc_log(conn->log, RQC_LOG_ERROR, "|invalid resp proto ext|len:%uz|",
+                    conn->self_proto_ext.len);
+            conn->self_proto_ext.len = 0;
             RQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
             return -RQC_EPARAM;
         }
-
-        if (resp_proto_ext.len > 0) {
-            rqc_memcpy(conn->self_proto_ext_buf, resp_proto_ext.data, resp_proto_ext.len);
-        }
-        conn->self_proto_ext.len = resp_proto_ext.len;
 
         conn->conn_flag |= RQC_CONN_FLAG_UPPER_CONN_EXIST;
     }
@@ -2697,7 +2687,7 @@ rqc_conn_send_handshake(rqc_connection_t *conn)
     }
 
     ret = rqc_write_handshake_frame_to_packet(conn, conn->alpn, conn->alpn_len, tp, tp_len,
-                                              conn->self_proto_ext_buf, conn->self_proto_ext.len);
+                                              conn->self_proto_ext.data, conn->self_proto_ext.len);
     if (ret != RQC_OK) {
         rqc_log(conn->log, RQC_LOG_ERROR, "|rqc_conn_send_handshake error|%d|", ret);
         return ret;
@@ -2784,7 +2774,7 @@ rqc_conn_process_handshake(rqc_connection_t *conn,
         return -RQC_EILLFRAME;
     }
     if (proto_ext_len > 0) {
-        rqc_memcpy(conn->peer_proto_ext_buf, proto_ext, proto_ext_len);
+        rqc_memcpy(conn->peer_proto_ext.data, proto_ext, proto_ext_len);
     }
     conn->peer_proto_ext.len = proto_ext_len;
 

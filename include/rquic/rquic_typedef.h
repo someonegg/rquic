@@ -197,8 +197,8 @@ typedef struct rquic_iovec_s {
 #define RQC_MAX_COMMON_BUF_LEN  64
 
 typedef struct rqc_proto_ext_s {
-    const uint8_t *data;
-    size_t len;
+    uint8_t data[RQC_MAX_PROTO_EXT_LEN];
+    size_t  len;
 } rqc_proto_ext_t;
 
 typedef enum rqc_conn_settings_type_e {
