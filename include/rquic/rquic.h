@@ -166,7 +166,8 @@ typedef void (*rqc_server_refuse_pt)(rqc_engine_t *engine, rqc_connection_t *con
  * callback is helpful to avoid attempts to send data on a closing connection. \n
  * NOTICE: this callback function will be triggered at the beginning of
  * connection close, while the conn_close_notify will be triggered at the end of
- * connection close.
+ * connection close. Direct destruction paths, including fatal socket send errors,
+ * may skip this callback; use conn_close_notify for final resource cleanup.
  *
  * @param conn pointer of connection
  * @param cid connection id
@@ -179,6 +180,10 @@ typedef rqc_int_t (*rqc_conn_closing_notify_pt)(rqc_connection_t *conn,
 
 /**
  * @brief callback function definition for connection create
+ *
+ * May run synchronously before rqc_connect returns. Return 0 to accept the
+ * connection. A nonzero return rejects creation: conn_close_notify will not
+ * follow, and this callback must clean up any partially created upper resources.
  *
  * @param conn_user_data the user_data which will be used in callback functions
  * between rquic transport connection and application
@@ -956,6 +961,8 @@ rqc_connection_t *rqc_engine_get_conn_by_scid(rqc_engine_t *engine,
  *************************************************************/
 /**
  * Client connect
+ * Creation notification may occur before this call returns.
+ * NULL means creation failed; the caller retains ownership of user_data.
  * @param engine return from rqc_engine_create
  * @param conn_settings settings of connection
  * @param server_host server domain

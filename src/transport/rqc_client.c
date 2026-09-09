@@ -44,28 +44,27 @@ rqc_client_connect(rqc_engine_t *engine,
     }
 
     if (rqc_conn_client_init_path_addr(xc) != RQC_OK) {
-        return NULL;
+        goto fail;
     }
 
     rqc_log_event(xc->log, CON_CONNECTION_STARTED, xc, RQC_LOG_REMOTE_EVENT);
 
+    rqc_engine_remove_wakeup_queue(engine, xc);
+    if (rqc_engine_add_active_queue(engine, xc) != RQC_OK) {
+        goto fail;
+    }
+
+    /* All fallible setup must finish before delivering the connection. */
     /* conn_create callback */
     if (xc->app_proto_cbs.conn_cbs.conn_create_notify) {
         if (xc->app_proto_cbs.conn_cbs.conn_create_notify(xc, &xc->scid_set.user_scid,
                 user_data, NULL, NULL, NULL)) {
             rqc_log(engine->log, RQC_LOG_INFO, "|destroy conn as create_notify return failure|conn:%p|%s",
                     xc, rqc_conn_addr_str(xc));
-            rqc_conn_destroy(xc);
-            return NULL;
+            goto fail;
         }
 
         xc->conn_flag |= RQC_CONN_FLAG_UPPER_CONN_EXIST;
-    }
-
-    rqc_engine_remove_wakeup_queue(engine, xc);
-
-    if (rqc_engine_add_active_queue(engine, xc) != RQC_OK) {
-        return NULL;
     }
 
     rqc_engine_conn_logic(engine, xc);
@@ -76,6 +75,12 @@ rqc_client_connect(rqc_engine_t *engine,
     }
 
     return xc;
+
+fail:
+    rqc_engine_remove_active_queue(engine, xc);
+    rqc_engine_remove_wakeup_queue(engine, xc);
+    rqc_conn_destroy(xc);
+    return NULL;
 }
 
 const rqc_cid_t *rqc_connect(rqc_engine_t *engine,
