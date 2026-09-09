@@ -12,6 +12,10 @@
 #include "src/transport/rqc_stream.h"
 #include "src/transport/rqc_transport_params.h"
 
+#include "src/common/rqc_priority_q.h"
+#include "src/common/rqc_str_hash.h"
+
+#include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -1090,5 +1094,183 @@ rqc_test_stream_peek(void)
 
     rqc_list_del_init(&frame1.sf_list);
     rqc_list_del_init(&frame2.sf_list);
+    return 0;
+}
+
+/* The caller owns the wrapper until connect delivers a CID; close owns it thereafter. */
+typedef struct connect_trace_s {
+    char events[32];
+    size_t event_count;
+    int result;
+    int reject;
+    int frees;
+    int close_error;
+    int queued_on_create;
+    int allocation_failures;
+    rqc_int_t existing_error;
+    rqc_connection_t *conn;
+} connect_trace_t;
+
+typedef struct connect_wrapper_s {
+    connect_trace_t *trace;
+} connect_wrapper_t;
+
+static void
+connect_event(connect_trace_t *trace, char event)
+{
+    if (trace->event_count + 1 < sizeof(trace->events)) {
+        trace->events[trace->event_count++] = event;
+        trace->events[trace->event_count] = '\0';
+    }
+}
+
+static int
+connect_create(rqc_connection_t *conn, const rqc_cid_t *cid,
+    void *user_data, void *proto_data, const rqc_proto_ext_t *ext, rqc_proto_ext_t *resp)
+{
+    connect_trace_t *trace = ((connect_wrapper_t *)user_data)->trace;
+    trace->conn = conn;
+    trace->queued_on_create = !!(conn->conn_flag & RQC_CONN_FLAG_TICKING);
+    connect_event(trace, 'C');
+    return trace->reject;
+}
+
+static int
+connect_close(rqc_connection_t *conn, const rqc_cid_t *cid, void *user_data, void *proto_data)
+{
+    connect_wrapper_t *wrapper = user_data;
+    connect_trace_t *trace = wrapper->trace;
+    trace->close_error = rqc_conn_get_errno(conn);
+    connect_event(trace, 'X');
+    trace->frees++;
+    free(wrapper);
+    return 0;
+}
+
+static rqc_int_t
+connect_closing(rqc_connection_t *conn, const rqc_cid_t *cid, rqc_int_t error, void *user_data)
+{
+    connect_event(((connect_wrapper_t *)user_data)->trace, 'G');
+    return 0;
+}
+
+static ssize_t
+connect_write(const unsigned char *buf, size_t size, const struct sockaddr *addr,
+    socklen_t addrlen, void *user_data)
+{
+    connect_trace_t *trace = ((connect_wrapper_t *)user_data)->trace;
+    connect_event(trace, 'S');
+    /* Inject an earlier cause at the send boundary without requesting closing. */
+    if (trace->existing_error) {
+        trace->conn->conn_err = trace->existing_error;
+        RQC_CONN_CLOSE_MSG(trace->conn, "earlier error");
+    }
+    return trace->result ? trace->result : (ssize_t)size;
+}
+
+static ssize_t
+connect_write_mmsg(const struct iovec *iov, unsigned int count,
+    const struct sockaddr *addr, socklen_t addrlen, void *user_data)
+{
+    ssize_t result = connect_write(iov[0].iov_base, iov[0].iov_len, addr, addrlen, user_data);
+    return result < 0 ? result : count;
+}
+
+static void *
+connect_fail_alloc(void *opaque, size_t size)
+{
+    connect_trace_t *trace = opaque;
+    trace->allocation_failures++;
+    return NULL;
+}
+
+static int
+connect_check_empty(rqc_engine_t *engine)
+{
+    CHECK_EQ(engine->conns_active_pq->count, 0);
+    CHECK_EQ(engine->conns_wait_wakeup_pq->count, 0);
+    for (size_t i = 0; i < engine->conns_hash->count; ++i) {
+        CHECK(engine->conns_hash->list[i] == NULL);
+    }
+    return 0;
+}
+
+int
+rqc_test_connect_lifecycle(void)
+{
+    /* success, fatal send, existing error, EAGAIN, queue failure, rejection,
+     * and pre-notification initialization failure (unknown ALPN). */
+    for (int batch = 0; batch < 2; ++batch) {
+        for (int mode = 0; mode < 7; ++mode) {
+            test_engine_t eng;
+            connect_trace_t trace = {0};
+            rqc_conn_settings_t settings;
+            create_test_engine(&eng, RQC_ENGINE_CLIENT);
+            CHECK(eng.engine != NULL);
+            eng.engine->config->sendmmsg_on = batch;
+            eng.engine->transport_cbs.write_socket = connect_write;
+            eng.engine->transport_cbs.write_mmsg = connect_write_mmsg;
+            eng.engine->transport_cbs.conn_closing = connect_closing;
+            rqc_app_proto_callbacks_t cbs = test_app_cbs();
+            cbs.conn_cbs.conn_create_notify = connect_create;
+            cbs.conn_cbs.conn_close_notify = connect_close;
+            CHECK_EQ(rqc_engine_unregister_alpn(eng.engine, TEST_ALPN, strlen(TEST_ALPN)), RQC_OK);
+            CHECK_EQ(rqc_engine_register_alpn(eng.engine, TEST_ALPN, strlen(TEST_ALPN), &cbs, NULL), RQC_OK);
+            init_conn_settings(&settings);
+            settings.disable_send_mmsg = 0;
+            trace.result = mode == 1 || mode == 2 ? RQC_SOCKET_ERROR
+                : mode == 3 ? RQC_SOCKET_EAGAIN : 0;
+            trace.existing_error = mode == 2 ? RQC_EMALLOC : 0;
+            trace.reject = mode == 5;
+            rqc_pq_t *pq = eng.engine->conns_active_pq;
+            rqc_allocator_t allocator = pq->a;
+            size_t capacity = pq->capacity;
+            if (mode == 4) {
+                pq->capacity = 0; /* Force the next push to allocate. */
+                pq->a.malloc = connect_fail_alloc;
+                pq->a.opaque = &trace;
+            }
+            connect_wrapper_t *wrapper = malloc(sizeof(*wrapper));
+            CHECK(wrapper != NULL);
+            wrapper->trace = &trace;
+            const rqc_cid_t *cid = rqc_connect(eng.engine, &settings, "localhost",
+                mode == 6 ? "unknown" : TEST_ALPN, NULL, NULL, 0, wrapper);
+            connect_event(&trace, 'R');
+            pq->a = allocator;
+            pq->capacity = capacity;
+            CHECK_EQ(trace.frees, 0);
+            if (mode >= 4) {
+                CHECK(cid == NULL);
+                CHECK(strcmp(trace.events, mode == 5 ? "CR" : "R") == 0);
+                CHECK_EQ(trace.allocation_failures, mode == 4 ? 1 : 0);
+                if (mode == 5) CHECK(trace.queued_on_create);
+                CHECK_EQ(connect_check_empty(eng.engine), 0);
+                trace.frees++;
+                free(wrapper);
+            } else {
+                CHECK(cid != NULL);
+                CHECK(strcmp(trace.events, "CSR") == 0);
+                CHECK(trace.queued_on_create);
+                if (mode == 1 || mode == 2) {
+                    CHECK_EQ(trace.conn->conn_state, RQC_CONN_STATE_CLOSED);
+                    CHECK_EQ(trace.conn->conn_err, mode == 2 ? RQC_EMALLOC : RQC_ESOCKET);
+                    CHECK(strcmp(trace.conn->conn_close_msg, mode == 2 ? "earlier error"
+                        : batch ? "write_mmsg failed" : "write_socket failed") == 0);
+                    rqc_engine_main_logic(eng.engine);
+                    CHECK(strcmp(trace.events, "CSRX") == 0);
+                    CHECK_EQ(trace.close_error, mode == 2 ? RQC_EMALLOC : RQC_ESOCKET);
+                    CHECK_EQ(trace.frees, 1);
+                    CHECK_EQ(connect_check_empty(eng.engine), 0);
+                    rqc_engine_main_logic(eng.engine);
+                    CHECK(strcmp(trace.events, "CSRX") == 0);
+                } else {
+                    CHECK_NE(trace.conn->conn_state, RQC_CONN_STATE_CLOSED);
+                    CHECK_EQ(trace.conn->conn_err, 0);
+                }
+            }
+            rqc_engine_destroy(eng.engine);
+            CHECK_EQ(trace.frees, 1);
+        }
+    }
     return 0;
 }

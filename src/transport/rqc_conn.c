@@ -1728,6 +1728,10 @@ rqc_send(rqc_connection_t *conn, rqc_path_ctx_t *path, unsigned char *data, unsi
 
             /* if callback return RQC_SOCKET_ERROR, close the connection */
             if (sent == RQC_SOCKET_ERROR) {
+                if (conn->conn_err == 0) {
+                    conn->conn_err = RQC_ESOCKET;
+                    RQC_CONN_CLOSE_MSG(conn, "write_socket failed");
+                }
                 rqc_log(conn->log, RQC_LOG_ERROR, "|conn:%p|socket exception, close connection|", conn);
                 conn->conn_state = RQC_CONN_STATE_CLOSED;
                 rqc_log_event(conn->log, CON_CONNECTION_STATE_UPDATED, conn);
@@ -2012,6 +2016,10 @@ rqc_send_burst(rqc_connection_t *conn, rqc_path_ctx_t *path, struct iovec *iov, 
         if (sent_cnt < 0) {
             rqc_log(conn->log, RQC_LOG_ERROR, "|error send mmsg|");
             if (sent_cnt == RQC_SOCKET_ERROR) {
+                if (conn->conn_err == 0) {
+                    conn->conn_err = RQC_ESOCKET;
+                    RQC_CONN_CLOSE_MSG(conn, "write_mmsg failed");
+                }
                 rqc_log(conn->log, RQC_LOG_ERROR, "|socket exception, close connection|");
                 conn->conn_state = RQC_CONN_STATE_CLOSED;
                 rqc_log_event(conn->log, CON_CONNECTION_STATE_UPDATED, conn);
