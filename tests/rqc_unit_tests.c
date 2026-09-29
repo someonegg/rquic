@@ -9,11 +9,13 @@
 #include "src/transport/rqc_packet_in.h"
 #include "src/transport/rqc_packet_out.h"
 #include "src/transport/rqc_send_queue.h"
+#include "src/transport/rqc_send_ctl.h"
 #include "src/transport/rqc_stream.h"
 #include "src/transport/rqc_transport_params.h"
 
 #include "src/common/rqc_priority_q.h"
 #include "src/common/rqc_str_hash.h"
+#include "src/common/rqc_time.h"
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -456,6 +458,102 @@ create_server_conn(test_engine_t *eng)
     make_cid(&scid, 0xd0);
 
     return rqc_conn_create(eng->engine, &dcid, &scid, &settings, &eng->ctx, RQC_CONN_TYPE_SERVER);
+}
+
+int
+rqc_test_batch_ack_only_packets(void)
+{
+    for (int type = RQC_ENGINE_CLIENT; type <= RQC_ENGINE_SERVER; ++type) {
+        for (int enabled = 0; enabled <= 1; ++enabled) {
+            for (int extra_frame = 0; extra_frame <= 2; ++extra_frame) {
+                test_engine_t eng;
+                rqc_connection_t *conn;
+                unsigned char packet[32];
+                size_t cid_len, frame_len = 5;
+
+                create_test_engine(&eng, type);
+                CHECK_NE((uintptr_t)eng.engine, 0);
+                conn = type == RQC_ENGINE_SERVER ? create_server_conn(&eng)
+                                                 : create_client_conn(&eng, NULL, 0);
+                CHECK_NE((uintptr_t)conn, 0);
+                conn->conn_settings.batch_ack_only_packets = enabled;
+                conn->conn_state = RQC_CONN_STATE_ESTABED;
+                conn->conn_flag |= RQC_CONN_FLAG_HANDSHAKE_SENT
+                    | RQC_CONN_FLAG_HANDSHAKE_RECVD | RQC_CONN_FLAG_HANDSHAKE_DONE;
+                conn->conn_flag &= ~RQC_CONN_FLAG_NEED_RUN;
+
+                cid_len = conn->scid_set.user_scid.cid_len;
+                CHECK(cid_len + 9 <= sizeof(packet));
+                packet[0] = 0x40; /* short header, one-byte packet number */
+                memcpy(packet + 1, conn->scid_set.user_scid.cid_buf, cid_len);
+                packet[2 + cid_len] = 1;
+                memset(packet + 3 + cid_len, 0, frame_len);
+                packet[3 + cid_len] = 0x02; /* ACK: largest=0, delay=0, one range */
+                if (extra_frame != 0) {
+                    packet[3 + cid_len + frame_len] = extra_frame == 1 ? 0x00 : 0x01;
+                    ++frame_len;
+                }
+                packet[1 + cid_len] = (unsigned char)(frame_len + 1);
+
+                CHECK_EQ(rqc_engine_packet_process(eng.engine, packet,
+                    3 + cid_len + frame_len, NULL, 0, NULL, 0,
+                    rqc_monotonic_timestamp(), &eng.ctx), RQC_OK);
+                CHECK_EQ(conn->conn_state, RQC_CONN_STATE_ESTABED);
+                CHECK_EQ(rqc_recv_record_largest(&rqc_get_pn_ctl(conn, conn->the_path)->ctl_recv_record), 1);
+                CHECK_EQ(conn->packet_need_process_count,
+                    enabled && extra_frame != 2 ? 1 : 0);
+                rqc_engine_finish_recv(eng.engine);
+                CHECK_EQ(conn->packet_need_process_count, 0);
+                rqc_engine_destroy(eng.engine);
+            }
+        }
+    }
+
+    {
+        test_engine_t eng;
+        rqc_connection_t *conn;
+        rqc_conn_settings_t settings;
+        rqc_cid_t dcid, scid;
+        unsigned char packet[32];
+        size_t cid_len;
+
+        create_test_engine(&eng, RQC_ENGINE_SERVER);
+        CHECK_NE((uintptr_t)eng.engine, 0);
+        init_conn_settings(&settings);
+        CHECK_EQ(settings.batch_ack_only_packets, 0);
+        settings.batch_ack_only_packets = 1;
+        rqc_server_set_conn_settings(eng.engine, &settings);
+        CHECK_EQ(eng.engine->default_conn_settings.batch_ack_only_packets, 1);
+        make_cid(&dcid, 0xc0);
+        make_cid(&scid, 0xd0);
+        conn = rqc_conn_create(eng.engine, &dcid, &scid,
+            &eng.engine->default_conn_settings, &eng.ctx, RQC_CONN_TYPE_SERVER);
+        CHECK_NE((uintptr_t)conn, 0);
+        CHECK_EQ(conn->conn_settings.batch_ack_only_packets, 1);
+        conn->conn_flag |= RQC_CONN_FLAG_HANDSHAKE_SENT;
+        cid_len = conn->scid_set.user_scid.cid_len;
+        packet[0] = 0x40;
+        memcpy(packet + 1, conn->scid_set.user_scid.cid_buf, cid_len);
+        packet[1 + cid_len] = 6;
+        packet[2 + cid_len] = 1;
+        packet[3 + cid_len] = 0x02;
+        memset(packet + 4 + cid_len, 0, 4);
+        CHECK_EQ(rqc_engine_packet_process(eng.engine, packet, 8 + cid_len,
+            NULL, 0, NULL, 0, rqc_monotonic_timestamp(), &eng.ctx), RQC_OK);
+        CHECK_EQ(conn->conn_state, RQC_CONN_STATE_SERVER_INIT);
+        CHECK_EQ(conn->packet_need_process_count, 0); /* handshake remains immediate */
+
+        conn->conn_state = RQC_CONN_STATE_ESTABED;
+        for (int pn = 2; pn <= RQC_MAX_PACKET_PROCESS_BATCH + 1; ++pn) {
+            packet[2 + cid_len] = (unsigned char)pn;
+            CHECK_EQ(rqc_engine_packet_process(eng.engine, packet, 8 + cid_len,
+                NULL, 0, NULL, 0, rqc_monotonic_timestamp(), &eng.ctx), RQC_OK);
+        }
+        CHECK_EQ(conn->conn_state, RQC_CONN_STATE_ESTABED);
+        CHECK_EQ(conn->packet_need_process_count, 0); /* bounded batch */
+        rqc_engine_destroy(eng.engine);
+    }
+    return 0;
 }
 
 int

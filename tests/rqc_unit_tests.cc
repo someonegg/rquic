@@ -14,6 +14,7 @@ int rqc_test_stream_sendv_validation_and_empty(void);
 int rqc_test_stream_sendv_complete_and_fixed_pending(void);
 int rqc_test_stream_sendv_dynamic_multidrain_and_close(void);
 int rqc_test_fast_wakeup_dedup(void);
+int rqc_test_batch_ack_only_packets(void);
 int rqc_test_stream_peek(void);
 }
 
@@ -75,6 +76,11 @@ TEST(RqcUnitTest, StreamSendvDynamicMultidrainAndClose)
 TEST(RqcUnitTest, FastWakeupDedup)
 {
     EXPECT_EQ(rqc_test_fast_wakeup_dedup(), 0);
+}
+
+TEST(RqcUnitTest, BatchAckOnlyPackets)
+{
+    EXPECT_EQ(rqc_test_batch_ack_only_packets(), 0);
 }
 
 TEST(RqcUnitTest, StreamPeek)
