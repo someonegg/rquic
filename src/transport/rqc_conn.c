@@ -89,6 +89,7 @@ rqc_server_set_conn_settings(rqc_engine_t *engine, const rqc_conn_settings_t *se
     engine->default_conn_settings.protect_pool_mem = settings->protect_pool_mem;
 #endif
     engine->default_conn_settings.adaptive_ack_frequency = settings->adaptive_ack_frequency;
+    engine->default_conn_settings.batch_ack_only_packets = settings->batch_ack_only_packets;
 
     if (settings->max_udp_payload_size != 0) {
         engine->default_conn_settings.max_udp_payload_size = settings->max_udp_payload_size;
@@ -1568,7 +1569,18 @@ rqc_conn_on_pkt_processed(rqc_connection_t *c, rqc_packet_in_t *pi, rqc_usec_t n
 
     /* record packet */
     rqc_conn_record_single(c, pi);
-    if (pi->pi_frame_types & (~(RQC_FRAME_BIT_STREAM|RQC_FRAME_BIT_PADDING))) {
+
+    uint64_t frame_types = pi->pi_frame_types;
+    int need_run = frame_types & ~(RQC_FRAME_BIT_STREAM | RQC_FRAME_BIT_PADDING);
+    if (need_run
+        && c->conn_settings.batch_ack_only_packets
+        && !(frame_types & ~(RQC_FRAME_BIT_ACK | RQC_FRAME_BIT_PADDING))
+        && rqc_conn_is_established(c))
+    {
+        need_run = 0;
+    }
+    if (need_run)
+    {
         c->conn_flag |= RQC_CONN_FLAG_NEED_RUN;
     }
 
