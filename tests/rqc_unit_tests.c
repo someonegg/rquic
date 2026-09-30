@@ -557,6 +557,82 @@ rqc_test_batch_ack_only_packets(void)
 }
 
 int
+rqc_test_nat_rebinding_keeps_challenge_until_response(void)
+{
+    test_engine_t eng;
+    rqc_connection_t *conn;
+    rqc_path_ctx_t *path;
+    struct sockaddr_in local = {0}, original = {0}, rebound = {0};
+    unsigned char packet[32], challenge[RQC_PATH_CHALLENGE_DATA_LEN];
+    size_t cid_len;
+
+    create_test_engine(&eng, RQC_ENGINE_SERVER);
+    CHECK(eng.engine != NULL);
+    conn = create_server_conn(&eng);
+    CHECK(conn != NULL);
+    path = conn->the_path;
+    CHECK(path != NULL);
+    conn->conn_state = RQC_CONN_STATE_ESTABED;
+    conn->conn_flag |= RQC_CONN_FLAG_HANDSHAKE_SENT
+        | RQC_CONN_FLAG_HANDSHAKE_RECVD | RQC_CONN_FLAG_HANDSHAKE_DONE;
+
+    local.sin_family = original.sin_family = rebound.sin_family = AF_INET;
+    local.sin_port = htons(4433);
+    original.sin_port = htons(5000);
+    rebound.sin_port = htons(5001);
+    local.sin_addr.s_addr = original.sin_addr.s_addr = rebound.sin_addr.s_addr = htonl(INADDR_LOOPBACK);
+    memcpy(conn->local_addr, &local, sizeof(local));
+    conn->local_addrlen = sizeof(local);
+    memcpy(conn->peer_addr, &original, sizeof(original));
+    conn->peer_addrlen = sizeof(original);
+    memcpy(path->local_addr, &local, sizeof(local));
+    path->local_addrlen = sizeof(local);
+    memcpy(path->peer_addr, &original, sizeof(original));
+    path->peer_addrlen = sizeof(original);
+
+    cid_len = conn->scid_set.user_scid.cid_len;
+    CHECK(cid_len + 13 <= sizeof(packet));
+    packet[0] = 0x40; /* short header, one-byte packet number */
+    memcpy(packet + 1, conn->scid_set.user_scid.cid_buf, cid_len);
+    packet[1 + cid_len] = 2; /* packet number and PING frame */
+    packet[3 + cid_len] = 0x01;
+
+    packet[2 + cid_len] = 1;
+    CHECK_EQ(rqc_engine_packet_process(eng.engine, packet, 4 + cid_len,
+        (struct sockaddr *)&local, sizeof(local), (struct sockaddr *)&rebound,
+        sizeof(rebound), rqc_monotonic_timestamp(), &eng.ctx), RQC_OK);
+    CHECK_EQ(path->rebinding_count, 1);
+    CHECK(rqc_timer_is_set(&path->path_send_ctl->path_timer_manager, RQC_TIMER_NAT_REBINDING));
+    CHECK_EQ(path->rebinding_addrlen, sizeof(rebound));
+    memcpy(challenge, path->path_challenge_data, sizeof(challenge));
+    CHECK_GT(eng.ctx.socket_writes, 0);
+
+    packet[2 + cid_len] = 2;
+    CHECK_EQ(rqc_engine_packet_process(eng.engine, packet, 4 + cid_len,
+        (struct sockaddr *)&local, sizeof(local), (struct sockaddr *)&rebound,
+        sizeof(rebound), rqc_monotonic_timestamp(), &eng.ctx), RQC_OK);
+    CHECK_EQ(path->rebinding_count, 1);
+    CHECK(memcmp(path->path_challenge_data, challenge, sizeof(challenge)) == 0);
+    CHECK_EQ(path->rebinding_check_response, 1);
+
+    packet[1 + cid_len] = 10; /* packet number and PATH_RESPONSE frame */
+    packet[2 + cid_len] = 3;
+    packet[3 + cid_len] = 0x1b;
+    memcpy(packet + 4 + cid_len, challenge, sizeof(challenge));
+    CHECK_EQ(rqc_engine_packet_process(eng.engine, packet, 12 + cid_len,
+        (struct sockaddr *)&local, sizeof(local), (struct sockaddr *)&rebound,
+        sizeof(rebound), rqc_monotonic_timestamp(), &eng.ctx), RQC_OK);
+    CHECK_EQ(path->rebinding_valid, 1);
+    CHECK_EQ(path->rebinding_addrlen, 0);
+    CHECK(!rqc_timer_is_set(&path->path_send_ctl->path_timer_manager, RQC_TIMER_NAT_REBINDING));
+    CHECK(rqc_is_same_addr((struct sockaddr *)path->peer_addr, (struct sockaddr *)&rebound));
+    CHECK(rqc_is_same_addr((struct sockaddr *)conn->peer_addr, (struct sockaddr *)&rebound));
+
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
 rqc_test_stream_send_flush_on_eagain(void)
 {
     test_engine_t eng;

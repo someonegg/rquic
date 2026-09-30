@@ -2407,14 +2407,13 @@ rqc_conn_send_path_challenge(rqc_connection_t *conn, rqc_path_ctx_t *path)
                 rqc_pkt_type_2_str(packet_out->po_pkt.pkt_type),
                 rqc_frame_type_2_str(conn->engine, packet_out->po_frame_types), now);
         ret = -RQC_ESOCKET;
-        goto end;
-
     } else {
         rqc_log(conn->log, RQC_LOG_INFO,
                 "|<==|conn:%p|pkt_num:%ui|size:%ud|sent:%z|pkt_type:%s|frame:%s|inflight:%ud|now:%ui|",
                 conn, packet_out->po_pkt.pkt_num, packet_out->po_used_size, sent,
                 rqc_pkt_type_2_str(packet_out->po_pkt.pkt_type),
                 rqc_frame_type_2_str(conn->engine, packet_out->po_frame_types), path->path_send_ctl->ctl_bytes_in_flight, now);
+        ret = RQC_OK;
     }
 
 end:
