@@ -15,6 +15,7 @@ int rqc_test_stream_sendv_complete_and_fixed_pending(void);
 int rqc_test_stream_sendv_dynamic_multidrain_and_close(void);
 int rqc_test_fast_wakeup_dedup(void);
 int rqc_test_batch_ack_only_packets(void);
+int rqc_test_nat_rebinding_keeps_challenge_until_response(void);
 int rqc_test_stream_peek(void);
 }
 
@@ -81,6 +82,11 @@ TEST(RqcUnitTest, FastWakeupDedup)
 TEST(RqcUnitTest, BatchAckOnlyPackets)
 {
     EXPECT_EQ(rqc_test_batch_ack_only_packets(), 0);
+}
+
+TEST(RqcUnitTest, NatRebindingKeepsChallengeUntilResponse)
+{
+    EXPECT_EQ(rqc_test_nat_rebinding_keeps_challenge_until_response(), 0);
 }
 
 TEST(RqcUnitTest, StreamPeek)
