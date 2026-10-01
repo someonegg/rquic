@@ -815,12 +815,44 @@ rqc_destroy_stream(rqc_stream_t *stream)
     rqc_free(stream);
 }
 
+static rqc_int_t
+rqc_stream_drain_read(rqc_stream_t *stream)
+{
+    unsigned char buf[4096];
+    uint8_t fin;
+    ssize_t ret;
+    rqc_connection_t *conn = stream->stream_conn;
+
+    if ((!rqc_stream_is_bidi(stream->stream_id)
+         && ((stream->stream_type == RQC_CLI_UNI && conn->conn_type == RQC_CONN_TYPE_CLIENT)
+             || (stream->stream_type == RQC_SVR_UNI && conn->conn_type == RQC_CONN_TYPE_SERVER)))
+        || stream->stream_state_recv == RQC_RECV_STREAM_ST_DATA_READ
+        || stream->stream_state_recv == RQC_RECV_STREAM_ST_RESET_READ)
+    {
+        rqc_stream_shutdown_read(stream);
+        return RQC_OK;
+    }
+
+    do {
+        ret = rqc_stream_recv(stream, buf, sizeof(buf), &fin);
+        if (ret == -RQC_EAGAIN || ret == -RQC_ESTREAM_RESET) {
+            return RQC_OK;
+        }
+        if (ret < 0) {
+            return (rqc_int_t)ret;
+        }
+    } while (ret > 0 && !fin);
+
+    return RQC_OK;
+}
+
 rqc_int_t
 rqc_stream_close(rqc_stream_t *stream)
 {
     rqc_int_t ret;
     rqc_connection_t *conn = stream->stream_conn;
 
+    stream->stream_flag |= RQC_STREAM_FLAG_APP_CLOSED;
     rqc_stream_atomic_clear_pending(stream);
     rqc_log(conn->log, RQC_LOG_INFO, "|stream_id:%ui|stream_state_send:%d|stream_state_recv:%d|conn:%p|conn_state:%s|flag:%s|",
             stream->stream_id, stream->stream_state_send, stream->stream_state_recv, conn,
@@ -829,10 +861,10 @@ rqc_stream_close(rqc_stream_t *stream)
     RQC_STREAM_CLOSE_MSG(stream, "local reset");
 
     if (stream->stream_state_send >= RQC_SEND_STREAM_ST_RESET_SENT) {
-        return RQC_OK;
+        goto normal_return;
     }
     if (conn->conn_state >= RQC_CONN_STATE_CLOSING) {
-        return RQC_OK;
+        goto normal_return;
     }
 
     rqc_send_queue_drop_stream_frame_packets(conn, stream->stream_id);
@@ -856,11 +888,11 @@ rqc_stream_close(rqc_stream_t *stream)
 
     stream->stream_stats.max_pto_backoff = rqc_max(stream->stream_stats.max_pto_backoff, rqc_conn_get_max_pto_backoff(conn, 1));
 
-    rqc_engine_remove_wakeup_queue(conn->engine, conn);
-    rqc_engine_add_active_queue(conn->engine, conn);
-
+normal_return:
+    /* Queue a read even when recv/peek has already cleared read readiness. */
     rqc_stream_shutdown_write(stream);
-    rqc_engine_conn_logic(conn->engine, conn);
+    rqc_stream_ready_to_read(stream);
+    rqc_engine_wakeup_once(conn->engine);
     return RQC_OK;
 }
 
@@ -1479,6 +1511,10 @@ rqc_process_write_streams(rqc_connection_t *conn)
 
     rqc_list_for_each_safe(pos, next, &conn->conn_write_streams) {
         stream = rqc_list_entry(pos, rqc_stream_t, write_stream_list);
+        if (stream->stream_flag & RQC_STREAM_FLAG_APP_CLOSED) {
+            rqc_stream_shutdown_write(stream);
+            continue;
+        }
         if (stream->stream_flag & RQC_STREAM_FLAG_DATA_BLOCKED
             || conn->conn_flag & RQC_CONN_FLAG_DATA_BLOCKED)
         {
@@ -1527,6 +1563,14 @@ rqc_process_read_streams(rqc_connection_t *conn)
             return;
         }
         stream = rqc_list_entry(pos, rqc_stream_t, read_stream_list);
+        if (stream->stream_flag & RQC_STREAM_FLAG_APP_CLOSED) {
+            ret = rqc_stream_drain_read(stream);
+            if (ret < 0) {
+                rqc_log(conn->log, RQC_LOG_ERROR, "|stream read drain err:%d|stream_id:%ui|", ret, stream->stream_id);
+                RQC_CONN_ERR(conn, TRA_INTERNAL_ERROR);
+            }
+            continue;
+        }
         if (stream->stream_if->stream_read_notify == NULL) {
             rqc_log(conn->log, RQC_LOG_ERROR, "|stream_read_notify is NULL|flag:%d|stream_id:%ui|conn:%p|",
                     stream->stream_flag, stream->stream_id, stream->stream_conn);

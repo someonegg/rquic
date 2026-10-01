@@ -28,6 +28,7 @@ typedef enum {
     RQC_STREAM_FLAG_CLOSED          = 1 << 5,
     RQC_STREAM_FLAG_UNEXPECTED      = 1 << 6,
     RQC_STREAM_FLAG_DISCARDED       = 1 << 7,   /* stream create_notify with error, all stream data will be discarded */
+    RQC_STREAM_FLAG_APP_CLOSED      = 1 << 8,   /* explicit close: drain reads and suppress application I/O notifications */
 } rqc_stream_flag_t;
 
 typedef struct {

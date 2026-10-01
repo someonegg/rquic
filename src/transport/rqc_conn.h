@@ -338,9 +338,9 @@ rqc_conn_get_idle_timeout(rqc_connection_t *conn)
 {
     rqc_msec_t local_to, remote_to, idle_timeout;
 
-    if (conn->conn_type == RQC_CONN_TYPE_SERVER && !rqc_conn_is_handshake_done(conn))
+    if (!rqc_conn_is_handshake_done(conn))
     {
-        /* only server will limit idle timeout to init_idle_time_out before handshake done */
+        /* Both endpoints use the initial timeout until the handshake completes. */
         return conn->conn_settings.init_idle_time_out == 0
             ? RQC_CONN_INITIAL_IDLE_TIMEOUT : conn->conn_settings.init_idle_time_out;
     }

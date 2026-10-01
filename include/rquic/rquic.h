@@ -1112,6 +1112,7 @@ rqc_stream_id_t rqc_stream_id(rqc_stream_t *stream);
 
 /**
  * Send RESET_STREAM to peer, stream_close_notify will callback when stream destroyed
+ * After close, stream_read_notify and stream_write_notify are disabled.
  * @retval RQC_OK for success, others for failure
  */
 RQC_EXPORT_PUBLIC_API

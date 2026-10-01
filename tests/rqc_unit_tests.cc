@@ -17,6 +17,8 @@ int rqc_test_fast_wakeup_dedup(void);
 int rqc_test_batch_ack_only_packets(void);
 int rqc_test_nat_rebinding_keeps_challenge_until_response(void);
 int rqc_test_stream_peek(void);
+int rqc_test_stream_close_takeover(void);
+int rqc_test_stream_close_next_read(void);
 }
 
 TEST(RqcUnitTest, HandshakeFrameRoundTrip)
@@ -97,4 +99,14 @@ TEST(RqcUnitTest, StreamPeek)
 TEST(RqcUnitTest, ConnectLifecycle)
 {
     EXPECT_EQ(rqc_test_connect_lifecycle(), 0);
+}
+
+TEST(RqcUnitTest, StreamCloseTakeover)
+{
+    EXPECT_EQ(rqc_test_stream_close_takeover(), 0);
+}
+
+TEST(RqcUnitTest, StreamCloseNextRead)
+{
+    EXPECT_EQ(rqc_test_stream_close_next_read(), 0);
 }
