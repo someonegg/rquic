@@ -939,15 +939,21 @@ error:
 size_t
 rqc_get_po_remained_size(rqc_packet_out_t *po)
 {
-    size_t res;
+    /* ACK frames may already occupy space beyond the normal data limit. */
+    if (po->po_used_size >= po->po_buf_size) {
+        return 0;
+    }
 
-    res = po->po_buf_size - po->po_used_size;
-
-    return rqc_max(res, 0);
+    return po->po_buf_size - po->po_used_size;
 }
 
 size_t
 rqc_get_po_remained_size_with_ack_spc(rqc_packet_out_t *po)
 {
-    return rqc_get_po_remained_size(po) + RQC_ACK_SPACE;
+    size_t limit = (size_t)po->po_buf_size + RQC_ACK_SPACE;
+    if (po->po_used_size >= limit) {
+        return 0;
+    }
+
+    return limit - po->po_used_size;
 }

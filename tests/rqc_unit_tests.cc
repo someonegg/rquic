@@ -1,6 +1,8 @@
 #include <gtest/gtest.h>
 
 extern "C" {
+int rqc_test_packet_out_remaining_space(void);
+int rqc_test_stream_write_after_ack_reserve(void);
 int rqc_test_connect_lifecycle(void);
 int rqc_test_handshake_frame_round_trip(void);
 int rqc_test_malformed_handshake_frame(void);
@@ -19,6 +21,16 @@ int rqc_test_nat_rebinding_keeps_challenge_until_response(void);
 int rqc_test_stream_peek(void);
 int rqc_test_stream_close_takeover(void);
 int rqc_test_stream_close_next_read(void);
+}
+
+TEST(RqcUnitTest, PacketOutRemainingSpace)
+{
+    EXPECT_EQ(rqc_test_packet_out_remaining_space(), 0);
+}
+
+TEST(RqcUnitTest, StreamWriteAfterAckReserve)
+{
+    EXPECT_EQ(rqc_test_stream_write_after_ack_reserve(), 0);
 }
 
 TEST(RqcUnitTest, HandshakeFrameRoundTrip)

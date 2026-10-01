@@ -18,6 +18,7 @@
 #include "src/common/rqc_time.h"
 
 #include <stdlib.h>
+#include <limits.h>
 #include <stdio.h>
 #include <string.h>
 
@@ -728,6 +729,66 @@ create_established_test_stream(test_engine_t *eng, rqc_connection_t **conn_out)
     conn->conn_state = RQC_CONN_STATE_ESTABED;
     *conn_out = conn;
     return rqc_stream_create_with_direction(conn, RQC_STREAM_BIDI, &eng->ctx);
+}
+
+int
+rqc_test_packet_out_remaining_space(void)
+{
+    rqc_packet_out_t po = {0};
+    const unsigned used[] = {0, 1349, 1350, 1355,
+        1350 + RQC_ACK_SPACE, 1351 + RQC_ACK_SPACE, UINT_MAX};
+    const size_t data_remaining[] = {1350, 1, 0, 0, 0, 0, 0};
+    const size_t ack_remaining[] = {1350 + RQC_ACK_SPACE,
+        1 + RQC_ACK_SPACE, RQC_ACK_SPACE, RQC_ACK_SPACE - 5, 0, 0, 0};
+
+    po.po_buf_size = 1350;
+    for (size_t i = 0; i < sizeof(used) / sizeof(used[0]); ++i) {
+        po.po_used_size = used[i];
+        CHECK_EQ(rqc_get_po_remained_size(&po), data_remaining[i]);
+        CHECK_EQ(rqc_get_po_remained_size_with_ack_spc(&po), ack_remaining[i]);
+    }
+    return 0;
+}
+
+int
+rqc_test_stream_write_after_ack_reserve(void)
+{
+    for (int high_pri = 0; high_pri <= 1; ++high_pri) {
+        test_engine_t eng;
+        rqc_connection_t *conn;
+        rqc_stream_t *stream;
+        rqc_packet_out_t *po;
+        unsigned char payload[43791];
+        size_t written = 0;
+
+        create_test_engine(&eng, RQC_ENGINE_CLIENT);
+        CHECK_NE((uintptr_t)eng.engine, 0);
+        stream = create_established_test_stream(&eng, &conn);
+        CHECK_NE((uintptr_t)stream, 0);
+        conn->pkt_out_size = 1350;
+        stream->stream_priority = high_pri ? RQC_STREAM_PRI_HIGH : RQC_STREAM_PRI_NORMAL;
+        po = rqc_write_packet_for_stream(conn, RQC_PTYPE_SHORT_HEADER, 50, stream);
+        CHECK_NE((uintptr_t)po, 0);
+        memset(po->po_buf, 0xa5, 1355);
+        po->po_used_size = 1355; /* Full data area plus a five-byte ACK. */
+        po->po_frame_types = RQC_FRAME_BIT_STREAM | RQC_FRAME_BIT_ACK;
+        po->po_stream_frames_idx = 1;
+        po->po_stream_frames[0].ps_stream_id = stream->stream_id;
+
+        memset(payload, 0x5a, sizeof(payload));
+        CHECK_EQ(rqc_write_stream_frame_to_packet(conn, stream, RQC_PTYPE_SHORT_HEADER,
+            0, payload, sizeof(payload), &written), RQC_OK);
+        CHECK_GT(written, 0);
+        CHECK(written <= 1350);
+        CHECK_EQ(po->po_used_size, 1355);
+        CHECK_NE((uintptr_t)rqc_send_queue_get_packet_out(conn->conn_send_queue,
+            50, RQC_PTYPE_SHORT_HEADER), (uintptr_t)po);
+        for (size_t i = 0; i < 1355; ++i) {
+            CHECK_EQ(po->po_buf[i], 0xa5);
+        }
+        rqc_engine_destroy(eng.engine);
+    }
+    return 0;
 }
 
 int
