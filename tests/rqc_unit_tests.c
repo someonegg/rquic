@@ -909,6 +909,13 @@ rqc_test_stream_sendv_dynamic_multidrain_and_close(void)
     CHECK_EQ(rqc_stream_close(stream), RQC_OK);
     CHECK_EQ(ctx->pending_len, 0);
     CHECK_EQ((uintptr_t)ctx->dynamic_buf, 0);
+    int notifies = eng.ctx.stream_write_notifies;
+    size_t closed_offset = stream->stream_send_offset;
+    rqc_stream_ready_to_write(stream);
+    rqc_process_write_streams(conn);
+    CHECK_EQ(eng.ctx.stream_write_notifies, notifies);
+    CHECK_EQ(stream->stream_send_offset, closed_offset);
+    CHECK_EQ(stream->stream_flag & RQC_STREAM_FLAG_READY_TO_WRITE, 0);
 
     rqc_engine_destroy(eng.engine);
     return 0;
@@ -1446,5 +1453,211 @@ rqc_test_connect_lifecycle(void)
             CHECK_EQ(trace.frees, 1);
         }
     }
+    return 0;
+}
+
+
+typedef struct {
+    int reads, writes, closes, close_in_read;
+    rqc_stream_t *close_target;
+} close_test_ctx_t;
+
+static rqc_int_t
+close_test_read(rqc_stream_t *stream, void *data)
+{
+    close_test_ctx_t *ctx = data;
+    ctx->reads++;
+    if (ctx->close_target != NULL) {
+        return rqc_stream_close(ctx->close_target);
+    }
+    return ctx->close_in_read ? rqc_stream_close(stream) : RQC_OK;
+}
+
+static rqc_int_t
+close_test_write(rqc_stream_t *stream, void *data)
+{
+    ((close_test_ctx_t *)data)->writes++;
+    return RQC_OK;
+}
+
+static rqc_int_t
+close_test_final(rqc_stream_t *stream, void *data)
+{
+    ((close_test_ctx_t *)data)->closes++;
+    return RQC_OK;
+}
+
+static int
+close_test_buffer(rqc_stream_t *stream, size_t size)
+{
+    rqc_stream_frame_t *frame = calloc(1, sizeof(*frame));
+    CHECK(frame != NULL);
+    frame->data = malloc(size);
+    CHECK(frame->data != NULL);
+    memset(frame->data, 'x', size);
+    frame->data_length = size;
+    frame->data_offset = stream->stream_data_in.next_read_offset;
+    rqc_list_add_tail(&frame->sf_list, &stream->stream_data_in.frames_tailq);
+    stream->stream_data_in.merged_offset_end = frame->data_offset + size;
+    rqc_stream_ready_to_read(stream);
+    return 0;
+}
+
+int
+rqc_test_stream_close_takeover(void)
+{
+    /* Exercise partial recv, peek, FIN, RESET, callback close, and both uni directions. */
+    for (int mode = 0; mode < 7; mode++) {
+        test_engine_t eng;
+        rqc_connection_t *conn;
+        close_test_ctx_t ctx = {0}, other_ctx = {0};
+        rqc_stream_callbacks_t cbs;
+        unsigned char buf[17];
+        uint8_t fin;
+        uint64_t readable;
+        create_test_engine(&eng, RQC_ENGINE_CLIENT);
+        rqc_stream_t *stream = create_established_test_stream(&eng, &conn);
+        CHECK(stream != NULL);
+        rqc_stream_t *other = rqc_stream_create_with_direction(conn, RQC_STREAM_BIDI, &other_ctx);
+        CHECK(other != NULL);
+        cbs = *stream->stream_if;
+        cbs.stream_read_notify = close_test_read;
+        cbs.stream_write_notify = close_test_write;
+        cbs.stream_close_notify = close_test_final;
+        stream->stream_if = other->stream_if = &cbs;
+        stream->user_data = &ctx;
+        /* Keep engine logic nested so test can inspect the original close timer. */
+        eng.engine->eng_flag |= RQC_ENG_FLAG_RUNNING;
+        rqc_stream_ready_to_read(stream);
+        rqc_process_read_streams(conn);
+        rqc_process_write_streams(conn);
+        CHECK_EQ(ctx.reads, 1);
+        CHECK_EQ(ctx.writes, 1);
+        rqc_stream_shutdown_read(stream);
+        CHECK_EQ(close_test_buffer(stream, 9000), 0);
+        if (mode == 0) {
+            CHECK_EQ(rqc_stream_recv(stream, buf, sizeof(buf), &fin), sizeof(buf));
+        } else if (mode == 1) {
+            CHECK_EQ(rqc_stream_peek(stream, buf, sizeof(buf), &readable, &fin), sizeof(buf));
+            CHECK_EQ(stream->stream_flag & RQC_STREAM_FLAG_READY_TO_READ, 0);
+        } else if (mode == 2) {
+            stream->stream_state_send = RQC_SEND_STREAM_ST_RESET_SENT;
+        } else if (mode == 3) {
+            conn->conn_state = RQC_CONN_STATE_CLOSING;
+        } else if (mode == 4) {
+            ctx.close_in_read = 1;
+        } else if (mode == 5) {
+            stream->stream_type = RQC_CLI_UNI;
+            stream->stream_id = 2;
+        } else if (mode == 6) {
+            stream->stream_type = RQC_SVR_UNI;
+            stream->stream_id = 3;
+        }
+        if (mode == 4) {
+            rqc_process_read_streams(conn);
+            CHECK_EQ(ctx.reads, 2);
+        } else {
+            /* Closing outside an engine callback must also defer the read. */
+            if (mode == 0) eng.engine->eng_flag &= ~RQC_ENG_FLAG_RUNNING;
+            CHECK_EQ(rqc_stream_close(stream), RQC_OK);
+        }
+        CHECK_EQ(rqc_stream_close(stream), RQC_OK);
+        CHECK_NE(stream->stream_flag & RQC_STREAM_FLAG_APP_CLOSED, 0);
+        CHECK_EQ(stream->stream_data_in.next_read_offset, mode == 0 ? sizeof(buf) : 0);
+        CHECK_NE(stream->stream_flag & RQC_STREAM_FLAG_READY_TO_READ, 0);
+        if (mode == 0) {
+            rqc_engine_conn_logic(eng.engine, conn);
+            eng.engine->eng_flag |= RQC_ENG_FLAG_RUNNING;
+        } else {
+            rqc_process_read_streams(conn);
+        }
+        CHECK_EQ(stream->stream_data_in.next_read_offset, mode == 5 ? 0 : 9000);
+        CHECK_EQ(ctx.closes, 0);
+        conn->conn_state = RQC_CONN_STATE_ESTABED;
+        int reads = ctx.reads, writes = ctx.writes;
+        int other_writes = other_ctx.writes;
+        rqc_stream_ready_to_write(stream);
+        rqc_stream_ready_to_read(other);
+        rqc_stream_ready_to_write(other);
+        rqc_process_write_streams(conn);
+        rqc_process_read_streams(conn);
+        CHECK_EQ(ctx.writes, writes);
+        CHECK_EQ(other_ctx.reads, 1);
+        CHECK_EQ(other_ctx.writes, other_writes + 1);
+        rqc_stream_shutdown_read(other);
+        rqc_stream_shutdown_write(other);
+        if (mode != 5) {
+            CHECK_EQ(close_test_buffer(stream, 6000), 0);
+            rqc_process_read_streams(conn);
+            CHECK_EQ(stream->stream_data_in.next_read_offset, 15000);
+            CHECK_EQ(ctx.reads, reads);
+            rqc_stream_ready_to_read(stream);
+            if (mode % 2 == 0) {
+                stream->stream_state_recv = RQC_RECV_STREAM_ST_DATA_RECVD;
+                stream->stream_data_in.stream_determined = 1;
+                stream->stream_data_in.stream_length = 15000;
+            } else {
+                stream->stream_state_recv = RQC_RECV_STREAM_ST_RESET_RECVD;
+            }
+            rqc_process_read_streams(conn);
+            CHECK_EQ(stream->stream_state_recv, mode % 2 == 0
+                ? RQC_RECV_STREAM_ST_DATA_READ : RQC_RECV_STREAM_ST_RESET_READ);
+            CHECK_EQ(ctx.reads, reads);
+        }
+        stream->stream_state_send = RQC_SEND_STREAM_ST_RESET_RECVD;
+        rqc_stream_maybe_need_close(stream);
+        CHECK_NE(stream->stream_flag & RQC_STREAM_FLAG_NEED_CLOSE, 0);
+        rqc_usec_t expires = stream->stream_close_time;
+        rqc_timer_t *timer = &conn->conn_timer_manager.timer[RQC_TIMER_STREAM_CLOSE];
+        timer->timeout_cb(RQC_TIMER_STREAM_CLOSE, expires - 1, conn);
+        CHECK_EQ(ctx.closes, 0);
+        timer->timeout_cb(RQC_TIMER_STREAM_CLOSE, expires, conn);
+        CHECK_EQ(ctx.closes, 1);
+        timer->timeout_cb(RQC_TIMER_STREAM_CLOSE, expires + 1, conn);
+        CHECK_EQ(ctx.closes, 1);
+        rqc_engine_destroy(eng.engine);
+        CHECK_EQ(ctx.closes, 1);
+    }
+    return 0;
+}
+
+
+int
+rqc_test_stream_close_next_read(void)
+{
+    test_engine_t eng;
+    rqc_connection_t *conn;
+    close_test_ctx_t a_ctx = {0}, b_ctx = {0}, c_ctx = {0};
+    rqc_stream_callbacks_t cbs;
+    create_test_engine(&eng, RQC_ENGINE_CLIENT);
+    rqc_stream_t *a = create_established_test_stream(&eng, &conn);
+    CHECK(a != NULL);
+    rqc_stream_t *b = rqc_stream_create_with_direction(conn, RQC_STREAM_BIDI, &b_ctx);
+    rqc_stream_t *c = rqc_stream_create_with_direction(conn, RQC_STREAM_BIDI, &c_ctx);
+    CHECK(b != NULL && c != NULL);
+    cbs = *a->stream_if;
+    cbs.stream_read_notify = close_test_read;
+    cbs.stream_close_notify = close_test_final;
+    a->stream_if = b->stream_if = c->stream_if = &cbs;
+    a->user_data = &a_ctx;
+    a_ctx.close_target = b;
+    /* Reproduce a callback closing its cached successor in the read list. */
+    eng.engine->eng_flag |= RQC_ENG_FLAG_RUNNING;
+    rqc_stream_ready_to_read(a);
+    CHECK_EQ(close_test_buffer(b, 9000), 0);
+    b->stream_state_recv = RQC_RECV_STREAM_ST_DATA_RECVD;
+    b->stream_data_in.stream_determined = 1;
+    b->stream_data_in.stream_length = 9000;
+    rqc_stream_ready_to_read(c);
+    rqc_process_read_streams(conn);
+    CHECK_EQ(conn->conn_err, 0);
+    CHECK_EQ(a_ctx.reads, 1);
+    CHECK_EQ(b_ctx.reads, 0);
+    CHECK_EQ(c_ctx.reads, 1);
+    CHECK_EQ(b->stream_data_in.next_read_offset, 9000);
+    CHECK_EQ(b->stream_state_recv, RQC_RECV_STREAM_ST_DATA_READ);
+    CHECK_EQ(b->stream_flag & RQC_STREAM_FLAG_READY_TO_READ, 0);
+    rqc_engine_destroy(eng.engine);
+    CHECK_EQ(b_ctx.closes, 1);
     return 0;
 }
