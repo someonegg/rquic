@@ -398,6 +398,7 @@ int
 rqc_stream_do_recv_flow_ctl(rqc_stream_t *stream)
 {
     rqc_connection_t *conn = stream->stream_conn;
+    int window_update_queued = 0;
     rqc_usec_t now = rqc_monotonic_timestamp();
 
     /* increase recv window */
@@ -432,7 +433,11 @@ rqc_stream_do_recv_flow_ctl(rqc_stream_t *stream)
 
         if (stream->stream_flow_ctl.fc_stream_recv_window_size > available_window) {
             stream->stream_flow_ctl.fc_max_stream_data_can_recv += (stream->stream_flow_ctl.fc_stream_recv_window_size - available_window);
-            rqc_write_max_stream_data_to_packet(conn, stream->stream_id, stream->stream_flow_ctl.fc_max_stream_data_can_recv, RQC_PTYPE_SHORT_HEADER);
+            if (rqc_write_max_stream_data_to_packet(conn, stream->stream_id,
+                    stream->stream_flow_ctl.fc_max_stream_data_can_recv, RQC_PTYPE_SHORT_HEADER) == RQC_OK)
+            {
+                window_update_queued = 1;
+            }
         }
     }
 
@@ -469,8 +474,17 @@ rqc_stream_do_recv_flow_ctl(rqc_stream_t *stream)
 
         if (conn->conn_flow_ctl.fc_recv_windows_size > available_window) {
             conn->conn_flow_ctl.fc_max_data_can_recv += (conn->conn_flow_ctl.fc_recv_windows_size - available_window);
-            rqc_write_max_data_to_packet(conn, conn->conn_flow_ctl.fc_max_data_can_recv);
+            if (rqc_write_max_data_to_packet(conn, conn->conn_flow_ctl.fc_max_data_can_recv) == RQC_OK) {
+                window_update_queued = 1;
+            }
         }
+    }
+
+    /* Reads outside engine callbacks must schedule their queued window updates. */
+    if (window_update_queued && !(conn->engine->eng_flag & RQC_ENG_FLAG_RUNNING)) {
+        rqc_engine_remove_wakeup_queue(conn->engine, conn);
+        rqc_engine_add_active_queue(conn->engine, conn);
+        rqc_engine_wakeup_once(conn->engine);
     }
 
     return RQC_OK;

@@ -141,8 +141,6 @@ rqc_md5_final(u_char result[16], rqc_md5_t *ctx)
 
     rqc_md5_body(ctx, ctx->buffer, 64);
 
-    rqc_md5_body(ctx, ctx->buffer, 64);
-
     result[0]   = (u_char) ctx->a;
     result[1]   = (u_char) (ctx->a >> 8);
     result[2]   = (u_char) (ctx->a >> 16);

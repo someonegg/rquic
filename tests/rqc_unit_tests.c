@@ -37,6 +37,8 @@ typedef struct test_ctx_s {
     int timer_calls;
     int socket_writes;
     int stream_write_notifies;
+    int flow_read_notifies;
+    int flow_read_checked;
     rqc_usec_t wake_after;
     unsigned char *mutate_on_socket_write;
     size_t mutate_on_socket_write_len;
@@ -234,6 +236,7 @@ test_app_cbs(void)
     cbs.stream_cbs.stream_close_notify = test_stream_notify;
     return cbs;
 }
+
 
 static void
 init_conn_settings(rqc_conn_settings_t *settings)
@@ -461,12 +464,79 @@ create_server_conn(test_engine_t *eng)
     return rqc_conn_create(eng->engine, &dcid, &scid, &settings, &eng->ctx, RQC_CONN_TYPE_SERVER);
 }
 
-int
-rqc_test_batch_ack_only_packets(void)
+static int
+batch_read_notify(rqc_stream_t *stream, void *user)
 {
+    test_ctx_t *ctx = user;
+    (void)stream;
+    ++ctx->flow_read_notifies;
+    return 0;
+}
+
+static int
+check_stream_recv_batch(int per_packet_finish, int with_ack)
+{
+    test_engine_t eng;
+    create_test_engine(&eng, RQC_ENGINE_CLIENT);
+    CHECK(eng.engine != NULL);
+    rqc_connection_t *conn = create_client_conn(&eng, NULL, 0);
+    CHECK(conn != NULL);
+    conn->conn_state = RQC_CONN_STATE_ESTABED;
+    conn->conn_flag |= RQC_CONN_FLAG_HANDSHAKE_SENT
+        | RQC_CONN_FLAG_HANDSHAKE_RECVD | RQC_CONN_FLAG_HANDSHAKE_DONE;
+    conn->conn_settings.defer_ack_scheduling = 1;
+    rqc_stream_t *stream = rqc_stream_create_with_direction(conn, RQC_STREAM_BIDI, &eng.ctx);
+    CHECK(stream != NULL);
+    stream->stream_if->stream_read_notify = batch_read_notify;
+    unsigned char packet[64], data[16];
+    size_t cid_len = conn->scid_set.user_scid.cid_len;
+    packet[0] = 0x40;
+    memcpy(packet + 1, conn->scid_set.user_scid.cid_buf, cid_len);
+    for (int pn = 1; pn <= 4; ++pn) {
+        size_t n = 3 + cid_len;
+        packet[2 + cid_len] = pn;
+        if (with_ack) {
+            packet[n++] = 0x02;
+            memset(packet + n, 0, 4);
+            n += 4;
+        }
+        packet[n++] = 0x0e; /* STREAM with offset and length */
+        packet[n++] = 0; /* local bidirectional stream */
+        packet[n++] = pn - 1;
+        packet[n++] = 1;
+        packet[n++] = 'a' + pn - 1;
+        packet[1 + cid_len] = n - 2 - cid_len;
+        CHECK_EQ(rqc_engine_packet_process(eng.engine, packet, n, NULL, 0, NULL, 0,
+            rqc_monotonic_timestamp(), &eng.ctx), RQC_OK);
+        CHECK_EQ(eng.ctx.flow_read_notifies, per_packet_finish ? pn - 1 : 0);
+        if (per_packet_finish) {
+            uint8_t fin = 0;
+            rqc_engine_finish_recv(eng.engine);
+            CHECK_EQ(eng.ctx.flow_read_notifies, pn);
+            CHECK_EQ(rqc_stream_recv(stream, data, sizeof(data), &fin), 1);
+            CHECK_EQ(data[0], 'a' + pn - 1);
+        }
+    }
+    if (!per_packet_finish) {
+        uint8_t fin = 0;
+        rqc_engine_finish_recv(eng.engine);
+        CHECK_EQ(eng.ctx.flow_read_notifies, 1);
+        CHECK_EQ(rqc_stream_recv(stream, data, sizeof(data), &fin), 4);
+        CHECK(memcmp(data, "abcd", 4) == 0);
+    }
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
+rqc_test_defer_ack_scheduling(void)
+{
+    CHECK_EQ(check_stream_recv_batch(0, 0), 0);
+    CHECK_EQ(check_stream_recv_batch(0, 1), 0);
+    CHECK_EQ(check_stream_recv_batch(1, 1), 0);
     for (int type = RQC_ENGINE_CLIENT; type <= RQC_ENGINE_SERVER; ++type) {
         for (int enabled = 0; enabled <= 1; ++enabled) {
-            for (int extra_frame = 0; extra_frame <= 2; ++extra_frame) {
+            for (int extra_frame = 0; extra_frame <= 3; ++extra_frame) {
                 test_engine_t eng;
                 rqc_connection_t *conn;
                 unsigned char packet[32];
@@ -477,7 +547,7 @@ rqc_test_batch_ack_only_packets(void)
                 conn = type == RQC_ENGINE_SERVER ? create_server_conn(&eng)
                                                  : create_client_conn(&eng, NULL, 0);
                 CHECK_NE((uintptr_t)conn, 0);
-                conn->conn_settings.batch_ack_only_packets = enabled;
+                conn->conn_settings.defer_ack_scheduling = enabled;
                 conn->conn_state = RQC_CONN_STATE_ESTABED;
                 conn->conn_flag |= RQC_CONN_FLAG_HANDSHAKE_SENT
                     | RQC_CONN_FLAG_HANDSHAKE_RECVD | RQC_CONN_FLAG_HANDSHAKE_DONE;
@@ -493,6 +563,14 @@ rqc_test_batch_ack_only_packets(void)
                 if (extra_frame != 0) {
                     packet[3 + cid_len + frame_len] = extra_frame == 1 ? 0x00 : 0x01;
                     ++frame_len;
+                }
+                if (extra_frame == 3) {
+                    /* Replace PING with STREAM(id=1, len=1, payload=x). */
+                    packet[3 + cid_len + 5] = 0x0a;
+                    packet[3 + cid_len + 6] = type == RQC_ENGINE_SERVER ? 0 : 1;
+                    packet[3 + cid_len + 7] = 1;
+                    packet[3 + cid_len + 8] = 'x';
+                    frame_len = 9;
                 }
                 packet[1 + cid_len] = (unsigned char)(frame_len + 1);
 
@@ -521,16 +599,16 @@ rqc_test_batch_ack_only_packets(void)
         create_test_engine(&eng, RQC_ENGINE_SERVER);
         CHECK_NE((uintptr_t)eng.engine, 0);
         init_conn_settings(&settings);
-        CHECK_EQ(settings.batch_ack_only_packets, 0);
-        settings.batch_ack_only_packets = 1;
+        CHECK_EQ(settings.defer_ack_scheduling, 0);
+        settings.defer_ack_scheduling = 1;
         rqc_server_set_conn_settings(eng.engine, &settings);
-        CHECK_EQ(eng.engine->default_conn_settings.batch_ack_only_packets, 1);
+        CHECK_EQ(eng.engine->default_conn_settings.defer_ack_scheduling, 1);
         make_cid(&dcid, 0xc0);
         make_cid(&scid, 0xd0);
         conn = rqc_conn_create(eng.engine, &dcid, &scid,
             &eng.engine->default_conn_settings, &eng.ctx, RQC_CONN_TYPE_SERVER);
         CHECK_NE((uintptr_t)conn, 0);
-        CHECK_EQ(conn->conn_settings.batch_ack_only_packets, 1);
+        CHECK_EQ(conn->conn_settings.defer_ack_scheduling, 1);
         conn->conn_flag |= RQC_CONN_FLAG_HANDSHAKE_SENT;
         cid_len = conn->scid_set.user_scid.cid_len;
         packet[0] = 0x40;
@@ -1561,6 +1639,125 @@ close_test_buffer(rqc_stream_t *stream, size_t size)
     rqc_list_add_tail(&frame->sf_list, &stream->stream_data_in.frames_tailq);
     stream->stream_data_in.merged_offset_end = frame->data_offset + size;
     rqc_stream_ready_to_read(stream);
+    return 0;
+}
+
+static rqc_int_t
+flow_test_read_notify(rqc_stream_t *stream, void *data)
+{
+    test_ctx_t *ctx = data;
+    unsigned char byte;
+    uint8_t fin;
+    ctx->flow_read_notifies++;
+    CHECK_EQ(ctx->flow_read_notifies, 1);
+    CHECK(stream->stream_conn->engine->eng_flag & RQC_ENG_FLAG_RUNNING);
+    int timers = ctx->timer_calls;
+    int writes = ctx->socket_writes;
+    CHECK_EQ(rqc_stream_recv(stream, &byte, 1, &fin), 1);
+    CHECK_EQ(ctx->timer_calls, timers);
+    CHECK_EQ(ctx->socket_writes, writes);
+    CHECK_EQ(ctx->flow_read_notifies, 1);
+    ctx->flow_read_checked = 1;
+    return RQC_OK;
+}
+
+int
+rqc_test_recv_flow_control_wakeup(void)
+{
+    const uint64_t stream_window = 4 * 1024 * 1024;
+    const uint64_t conn_window = 6 * 1024 * 1024;
+    for (int running = 0; running <= 1; ++running) {
+        for (int updates = 1; updates <= 3; ++updates) {
+            test_engine_t eng;
+            rqc_connection_t *conn;
+            unsigned char data;
+            uint8_t fin;
+            create_test_engine(&eng, RQC_ENGINE_CLIENT);
+            CHECK(eng.engine != NULL);
+            rqc_stream_t *stream = create_established_test_stream(&eng, &conn);
+            CHECK(stream != NULL);
+            stream->stream_flow_ctl.fc_stream_recv_window_size = stream_window;
+            stream->stream_flow_ctl.fc_max_stream_data_can_recv = stream_window;
+            conn->conn_flow_ctl.fc_recv_windows_size = conn_window;
+            conn->conn_flow_ctl.fc_max_data_can_recv = conn_window;
+            stream->stream_data_in.next_read_offset = (updates & 1) ? stream_window / 2 - 1 : 0;
+            conn->conn_flow_ctl.fc_data_read = (updates & 2) ? conn_window / 2 - 1 : 0;
+            CHECK_EQ(close_test_buffer(stream, 3), 0);
+            if (running) {
+                eng.engine->eng_flag |= RQC_ENG_FLAG_RUNNING;
+            } else {
+                rqc_engine_remove_active_queue(eng.engine, conn);
+                CHECK_EQ(rqc_engine_add_wakeup_queue(eng.engine, conn), RQC_OK);
+            }
+            eng.engine->last_wake_after = 0;
+            eng.ctx.timer_calls = 0;
+            int writes = eng.ctx.socket_writes;
+            int notifies = eng.ctx.stream_write_notifies;
+            /* Exactly half a window remains: the strict threshold is unchanged. */
+            CHECK_EQ(rqc_stream_recv(stream, &data, 1, &fin), 1);
+            CHECK_EQ(eng.ctx.timer_calls, 0);
+            CHECK_EQ(stream->stream_flow_ctl.fc_max_stream_data_can_recv, stream_window);
+            CHECK_EQ(conn->conn_flow_ctl.fc_max_data_can_recv, conn_window);
+            CHECK(rqc_list_empty(&conn->conn_send_queue->sndq_send_packets_high_pri));
+            CHECK_EQ(rqc_stream_recv(stream, &data, 1, &fin), 1);
+            CHECK_EQ(eng.ctx.timer_calls, running ? 0 : 1);
+            CHECK_EQ(stream->stream_flow_ctl.fc_max_stream_data_can_recv,
+                (updates & 1) ? stream_window + stream_window / 2 + 1 : stream_window);
+            CHECK_EQ(conn->conn_flow_ctl.fc_max_data_can_recv,
+                (updates & 2) ? conn_window + conn_window / 2 + 1 : conn_window);
+            uint64_t frames = 0;
+            rqc_list_head_t *pos;
+            rqc_list_for_each(pos, &conn->conn_send_queue->sndq_send_packets_high_pri) {
+                rqc_packet_out_t *packet = rqc_list_entry(pos, rqc_packet_out_t, po_list);
+                frames |= packet->po_frame_types;
+            }
+            CHECK_EQ(!!(frames & RQC_FRAME_BIT_MAX_STREAM_DATA), !!(updates & 1));
+            CHECK_EQ(!!(frames & RQC_FRAME_BIT_MAX_DATA), !!(updates & 2));
+            if (!running) {
+                CHECK_EQ(eng.engine->conns_wait_wakeup_pq->count, 0);
+                CHECK_EQ(eng.engine->conns_active_pq->count, 1);
+                CHECK_EQ(eng.ctx.wake_after, 1);
+                /* Another generated update before the timer runs is deduplicated. */
+                if (updates & 1) stream->stream_flow_ctl.fc_max_stream_data_can_recv =
+                    stream->stream_data_in.next_read_offset + stream_window / 2 - 1;
+                if (updates & 2) conn->conn_flow_ctl.fc_max_data_can_recv =
+                    conn->conn_flow_ctl.fc_data_read + conn_window / 2 - 1;
+            }
+            CHECK_EQ(rqc_stream_recv(stream, &data, 1, &fin), 1);
+            CHECK_EQ(eng.ctx.timer_calls, running ? 0 : 1);
+            CHECK_EQ(eng.ctx.socket_writes, writes);
+            CHECK_EQ(eng.ctx.stream_write_notifies, notifies);
+            eng.engine->eng_flag &= ~RQC_ENG_FLAG_RUNNING;
+            rqc_engine_main_logic(eng.engine);
+            CHECK_GT(eng.ctx.socket_writes, writes);
+            CHECK_EQ(stream->stream_flow_ctl.fc_stream_recv_window_size, stream_window);
+            CHECK_EQ(conn->conn_flow_ctl.fc_recv_windows_size, conn_window);
+            rqc_engine_destroy(eng.engine);
+        }
+    }
+    /* Also run a real read notification inside the engine's current round. */
+    test_engine_t eng;
+    rqc_connection_t *conn;
+    create_test_engine(&eng, RQC_ENGINE_CLIENT);
+    CHECK(eng.engine != NULL);
+    rqc_stream_t *stream = create_established_test_stream(&eng, &conn);
+    CHECK(stream != NULL);
+    stream->stream_flow_ctl.fc_stream_recv_window_size = stream_window;
+    stream->stream_flow_ctl.fc_max_stream_data_can_recv = stream_window;
+    stream->stream_data_in.next_read_offset = stream_window / 2;
+    conn->conn_flow_ctl.fc_recv_windows_size = conn_window;
+    conn->conn_flow_ctl.fc_max_data_can_recv = conn_window;
+    conn->conn_flow_ctl.fc_data_read = conn_window / 2;
+    stream->stream_if->stream_read_notify = flow_test_read_notify;
+    CHECK_EQ(close_test_buffer(stream, 1), 0);
+    int writes = eng.ctx.socket_writes;
+    rqc_engine_main_logic(eng.engine);
+    CHECK_EQ(eng.ctx.flow_read_notifies, 1);
+    CHECK_EQ(eng.ctx.flow_read_checked, 1);
+    CHECK_GT(eng.ctx.socket_writes, writes);
+    CHECK_EQ(stream->stream_flow_ctl.fc_max_stream_data_can_recv, stream_window + stream_window / 2 + 1);
+    CHECK_EQ(conn->conn_flow_ctl.fc_max_data_can_recv, conn_window + conn_window / 2 + 1);
+    rqc_engine_destroy(eng.engine);
     return 0;
 }
 
