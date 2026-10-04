@@ -26,7 +26,7 @@
 /* maximum accumulated number of rqc_engine_packet_process */
 #define RQC_MAX_PACKET_PROCESS_BATCH 100
 
-#define RQC_MAX_RECV_WINDOW (16 * 1024 * 1024)
+#define RQC_MAX_RECV_WINDOW (4 * 1024 * 1024)
 
 static const uint32_t MAX_RSP_CONN_CLOSE_CNT = 3;
 

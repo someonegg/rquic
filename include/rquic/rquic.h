@@ -728,8 +728,9 @@ typedef struct rqc_conn_settings_s {
 
     uint64_t                    max_udp_payload_size;
 
-    /** defer scheduling after ACK-only packets until rqc_engine_finish_recv; default: 0 */
-    uint8_t                     batch_ack_only_packets;
+    /** defer ACK-triggered scheduling for established ACK/STREAM/PADDING packets until
+     * rqc_engine_finish_recv (or the 100-packet limit); default: 0 */
+    uint8_t                     defer_ack_scheduling;
 } rqc_conn_settings_t;
 
 typedef struct rqc_path_metrics_s {

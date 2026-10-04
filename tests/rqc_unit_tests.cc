@@ -16,11 +16,12 @@ int rqc_test_stream_sendv_validation_and_empty(void);
 int rqc_test_stream_sendv_complete_and_fixed_pending(void);
 int rqc_test_stream_sendv_dynamic_multidrain_and_close(void);
 int rqc_test_fast_wakeup_dedup(void);
-int rqc_test_batch_ack_only_packets(void);
+int rqc_test_defer_ack_scheduling(void);
 int rqc_test_nat_rebinding_keeps_challenge_until_response(void);
 int rqc_test_stream_peek(void);
 int rqc_test_stream_close_takeover(void);
 int rqc_test_stream_close_next_read(void);
+int rqc_test_recv_flow_control_wakeup(void);
 }
 
 TEST(RqcUnitTest, PacketOutRemainingSpace)
@@ -93,9 +94,9 @@ TEST(RqcUnitTest, FastWakeupDedup)
     EXPECT_EQ(rqc_test_fast_wakeup_dedup(), 0);
 }
 
-TEST(RqcUnitTest, BatchAckOnlyPackets)
+TEST(RqcUnitTest, DeferAckScheduling)
 {
-    EXPECT_EQ(rqc_test_batch_ack_only_packets(), 0);
+    EXPECT_EQ(rqc_test_defer_ack_scheduling(), 0);
 }
 
 TEST(RqcUnitTest, NatRebindingKeepsChallengeUntilResponse)
@@ -121,4 +122,9 @@ TEST(RqcUnitTest, StreamCloseTakeover)
 TEST(RqcUnitTest, StreamCloseNextRead)
 {
     EXPECT_EQ(rqc_test_stream_close_next_read(), 0);
+}
+
+TEST(RqcUnitTest, RecvFlowControlWakeup)
+{
+    EXPECT_EQ(rqc_test_recv_flow_control_wakeup(), 0);
 }

@@ -43,12 +43,11 @@ if(RQC_SUPPORT_SENDMMSG_BUILD)
 endif()
 
 if(MSVC)
-    set(CMAKE_C_FLAGS_OPTION "/W1")
-    add_compile_options("/source-charset:utf-8")
+    add_compile_options(/W1 /source-charset:utf-8)
 else()
-    set(CMAKE_C_FLAGS_OPTION "-Wall -Werror -Wno-unused -Wno-pointer-sign")
+    add_compile_options(-Wall -Werror -Wno-unused "$<$<COMPILE_LANGUAGE:C>:-Wno-pointer-sign>")
     if(IOS)
-        set(CMAKE_C_FLAGS_OPTION "${CMAKE_C_FLAGS_OPTION} -Wno-shorten-64-to-32")
+        add_compile_options(-Wno-shorten-64-to-32)
     endif()
 endif()
 
@@ -57,7 +56,12 @@ if (WIN32)
     add_definitions(-D_WIN32_WINNT=0x0600)
 endif ()
 
-set(CMAKE_C_FLAGS "${CMAKE_C_FLAGS} -g -std=gnu11 ${CMAKE_C_FLAGS_OPTION}")
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_C_STANDARD_REQUIRED ON)
+set(CMAKE_C_EXTENSIONS ON)
+if(NOT MSVC)
+    add_compile_options(-g)
+endif()
 
 # configure file
 configure_file (
@@ -142,6 +146,10 @@ target_include_directories(rquic
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}>
 )
 
+if(WIN32)
+    target_link_libraries(rquic PUBLIC ws2_32 advapi32)
+endif()
+
 # demo and testing
 if(RQC_ENABLE_TESTING)
     set(RQC_ENABLE_DEMO ON CACHE BOOL "Enable Demo" FORCE)
@@ -158,7 +166,9 @@ endif()
 
 #install
 
-install(TARGETS rquic EXPORT RQUICTargets)
+install(TARGETS rquic EXPORT RQUICTargets
+    ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+)
 
 install(
     DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/include/
