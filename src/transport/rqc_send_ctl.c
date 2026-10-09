@@ -482,6 +482,7 @@ rqc_send_ctl_on_packet_sent(rqc_send_ctl_t *send_ctl, rqc_pn_ctl_t *pn_ctl, rqc_
 
         if (packet_out->po_flag & RQC_POF_LOST) {
             ++send_ctl->ctl_lost_count;
+            send_ctl->ctl_lost_bytes += packet_out->po_used_size;
             send_ctl->ctl_recent_lost_count[0]++;
             packet_out->po_flag &= ~RQC_POF_LOST;
 
@@ -489,6 +490,7 @@ rqc_send_ctl_on_packet_sent(rqc_send_ctl_t *send_ctl, rqc_pn_ctl_t *pn_ctl, rqc_
 
         if (packet_out->po_flag & RQC_POF_TLP) {
             ++send_ctl->ctl_tlp_count;
+            send_ctl->ctl_tlp_bytes += packet_out->po_used_size;
             send_ctl->ctl_recent_lost_count[0]++;
             packet_out->po_flag &= ~RQC_POF_TLP;
         }
@@ -612,6 +614,7 @@ rqc_send_ctl_on_ack_received(rqc_send_ctl_t *send_ctl, rqc_pn_ctl_t *pn_ctl, rqc
             /* Packet previously declared lost gets acked */
             if (!(packet_out->po_flag & RQC_POF_SPURIOUS_LOSS) && (packet_out->po_flag & RQC_POF_RETRANSED)) {
                 ++send_ctl->ctl_spurious_loss_count;
+                send_ctl->ctl_spurious_loss_bytes += packet_out->po_used_size;
                 if (!spurious_loss_detected) {
                     spurious_loss_detected = 1;
                     spurious_loss_pktnum = packet_out->po_pkt.pkt_num;

@@ -514,6 +514,7 @@ demo_server_init_engine(demo_server_t *server)
     conn_settings.init_idle_time_out = 60000;
     conn_settings.idle_time_out = 60000;
     conn_settings.max_pkt_out_size = 1350;
+    conn_settings.max_udp_payload_size = 1366;
     conn_settings.adaptive_ack_frequency = 1;
     rqc_server_set_conn_settings(server->engine, &conn_settings);
 

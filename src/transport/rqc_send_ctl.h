@@ -113,8 +113,11 @@ typedef struct rqc_send_ctl_s {
 
     unsigned                    ctl_send_count;
     unsigned                    ctl_lost_count;
+    uint64_t                    ctl_lost_bytes;
     unsigned                    ctl_tlp_count;
+    uint64_t                    ctl_tlp_bytes;
     unsigned                    ctl_spurious_loss_count;
+    uint64_t                    ctl_spurious_loss_bytes;
 
     /* record time for last three cwnd limitation and rtt mutation*/
     rqc_msec_t                  ctl_recent_cwnd_limitation_time[3];

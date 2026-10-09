@@ -2,6 +2,8 @@
 
 extern "C" {
 int rqc_test_packet_out_remaining_space(void);
+int rqc_test_conn_byte_stats(void);
+int rqc_test_conn_spurious_loss_bytes(void);
 int rqc_test_stream_write_after_ack_reserve(void);
 int rqc_test_connect_lifecycle(void);
 int rqc_test_handshake_frame_round_trip(void);
@@ -27,6 +29,16 @@ int rqc_test_recv_flow_control_wakeup(void);
 TEST(RqcUnitTest, PacketOutRemainingSpace)
 {
     EXPECT_EQ(rqc_test_packet_out_remaining_space(), 0);
+}
+
+TEST(RqcUnitTest, ConnByteStats)
+{
+    EXPECT_EQ(rqc_test_conn_byte_stats(), 0);
+}
+
+TEST(RqcUnitTest, ConnSpuriousLossBytes)
+{
+    EXPECT_EQ(rqc_test_conn_spurious_loss_bytes(), 0);
 }
 
 TEST(RqcUnitTest, StreamWriteAfterAckReserve)
