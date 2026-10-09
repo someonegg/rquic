@@ -671,6 +671,7 @@ typedef struct rqc_conn_settings_s {
     /** idle timeout interval, effective after handshake completion */
     rqc_msec_t                  idle_time_out;
     int32_t                     spurious_loss_detect_on;
+    /** Maximum outgoing packet size in bytes, excluding reserved ACK space. */
     size_t                      max_pkt_out_size;
 
     /** params for performance tuning */
@@ -726,6 +727,7 @@ typedef struct rqc_conn_settings_s {
      */
     uint8_t                     control_pto_value;
 
+    /** Maximum UDP payload size in bytes for sending and receiving. */
     uint64_t                    max_udp_payload_size;
 
     /** defer ACK-triggered scheduling for established ACK/STREAM/PADDING packets until
@@ -751,9 +753,13 @@ typedef struct rqc_path_metrics_s {
  */
 typedef struct rqc_conn_stats_s {
     uint32_t            send_count;
+    uint64_t            send_bytes;
     uint32_t            lost_count;
+    uint64_t            lost_bytes;
     uint32_t            tlp_count;
+    uint64_t            tlp_bytes;
     uint32_t            spurious_loss_count;
+    uint64_t            spurious_loss_bytes;
     /** smoothed SRTT at present: initial value = 250000 */
     rqc_usec_t          srtt;
     /** minimum RTT until now: initial value = 0xFFFFFFFF */
@@ -761,6 +767,7 @@ typedef struct rqc_conn_stats_s {
     /** initial value = 0 */
     uint64_t            inflight_bytes;
     uint32_t            recv_count;
+    uint64_t            recv_bytes;
     int                 spurious_loss_detect_on;
     int                 conn_err;
     char                ack_info[50];

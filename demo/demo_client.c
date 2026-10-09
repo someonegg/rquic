@@ -327,6 +327,7 @@ demo_client_start_request(demo_client_t *client)
     settings.init_idle_time_out = 5000;
     settings.idle_time_out = 5000;
     settings.max_pkt_out_size = 1350;
+    settings.max_udp_payload_size = 1366;
     settings.adaptive_ack_frequency = 1;
 
     client->conn.client = client;

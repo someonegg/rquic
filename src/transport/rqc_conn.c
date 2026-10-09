@@ -281,10 +281,15 @@ rqc_conn_get_stats_internal(rqc_connection_t *conn, rqc_conn_stats_t *conn_stats
     /* 3. 路径count */
     if (path) {
         conn_stats->lost_count           += path->path_send_ctl->ctl_lost_count;
+        conn_stats->lost_bytes           += path->path_send_ctl->ctl_lost_bytes;
         conn_stats->send_count           += path->path_send_ctl->ctl_send_count;
+        conn_stats->send_bytes           += path->path_send_ctl->ctl_bytes_send;
         conn_stats->tlp_count            += path->path_send_ctl->ctl_tlp_count;
+        conn_stats->tlp_bytes            += path->path_send_ctl->ctl_tlp_bytes;
         conn_stats->spurious_loss_count  += path->path_send_ctl->ctl_spurious_loss_count;
+        conn_stats->spurious_loss_bytes  += path->path_send_ctl->ctl_spurious_loss_bytes;
         conn_stats->recv_count           += path->path_send_ctl->ctl_recv_count;
+        conn_stats->recv_bytes           += path->path_send_ctl->ctl_bytes_recv;
         conn_stats->inflight_bytes       += path->path_send_ctl->ctl_bytes_in_flight;
         conn_stats->total_rebind_count   += path->rebinding_count;
         conn_stats->total_rebind_valid   += path->rebinding_valid;

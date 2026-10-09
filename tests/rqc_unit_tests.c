@@ -829,6 +829,186 @@ rqc_test_packet_out_remaining_space(void)
 }
 
 int
+rqc_test_conn_byte_stats(void)
+{
+    test_engine_t eng;
+    create_test_engine(&eng, RQC_ENGINE_CLIENT);
+    CHECK_NE((uintptr_t)eng.engine, 0);
+    rqc_connection_t *conn = create_client_conn(&eng, NULL, 0);
+    CHECK_NE((uintptr_t)conn, 0);
+    rqc_send_ctl_t *ctl = conn->the_path->path_send_ctl;
+    rqc_pn_ctl_t *pn_ctl = conn->the_path->path_pn_ctl;
+    rqc_conn_stats_t stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.lost_bytes, 0);
+    CHECK_EQ(stats.send_bytes, 0);
+    CHECK_EQ(stats.tlp_bytes, 0);
+    CHECK_EQ(stats.recv_bytes, 0);
+    CHECK_EQ(ctl->ctl_lost_bytes, 0);
+
+    rqc_send_ctl_on_dgram_received(ctl, 100);
+    rqc_send_ctl_on_dgram_received(ctl, 250);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.recv_count, 2);
+    CHECK_EQ(stats.recv_bytes, 350);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.recv_count, 2);
+    CHECK_EQ(stats.recv_bytes, 350);
+
+    rqc_packet_out_t po = {0};
+    po.po_frame_types = RQC_FRAME_BIT_PING;
+    po.po_used_size = 100;
+    po.po_sent_time = rqc_monotonic_timestamp();
+    po.po_pkt.pkt_num = ++pn_ctl->ctl_largest_sent;
+    po.po_flag = RQC_POF_LOST;
+    rqc_send_ctl_on_packet_sent(ctl, pn_ctl, &po, po.po_sent_time);
+    CHECK_EQ(ctl->ctl_lost_count, 1);
+    CHECK_EQ(ctl->ctl_lost_bytes, 100);
+    CHECK_EQ(po.po_flag & RQC_POF_LOST, 0);
+
+    /* Reusing the packet without the cleared loss flag must not count again. */
+    rqc_send_ctl_on_packet_sent(ctl, pn_ctl, &po, po.po_sent_time);
+    CHECK_EQ(ctl->ctl_lost_count, 1);
+    CHECK_EQ(ctl->ctl_lost_bytes, 100);
+    rqc_send_ctl_decrease_inflight(conn, &po);
+
+    po.po_used_size = 250;
+    po.po_pkt.pkt_num = ++pn_ctl->ctl_largest_sent;
+    po.po_flag = RQC_POF_LOST;
+    rqc_send_ctl_on_packet_sent(ctl, pn_ctl, &po, po.po_sent_time);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.lost_count, 2);
+    CHECK_EQ(stats.lost_bytes, 350);
+    rqc_send_ctl_decrease_inflight(conn, &po);
+
+    po.po_flag = RQC_POF_TLP;
+    po.po_pkt.pkt_num = ++pn_ctl->ctl_largest_sent;
+    rqc_send_ctl_on_packet_sent(ctl, pn_ctl, &po, po.po_sent_time);
+    CHECK_EQ(ctl->ctl_tlp_count, 1);
+    CHECK_EQ(ctl->ctl_tlp_bytes, 250);
+    CHECK_EQ(po.po_flag & RQC_POF_TLP, 0);
+    CHECK_EQ(ctl->ctl_lost_bytes, 350);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.tlp_bytes, 250);
+    CHECK_EQ(stats.send_bytes, 700);
+
+    /* A second send counts toward total bytes, but not toward cleared TLP bytes. */
+    rqc_send_ctl_on_packet_sent(ctl, pn_ctl, &po, po.po_sent_time);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.tlp_count, 1);
+    CHECK_EQ(stats.tlp_bytes, 250);
+    CHECK_EQ(stats.send_bytes, 950);
+    rqc_send_ctl_decrease_inflight(conn, &po);
+
+    /* ACK-only packets are included in total bytes even though not in send_count. */
+    po.po_flag = 0;
+    po.po_frame_types = RQC_FRAME_BIT_ACK;
+    po.po_used_size = 50;
+    po.po_pkt.pkt_num = ++pn_ctl->ctl_largest_sent;
+    rqc_send_ctl_on_packet_sent(ctl, pn_ctl, &po, po.po_sent_time);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.send_bytes, 1000);
+    CHECK_EQ(stats.send_count, 5);
+    CHECK_EQ(stats.tlp_bytes, 250);
+    CHECK_EQ(stats.lost_bytes, 350);
+    rqc_send_ctl_decrease_inflight(conn, &po);
+
+    /* Seed the lifetime counter to exercise accumulation beyond 32 bits. */
+    ctl->ctl_lost_bytes = UINT32_MAX;
+    ctl->ctl_tlp_bytes = UINT32_MAX;
+    ctl->ctl_bytes_send = UINT32_MAX;
+    ctl->ctl_bytes_recv = UINT32_MAX;
+    rqc_send_ctl_on_dgram_received(ctl, 250);
+    po.po_frame_types = RQC_FRAME_BIT_PING;
+    po.po_used_size = 250;
+    po.po_flag = RQC_POF_LOST | RQC_POF_TLP;
+    po.po_pkt.pkt_num = ++pn_ctl->ctl_largest_sent;
+    rqc_send_ctl_on_packet_sent(ctl, pn_ctl, &po, po.po_sent_time);
+    rqc_send_ctl_decrease_inflight(conn, &po);
+    CHECK_EQ(ctl->ctl_lost_bytes, (uint64_t)UINT32_MAX + 250);
+
+    rqc_send_ctl_reset(ctl);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.lost_count, 3);
+    CHECK_EQ(stats.recv_count, 3);
+    CHECK_EQ(stats.recv_bytes, (uint64_t)UINT32_MAX + 250);
+    CHECK_EQ(stats.lost_bytes, (uint64_t)UINT32_MAX + 250);
+    CHECK_EQ(stats.tlp_count, 2);
+    CHECK_EQ(stats.tlp_bytes, (uint64_t)UINT32_MAX + 250);
+    CHECK_EQ(stats.send_bytes, (uint64_t)UINT32_MAX + 250);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.lost_bytes, (uint64_t)UINT32_MAX + 250);
+    CHECK_EQ(stats.recv_bytes, (uint64_t)UINT32_MAX + 250);
+    CHECK_EQ(stats.tlp_bytes, (uint64_t)UINT32_MAX + 250);
+    CHECK_EQ(stats.send_bytes, (uint64_t)UINT32_MAX + 250);
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
+rqc_test_conn_spurious_loss_bytes(void)
+{
+    test_engine_t eng;
+    create_test_engine(&eng, RQC_ENGINE_CLIENT);
+    CHECK_NE((uintptr_t)eng.engine, 0);
+    rqc_connection_t *conn = create_client_conn(&eng, NULL, 0);
+    CHECK_NE((uintptr_t)conn, 0);
+    rqc_send_ctl_t *ctl = conn->the_path->path_send_ctl;
+    rqc_pn_ctl_t *pn_ctl = conn->the_path->path_pn_ctl;
+    rqc_send_queue_t *queue = conn->conn_send_queue;
+    rqc_conn_stats_t stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.spurious_loss_count, 0);
+    CHECK_EQ(stats.spurious_loss_bytes, 0);
+
+    for (int i = 0; i < 4; ++i) {
+        rqc_packet_out_t po = {0};
+        po.po_frame_types = RQC_FRAME_BIT_PING;
+        po.po_used_size = 100 + i * 50;
+        po.po_sent_time = rqc_monotonic_timestamp();
+        po.po_pkt.pkt_num = ++pn_ctl->ctl_largest_sent;
+        /* Keep the original in the unacked list, as when a retransmission references it. */
+        po.po_origin_ref_cnt = 1;
+        if (i > 0) {
+            po.po_flag = RQC_POF_RETRANSED;
+        }
+        if (i == 2) {
+            ctl->ctl_spurious_loss_bytes = UINT32_MAX;
+        }
+        if (i == 3) {
+            po.po_flag |= RQC_POF_SPURIOUS_LOSS;
+        }
+        uint64_t expected_bytes = ctl->ctl_spurious_loss_bytes;
+        unsigned expected_count = ctl->ctl_spurious_loss_count;
+        if (i == 1 || i == 2) {
+            expected_bytes += po.po_used_size;
+            ++expected_count;
+        }
+        rqc_send_queue_insert_unacked(&po, &queue->sndq_unacked_packets, queue);
+        rqc_ack_info_t ack = {0};
+        ack.n_ranges = 1;
+        ack.ranges[0].low = po.po_pkt.pkt_num;
+        ack.ranges[0].high = po.po_pkt.pkt_num;
+        rqc_usec_t now = po.po_sent_time + 1000;
+        CHECK_EQ(rqc_send_ctl_on_ack_received(ctl, pn_ctl, queue, &ack, now), RQC_OK);
+        stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+        CHECK_EQ(stats.spurious_loss_count, expected_count);
+        CHECK_EQ(stats.spurious_loss_bytes, expected_bytes);
+        /* Repeated ACKs of the retained original must not count again. */
+        CHECK_EQ(rqc_send_ctl_on_ack_received(ctl, pn_ctl, queue, &ack, now), RQC_OK);
+        stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+        CHECK_EQ(stats.spurious_loss_count, expected_count);
+        CHECK_EQ(stats.spurious_loss_bytes, expected_bytes);
+        rqc_send_queue_remove_unacked(&po, queue);
+    }
+
+    rqc_send_ctl_reset(ctl);
+    stats = rqc_conn_get_stats(eng.engine, &conn->scid_set.user_scid);
+    CHECK_EQ(stats.spurious_loss_count, 2);
+    CHECK_EQ(stats.spurious_loss_bytes, (uint64_t)UINT32_MAX + 200);
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
 rqc_test_stream_write_after_ack_reserve(void)
 {
     for (int high_pri = 0; high_pri <= 1; ++high_pri) {
