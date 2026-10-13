@@ -90,6 +90,8 @@ typedef struct rqc_packet_out_s {
     uint64_t                po_stream_offset;
     uint64_t                po_stream_id;
 
+    struct rqc_datagram_record_s *po_datagram;
+
     /* ping notification */
     rqc_ping_record_t      *po_pr;
 

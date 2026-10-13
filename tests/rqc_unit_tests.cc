@@ -140,3 +140,25 @@ TEST(RqcUnitTest, RecvFlowControlWakeup)
 {
     EXPECT_EQ(rqc_test_recv_flow_control_wakeup(), 0);
 }
+
+extern "C" {
+int rqc_test_datagram_negotiation(void);
+int rqc_test_datagram_submission(void);
+int rqc_test_datagram_frames(void);
+int rqc_test_datagram_recovery(void);
+}
+
+TEST(RqcUnitTest, DatagramNegotiation) { EXPECT_EQ(rqc_test_datagram_negotiation(), 0); }
+
+TEST(RqcUnitTest, DatagramSubmission) { EXPECT_EQ(rqc_test_datagram_submission(), 0); }
+
+TEST(RqcUnitTest, DatagramFrames) { EXPECT_EQ(rqc_test_datagram_frames(), 0); }
+
+TEST(RqcUnitTest, DatagramRecovery) { EXPECT_EQ(rqc_test_datagram_recovery(), 0); }
+
+extern "C" {
+int rqc_test_datagram_backpressure(void);
+int rqc_test_datagram_wire(void);
+}
+TEST(RqcUnitTest, DatagramBackpressure) { EXPECT_EQ(rqc_test_datagram_backpressure(), 0); }
+TEST(RqcUnitTest, DatagramWire) { EXPECT_EQ(rqc_test_datagram_wire(), 0); }

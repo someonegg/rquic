@@ -17,6 +17,8 @@ typedef struct demo_server_s demo_server_t;
 typedef struct demo_server_conn_s {
     demo_udp_write_ctx_t write_ctx;
     demo_server_t *server;
+    unsigned char *pending_datagram;
+    size_t pending_datagram_len;
 } demo_server_conn_t;
 
 #define DEMO_FILE_CHUNK_SIZE 16384
@@ -153,6 +155,7 @@ demo_server_refuse(rqc_engine_t *engine, rqc_connection_t *conn,
 
     if (server_conn != NULL) {
         demo_udp_write_ctx_cleanup(&server_conn->write_ctx);
+        free(server_conn->pending_datagram);
         free(server_conn);
     }
 }
@@ -182,10 +185,75 @@ demo_server_hq_conn_close(demo_hq_conn_t *conn, const rqc_cid_t *cid,
     demo_server_conn_t *server_conn = demo_hq_conn_get_user_data(conn);
     if (server_conn != NULL) {
         demo_udp_write_ctx_cleanup(&server_conn->write_ctx);
+        free(server_conn->pending_datagram);
         free(server_conn);
     }
 
     return 0;
+}
+
+static void
+demo_server_datagram_write(demo_hq_conn_t *conn)
+{
+    demo_server_conn_t *ctx = demo_hq_conn_get_user_data(conn);
+    if (!ctx || !ctx->pending_datagram) {
+        return;
+    }
+    size_t mss = demo_hq_datagram_get_mss(conn);
+    int ret = mss && ctx->pending_datagram_len > mss
+        ? -RQC_EDATAGRAM_TOO_LARGE
+        : demo_hq_datagram_send(conn, ctx->pending_datagram,
+            ctx->pending_datagram_len);
+    if (ret == -RQC_EAGAIN) {
+        return;
+    }
+    if (ret != RQC_OK) {
+        fprintf(stderr, "server datagram echo failed: %d\n", ret);
+    }
+    free(ctx->pending_datagram);
+    ctx->pending_datagram = NULL;
+    ctx->pending_datagram_len = 0;
+}
+
+static void
+demo_server_datagram_read(demo_hq_conn_t *conn, const void *data, size_t len)
+{
+    demo_server_conn_t *ctx = demo_hq_conn_get_user_data(conn);
+    if (!ctx) {
+        return;
+    }
+    if (ctx->pending_datagram) {
+        fprintf(stderr, "server datagram dropped: echo already pending\n");
+        return;
+    }
+    /* Before the server handshake completes, MSS is zero and send returns
+     * EAGAIN. Keep the echo until negotiation wakes the writable callback. */
+    size_t mss = demo_hq_datagram_get_mss(conn);
+    if (mss && len > mss) {
+        fprintf(stderr, "server datagram dropped: too large for echo MSS\n");
+        return;
+    }
+    int ret = demo_hq_datagram_send(conn, data, len);
+    if (ret == -RQC_EAGAIN) {
+        ctx->pending_datagram = malloc(len ? len : 1);
+        if (!ctx->pending_datagram) {
+            fprintf(stderr, "server datagram dropped: allocation failed\n");
+            return;
+        }
+        if (len) {
+            memcpy(ctx->pending_datagram, data, len);
+        }
+        ctx->pending_datagram_len = len;
+    } else if (ret != RQC_OK) {
+        fprintf(stderr, "server datagram echo failed: %d\n", ret);
+    }
+}
+
+static void
+demo_server_datagram_mss(demo_hq_conn_t *conn, size_t mss)
+{
+    (void)mss;
+    demo_server_datagram_write(conn);
 }
 
 static int
@@ -515,10 +583,14 @@ demo_server_init_engine(demo_server_t *server)
     conn_settings.idle_time_out = 60000;
     conn_settings.max_pkt_out_size = 1350;
     conn_settings.max_udp_payload_size = 1366;
+    conn_settings.max_datagram_frame_size = 65535;
     conn_settings.adaptive_ack_frequency = 1;
     rqc_server_set_conn_settings(server->engine, &conn_settings);
 
     memset(&hq_cb, 0, sizeof(hq_cb));
+    hq_cb.datagram_read = demo_server_datagram_read;
+    hq_cb.datagram_write = demo_server_datagram_write;
+    hq_cb.datagram_mss_updated = demo_server_datagram_mss;
     hq_cb.conn_create = demo_server_hq_conn_create;
     hq_cb.conn_close = demo_server_hq_conn_close;
     hq_cb.stream_create = demo_server_hq_stream_create;

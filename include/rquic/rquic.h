@@ -456,10 +456,22 @@ typedef struct rqc_stream_callbacks_s {
 
 } rqc_stream_callbacks_t;
 
-/**
- * @brief connection and stream callbacks for QUIC level, Application-Layer-Protocol shall implement
- * these callback functions and register ALP with rqc_engine_register_alpn
- */
+/* DATAGRAM callbacks are optional. Payload pointers live only during read_notify.
+ * ACK means transport receipt; loss is suspected and is reported only once. */
+typedef struct rqc_datagram_callbacks_s {
+    /* All callbacks receive the connection and its DATAGRAM user data. */
+    void (*datagram_read_notify)(rqc_connection_t *, const void *, size_t, void *);
+    /* A prior EAGAIN can be retried; a negative negotiation result also wakes the caller. */
+    void (*datagram_write_notify)(rqc_connection_t *, void *);
+    /* First transport ACK for the local ID; does not imply application consumption. */
+    void (*datagram_acked_notify)(rqc_connection_t *, uint64_t, void *);
+    /* First suspected loss for the local ID; the message may still arrive. */
+    void (*datagram_lost_notify)(rqc_connection_t *, uint64_t, void *);
+    /* First negotiation result (including 0), then changes to the payload limit. */
+    void (*datagram_mss_updated_notify)(rqc_connection_t *, size_t, void *);
+} rqc_datagram_callbacks_t;
+
+/** QUIC callbacks registered through rqc_engine_register_alpn. */
 typedef struct rqc_app_proto_callbacks_s {
 
     /**
@@ -471,6 +483,7 @@ typedef struct rqc_app_proto_callbacks_s {
      * @brief QUIC stream callback functions
      */
     rqc_stream_callbacks_t      stream_cbs;
+    rqc_datagram_callbacks_t    dgram_cbs;
 
 } rqc_app_proto_callbacks_t;
 
@@ -733,6 +746,8 @@ typedef struct rqc_conn_settings_s {
     /** defer ACK-triggered scheduling for established ACK/STREAM/PADDING packets until
      * rqc_engine_finish_recv (or the 100-packet limit); default: 0 */
     uint8_t                     defer_ack_scheduling;
+    /** Receive DATAGRAM frame limit (including type and length); 0 disables reception. */
+    uint64_t                    max_datagram_frame_size;
 } rqc_conn_settings_t;
 
 typedef struct rqc_path_metrics_s {
@@ -1200,6 +1215,27 @@ ssize_t rqc_stream_send(rqc_stream_t *stream, unsigned char *send_data, size_t s
 RQC_EXPORT_PUBLIC_API
 ssize_t rqc_stream_sendv_atomic(rqc_stream_t *stream, const rquic_iovec_t *iov,
     unsigned iovcnt, uint8_t fin, uint8_t flush);
+
+/* Connection-level, unreliable messages; no fragmentation or retransmission.
+ * MSS is 0 before negotiation or when the peer does not support DATAGRAM.
+ * send copies the entire message on RQC_OK, including empty messages.
+ * send_multiple accepts an ordered prefix; accepted_count is always initialized
+ * (and is required); only that prefix of optional datagram_ids is valid.
+ * IDs are local, connection-unique and never encoded on the wire.
+ * EAGAIN means negotiation or queue capacity blocks submission. Unsupported and
+ * oversized messages return EDATAGRAM_NOT_SUPPORTED and EDATAGRAM_TOO_LARGE.
+ * flush drives the connection once after submission, even on EAGAIN/partial
+ * acceptance. Acceptance does not imply a UDP socket write.
+ * Feedback is the first ACK or suspected loss only; closing discards pending
+ * messages without reporting network loss. Recompile users of public structs. */
+RQC_EXPORT_PUBLIC_API size_t rqc_datagram_get_mss(rqc_connection_t *conn);
+RQC_EXPORT_PUBLIC_API rqc_int_t rqc_datagram_send(rqc_connection_t *conn,
+    const void *data, size_t len, uint64_t *datagram_id, uint8_t flush);
+RQC_EXPORT_PUBLIC_API rqc_int_t rqc_datagram_send_multiple(rqc_connection_t *conn,
+    const rquic_iovec_t *messages, size_t count, uint64_t *datagram_ids,
+    size_t *accepted_count, uint8_t flush);
+RQC_EXPORT_PUBLIC_API void rqc_datagram_set_user_data(rqc_connection_t *conn, void *user_data);
+RQC_EXPORT_PUBLIC_API void *rqc_datagram_get_user_data(rqc_connection_t *conn);
 
 /**
  * Get dcid and scid before process packet

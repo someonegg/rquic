@@ -112,6 +112,7 @@ typedef enum {
 typedef struct {
     rqc_usec_t              max_idle_timeout;
     uint64_t                max_udp_payload_size;
+    uint64_t                max_datagram_frame_size;
     uint64_t                max_data;
     uint64_t                max_stream_data_bidi_local;
     uint64_t                max_stream_data_bidi_remote;
@@ -204,6 +205,14 @@ struct rqc_connection_s {
     rqc_proto_ext_t                 self_proto_ext;
     rqc_proto_ext_t                 peer_proto_ext;
     rqc_app_proto_callbacks_t       app_proto_cbs;
+    void                           *datagram_user_data;
+    uint64_t                        datagram_next_id;
+    size_t                          datagram_mss;
+    uint8_t                         datagram_mss_known;
+    uint8_t                         datagram_wait_write;
+    uint8_t                         datagram_callback_running;
+    struct rqc_datagram_record_s   *datagram_feedback_head;
+    struct rqc_datagram_record_s   *datagram_feedback_tail;
     void                           *proto_data;
 
     rqc_log_t                      *log;

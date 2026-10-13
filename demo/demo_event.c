@@ -121,16 +121,20 @@ demo_event_timeout_ms(demo_event_runtime_t *runtime)
     rqc_usec_t now;
     rqc_usec_t diff;
 
-    if (runtime == NULL || !runtime->timer_set) {
+    if (runtime == NULL || (!runtime->timer_set && !runtime->deadline_cb)) {
         return -1;
     }
 
+    rqc_usec_t at = runtime->timer_set ? runtime->timer_at : runtime->deadline_at;
+    if (runtime->deadline_cb && runtime->deadline_at < at) {
+        at = runtime->deadline_at;
+    }
     now = demo_now();
-    if (runtime->timer_at <= now) {
+    if (at <= now) {
         return 0;
     }
 
-    diff = runtime->timer_at - now;
+    diff = at - now;
     diff = (diff + 999) / 1000;
     return diff > INT_MAX ? INT_MAX : (int)diff;
 }
@@ -238,6 +242,16 @@ demo_event_run_timer(demo_event_runtime_t *runtime)
     }
 }
 
+static void
+demo_event_run_deadline(demo_event_runtime_t *runtime)
+{
+    if (runtime->deadline_cb && runtime->deadline_at <= demo_now()) {
+        demo_event_cb_pt cb = runtime->deadline_cb;
+        runtime->deadline_cb = NULL;
+        cb(runtime->deadline_arg);
+    }
+}
+
 int
 demo_event_runtime_run(demo_event_runtime_t *runtime)
 {
@@ -247,6 +261,10 @@ demo_event_runtime_run(demo_event_runtime_t *runtime)
         nfds_t nfds;
         int ret;
 
+        demo_event_run_deadline(runtime);
+        if (runtime->stop) {
+            break;
+        }
         demo_event_run_timer(runtime);
         if (runtime->stop) {
             break;
@@ -262,11 +280,13 @@ demo_event_runtime_run(demo_event_runtime_t *runtime)
             return -1;
         }
         if (ret == 0) {
-            demo_event_run_timer(runtime);
             continue;
         }
 
-        demo_event_dispatch_pollfds(runtime, fds, write_watches, nfds);
+        demo_event_run_deadline(runtime);
+        if (!runtime->stop) {
+            demo_event_dispatch_pollfds(runtime, fds, write_watches, nfds);
+        }
     }
 
     return 0;

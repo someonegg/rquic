@@ -65,11 +65,58 @@ static int demo_hq_stream_close_notify(rqc_stream_t *stream, void *stream_user_d
 static int demo_hq_stream_read_notify(rqc_stream_t *stream, void *stream_user_data);
 static int demo_hq_stream_write_notify(rqc_stream_t *stream, void *stream_user_data);
 
+static void
+demo_hq_datagram_read(rqc_connection_t *conn, const void *data, size_t len, void *user)
+{
+    demo_hq_conn_t *hq = user;
+    (void)conn;
+    if (hq && hq->ctx->callbacks.datagram_read) {
+        hq->ctx->callbacks.datagram_read(hq, data, len);
+    }
+}
+
+static void
+demo_hq_datagram_write(rqc_connection_t *conn, void *user)
+{
+    demo_hq_conn_t *hq = user;
+    (void)conn;
+    if (hq && hq->ctx->callbacks.datagram_write) {
+        hq->ctx->callbacks.datagram_write(hq);
+    }
+}
+
+static void
+demo_hq_datagram_mss(rqc_connection_t *conn, size_t mss, void *user)
+{
+    demo_hq_conn_t *hq = user;
+    (void)conn;
+    if (hq && hq->ctx->callbacks.datagram_mss_updated) {
+        hq->ctx->callbacks.datagram_mss_updated(hq, mss);
+    }
+}
+
+size_t
+demo_hq_datagram_get_mss(demo_hq_conn_t *conn)
+{
+    return rqc_datagram_get_mss(conn->conn);
+}
+
+int
+demo_hq_datagram_send(demo_hq_conn_t *conn, const void *data, size_t len)
+{
+    return rqc_datagram_send(conn->conn, data, len, NULL, 1);
+}
+
 static rqc_app_proto_callbacks_t demo_hq_proto_callbacks = {
     .conn_cbs = {
         .conn_create_notify = demo_hq_conn_create_notify,
         .conn_close_notify = demo_hq_conn_close_notify,
         .conn_handshake_finished = demo_hq_conn_handshake_finished,
+    },
+    .dgram_cbs = {
+        .datagram_read_notify = demo_hq_datagram_read,
+        .datagram_write_notify = demo_hq_datagram_write,
+        .datagram_mss_updated_notify = demo_hq_datagram_mss,
     },
     .stream_cbs = {
         .stream_create_notify = demo_hq_stream_create_notify,
@@ -558,11 +605,13 @@ demo_hq_conn_create_notify(rqc_connection_t *conn, const rqc_cid_t *cid,
     hq_conn->ctx = ctx;
     hq_conn->user_data = conn_user_data;
     rqc_conn_set_alp_user_data(conn, hq_conn);
+    rqc_datagram_set_user_data(conn, hq_conn);
 
     if (ctx->callbacks.conn_create != NULL) {
         int ret = ctx->callbacks.conn_create(hq_conn, cid, hq_conn->user_data);
         if (ret != RQC_OK) {
             rqc_conn_set_alp_user_data(conn, NULL);
+            rqc_datagram_set_user_data(conn, NULL);
             free(hq_conn);
             return ret;
         }
@@ -589,6 +638,7 @@ demo_hq_conn_close_notify(rqc_connection_t *conn, const rqc_cid_t *cid,
         ret = hq_conn->ctx->callbacks.conn_close(hq_conn, cid, hq_conn->user_data);
     }
 
+    rqc_datagram_set_user_data(conn, NULL);
     free(hq_conn);
     return ret;
 }

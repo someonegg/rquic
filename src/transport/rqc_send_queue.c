@@ -1,3 +1,4 @@
+#include "src/transport/rqc_datagram.h"
 #include "src/transport/rqc_send_queue.h"
 #include "src/transport/rqc_packet.h"
 #include "src/transport/rqc_packet_out.h"
@@ -74,6 +75,9 @@ rqc_send_queue_pre_destroy_packets_list(rqc_send_queue_t *send_queue, rqc_list_h
 {
     rqc_list_head_t *pos, *next;
     rqc_list_for_each_safe(pos, next, head) {
+        rqc_packet_out_t *po = rqc_list_entry(pos, rqc_packet_out_t, po_list);
+        rqc_free(po->po_datagram);
+        po->po_datagram = NULL;
         rqc_list_del_init(pos);
         rqc_list_add_tail(pos, &send_queue->sndq_free_packets);
     }
@@ -105,6 +109,7 @@ rqc_send_queue_get_packet_out(rqc_send_queue_t *send_queue, unsigned need, rqc_p
     rqc_list_for_each_reverse(pos, &send_queue->sndq_send_packets) {
         packet_out = rqc_list_entry(pos, rqc_packet_out_t, po_list);
         if (packet_out->po_pkt.pkt_type == pkt_type
+            && !(packet_out->po_frame_types & RQC_FRAME_BIT_DATAGRAM)
             && rqc_get_po_remained_size(packet_out) >= need)
         {
             return packet_out;
@@ -133,6 +138,7 @@ rqc_send_queue_get_packet_out_for_stream(rqc_send_queue_t *send_queue, unsigned 
     rqc_list_for_each_reverse(pos, list) {
         packet_out = rqc_list_entry(pos, rqc_packet_out_t, po_list);
         if (packet_out->po_pkt.pkt_type == pkt_type
+            && !(packet_out->po_frame_types & RQC_FRAME_BIT_DATAGRAM)
             && rqc_get_po_remained_size(packet_out) >= need
             && packet_out->po_stream_frames_idx < RQC_MAX_STREAM_FRAME_IN_PO
             && packet_out->po_stream_frames_idx > 0
@@ -208,6 +214,8 @@ rqc_send_queue_remove_lost(rqc_list_head_t *pos)
 void
 rqc_send_queue_insert_free(rqc_packet_out_t *po, rqc_list_head_t *head, rqc_send_queue_t *send_queue)
 {
+    rqc_free(po->po_datagram);
+    po->po_datagram = NULL;
     if (po->po_pr) {
         if (po->po_pr->ref_cnt <= 1) {
             rqc_conn_destroy_ping_record(po->po_pr);
@@ -329,6 +337,7 @@ rqc_send_queue_copy_to_lost(rqc_packet_out_t *packet_out, rqc_send_queue_t *send
 {
     rqc_connection_t *conn = send_queue->sndq_conn;
 
+    if (packet_out->po_frame_types & RQC_FRAME_BIT_DATAGRAM) { return; }
     rqc_packet_out_t *new_po = rqc_packet_out_get(send_queue);
     if (!new_po) {
         RQC_CONN_ERR(conn, RQC_EMALLOC);
@@ -352,6 +361,7 @@ rqc_send_queue_copy_to_probe(rqc_packet_out_t *packet_out, rqc_send_queue_t *sen
 {
     rqc_connection_t *conn = send_queue->sndq_conn;
 
+    if (packet_out->po_frame_types & RQC_FRAME_BIT_DATAGRAM) { return; }
     rqc_packet_out_t *new_po = rqc_packet_out_get(send_queue);
     if (!new_po) {
         RQC_CONN_ERR(conn, RQC_EMALLOC);
@@ -373,6 +383,7 @@ void
 rqc_send_queue_drop_packets(rqc_connection_t *conn)
 {
     rqc_send_queue_t *send_queue = conn->conn_send_queue;
+    rqc_datagram_cleanup(conn);
     rqc_send_queue_pre_destroy(send_queue);
 
     rqc_path_ctx_t *path = conn->the_path;

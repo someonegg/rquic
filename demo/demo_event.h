@@ -19,6 +19,9 @@ typedef struct demo_event_runtime_s {
     int read_fd;
     demo_event_cb_pt read_cb;
     void *read_arg;
+    rqc_usec_t deadline_at;
+    demo_event_cb_pt deadline_cb;
+    void *deadline_arg;
     int timer_set;
     rqc_usec_t timer_at;
     demo_event_watch_t *write_watches;

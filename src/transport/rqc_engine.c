@@ -2,6 +2,7 @@
  * @copyright Copyright (c) 2022, Alibaba Group Holding Limited
  */
 
+#include "src/transport/rqc_datagram.h"
 #include <rquic/rquic.h>
 #include "src/transport/rqc_engine.h"
 #include "src/common/rqc_str.h"
@@ -528,6 +529,10 @@ rqc_engine_process_conn(rqc_connection_t *conn, rqc_usec_t now)
     }
     RQC_CHECK_IMMEDIATE_CLOSE();
 
+    rqc_datagram_process_callbacks(conn);
+    RQC_CHECK_IMMEDIATE_CLOSE();
+    if (conn->conn_state >= RQC_CONN_STATE_CLOSING) { goto end; }
+
     if (rqc_conn_is_established(conn)) {
         rqc_process_read_streams(conn);
         if (rqc_send_queue_can_write(conn->conn_send_queue)) {
@@ -596,7 +601,7 @@ void rqc_engine_main_logic_internal(rqc_engine_t *engine) {
 void
 rqc_engine_conn_logic(rqc_engine_t *engine, rqc_connection_t *conn)
 {
-    if (engine->eng_flag & RQC_ENG_FLAG_RUNNING) {
+    if ((engine->eng_flag & RQC_ENG_FLAG_RUNNING) || conn->datagram_callback_running) {
         return;
     }
 

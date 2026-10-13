@@ -101,6 +101,7 @@ endif()
 # transport source
 set(
     TRANSPORT_SOURCES
+    "src/transport/rqc_datagram.c"
     "src/transport/rqc_cid.c"
     "src/transport/rqc_defs.c"
     "src/transport/rqc_transport_params.c"

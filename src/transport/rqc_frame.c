@@ -2,6 +2,7 @@
  * @copyright Copyright (c) 2022, Alibaba Group Holding Limited
  */
 
+#include "src/transport/rqc_datagram.h"
 #include <rquic/rquic_typedef.h>
 #include "src/common/rqc_log.h"
 #include "src/transport/rqc_frame.h"
@@ -34,6 +35,7 @@ static const char * const frame_type_2_str[RQC_FRAME_NUM] = {
     [RQC_FRAME_PATH_CHALLENGE]       = "PATH_CHALLENGE",
     [RQC_FRAME_PATH_RESPONSE]        = "PATH_RESPONSE",
     [RQC_FRAME_CONNECTION_CLOSE]     = "CONNECTION_CLOSE",
+    [RQC_FRAME_DATAGRAM]             = "DATAGRAM",
     [RQC_FRAME_Extension]            = "Extension",
 };
 
@@ -228,6 +230,10 @@ rqc_process_frames(rqc_connection_t *conn, rqc_packet_in_t *packet_in)
         case 0x1b:
             ret = rqc_process_path_response_frame(conn, packet_in);
             break;
+        case 0x30:
+        case 0x31:
+            ret = rqc_datagram_process_frame(conn, packet_in);
+            break;
         case 0x1c:
         case 0x1d:
             ret = rqc_process_conn_close_frame(conn, packet_in);
@@ -243,6 +249,10 @@ rqc_process_frames(rqc_connection_t *conn, rqc_packet_in_t *packet_in)
             return ret;
         }
 
+        if (conn->conn_state >= RQC_CONN_STATE_CLOSING || (conn->conn_flag & RQC_CONN_IMMEDIATE_CLOSE_FLAGS)) {
+            packet_in->pos = packet_in->last;
+            return RQC_OK;
+        }
         if (last_pos == packet_in->pos) {
             rqc_log(conn->log, RQC_LOG_ERROR, "|pos not update|");
             return -RQC_ESYS;

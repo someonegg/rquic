@@ -79,6 +79,9 @@ rqc_transport_params_calc_length(const rqc_transport_params_t *params)
                rqc_put_varint_len(params->max_ack_delay);
     }
 
+    if (params->max_datagram_frame_size) {
+        len += rqc_put_varint_len(0x20) + 1 + rqc_put_varint_len(params->max_datagram_frame_size);
+    }
     return len;
 }
 
@@ -101,6 +104,9 @@ rqc_encode_transport_params(const rqc_transport_params_t *params,
     uint8_t *p = out;
     size_t len = 0;
 
+    if (params->max_datagram_frame_size > ((1ULL << 62) - 1)) {
+        return -RQC_EILLTP;
+    }
     /* calculate encoding length */
     len += rqc_transport_params_calc_length(params);
     if (out_cap < len) {
@@ -157,6 +163,10 @@ rqc_encode_transport_params(const rqc_transport_params_t *params,
                                  params->max_ack_delay);
     }
 
+    if (params->max_datagram_frame_size) {
+        p = rqc_put_varint_param(p, RQC_TRANSPORT_PARAM_MAX_DATAGRAM_FRAME_SIZE,
+                                 params->max_datagram_frame_size);
+    }
     if ((size_t)(p - out) != len) {
         return -RQC_EILLTP;
     }
@@ -326,7 +336,7 @@ rqc_decode_one_transport_param(rqc_transport_params_t *params,
 
     /* read param len */
     nread = rqc_vint_read(p, end, &param_len);
-    if (nread < 0 || p + nread + param_len > end ) {
+    if (nread < 0 || param_len > (uint64_t)(end - p - nread) ) {
         return -RQC_EILLTP;
     }
     p += nread;
@@ -334,6 +344,15 @@ rqc_decode_one_transport_param(rqc_transport_params_t *params,
     /*
      * read param value, note: some parameters are allowed to be zero-length.
      */
+    if (param_type == RQC_TRANSPORT_PARAM_MAX_DATAGRAM_FRAME_SIZE) {
+        /* Read inside the parameter boundary and reject duplicate parameters. */
+        uint64_t value;
+        ssize_t n = rqc_vint_read(p, p + param_len, &value);
+        if (n < 0 || (uint64_t)n != param_len || params->max_datagram_frame_size != 0) {
+            return -RQC_EILLTP;
+        }
+        params->max_datagram_frame_size = value;
+    }
     uint64_t param_index = rqc_trans_param_get_index(param_type);
     if (param_index != RQC_TP_DECODER_UNKNOWN) {
         rqc_int_t ret = rqc_trans_param_decode_func_list[param_index](params, p, end,
@@ -360,6 +379,7 @@ rqc_decode_transport_params(rqc_transport_params_t *params,
     end = in + in_len;
 
     /* Set default values */
+    params->max_datagram_frame_size = 0;
     params->max_idle_timeout = 0;
     params->max_udp_payload_size = RQC_DEFAULT_MAX_UDP_PAYLOAD_SIZE;
     params->initial_max_data = 0;
@@ -371,7 +391,14 @@ rqc_decode_transport_params(rqc_transport_params_t *params,
     params->ack_delay_exponent = RQC_DEFAULT_ACK_DELAY_EXPONENT;
     params->max_ack_delay = RQC_DEFAULT_MAX_ACK_DELAY;
 
+    rqc_bool_t datagram_seen = RQC_FALSE;
     while (p < end) {
+        uint64_t type;
+        if (rqc_vint_read(p, end, &type) < 0) { return -RQC_EILLTP; }
+        if (type == RQC_TRANSPORT_PARAM_MAX_DATAGRAM_FRAME_SIZE) {
+            if (datagram_seen) { return -RQC_EILLTP; }
+            datagram_seen = RQC_TRUE;
+        }
         ret = rqc_decode_one_transport_param(params, &p, end);
         if (ret < 0) {
             return ret;

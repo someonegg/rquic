@@ -22,6 +22,9 @@ typedef struct demo_client_conn_s {
 struct demo_client_s {
     const char *host;
     unsigned short port;
+    const char *datagram;
+    int datagram_ready;
+    int datagram_sent;
     const char *path;
     const char *output_path;
     rqc_log_level_t log_level;
@@ -45,7 +48,7 @@ static void
 demo_client_usage(const char *prog)
 {
     fprintf(stderr,
-        "Usage: %s [--host ADDR] [--port PORT] [--path /resource] [--output FILE] [--log-level LEVEL]\n"
+        "Usage: %s [--host ADDR] [--port PORT] [--datagram TEXT] [--path /resource] [--output FILE] [--log-level LEVEL]\n"
         "\n"
         "Defaults: --host %s --port %d --path %s --log-level error\n",
         prog, DEMO_DEFAULT_HOST, DEMO_DEFAULT_PORT, DEMO_DEFAULT_PATH);
@@ -55,6 +58,7 @@ static int
 demo_client_parse_args(int argc, char **argv, demo_client_t *client)
 {
     char errbuf[128];
+    int explicit_path = 0;
 
     client->host = DEMO_DEFAULT_HOST;
     client->port = DEMO_DEFAULT_PORT;
@@ -79,11 +83,20 @@ demo_client_parse_args(int argc, char **argv, demo_client_t *client)
             continue;
         }
         if (strcmp(argv[i], "--path") == 0 && i + 1 < argc) {
+            explicit_path = 1;
             client->path = argv[++i];
             continue;
         }
         if (strcmp(argv[i], "--output") == 0 && i + 1 < argc) {
             client->output_path = argv[++i];
+            continue;
+        }
+        if (strcmp(argv[i], "--datagram") == 0 && i + 1 < argc) {
+            if (client->datagram != NULL) {
+                fprintf(stderr, "duplicate --datagram option\n");
+                return -1;
+            }
+            client->datagram = argv[++i];
             continue;
         }
         if (strcmp(argv[i], "--log-level") == 0 && i + 1 < argc) {
@@ -98,6 +111,10 @@ demo_client_parse_args(int argc, char **argv, demo_client_t *client)
         return -1;
     }
 
+    if (client->datagram != NULL && (explicit_path || client->output_path != NULL)) {
+        fprintf(stderr, "--datagram conflicts with --path and --output\n");
+        return -1;
+    }
     if (demo_validate_resource_path(client->path, errbuf, sizeof(errbuf)) != 0) {
         fprintf(stderr, "invalid --path: %s\n", errbuf);
         return -1;
@@ -185,8 +202,11 @@ demo_client_hq_conn_close(demo_hq_conn_t *conn, const rqc_cid_t *cid,
 
     if (client_conn != NULL) {
         client_conn->hq_conn = NULL;
-        if (client_conn->client != NULL && client_conn->client->exit_code != 0) {
-            fprintf(stderr, "client connection closed before response completed\n");
+        if (client_conn->client != NULL && client_conn->client->exit_code != 0
+            && !client_conn->client->event_runtime.stop) {
+            fprintf(stderr, client_conn->client->datagram != NULL
+                ? "client datagram connection closed before echo completed\n"
+                : "client connection closed before response completed\n");
             demo_event_runtime_stop(&client_conn->client->event_runtime);
         }
     }
@@ -273,6 +293,79 @@ demo_client_hq_stream_read(demo_hq_stream_t *stream, void *stream_user_data)
     return 0;
 }
 
+static void
+demo_client_datagram_fail(demo_client_t *client, const char *reason)
+{
+    fprintf(stderr, "client datagram %s\n", reason);
+    client->exit_code = 1;
+    demo_event_runtime_stop(&client->event_runtime);
+}
+
+static void
+demo_client_datagram_timeout(void *arg)
+{
+    demo_client_datagram_fail(arg, "timeout after 5 seconds");
+}
+
+static void
+demo_client_datagram_write(demo_hq_conn_t *conn)
+{
+    demo_client_conn_t *ctx = demo_hq_conn_get_user_data(conn);
+    demo_client_t *client = ctx->client;
+    int ret;
+    if (!client->datagram || !client->datagram_ready || client->datagram_sent
+        || client->event_runtime.stop) {
+        return;
+    }
+    size_t len = strlen(client->datagram);
+    size_t mss = demo_hq_datagram_get_mss(conn);
+    if (len > mss) {
+        fprintf(stderr, "client datagram too large: bytes=%zu MSS=%zu\n", len, mss);
+        demo_client_datagram_fail(client, "size rejected");
+        return;
+    }
+    ret = demo_hq_datagram_send(conn, client->datagram, len);
+    if (ret == RQC_OK) {
+        client->datagram_sent = 1;
+    } else if (ret != -RQC_EAGAIN) {
+        fprintf(stderr, "client datagram send error: %d\n", ret);
+        demo_client_datagram_fail(client, "send failed");
+    }
+}
+
+static void
+demo_client_datagram_mss(demo_hq_conn_t *conn, size_t mss)
+{
+    demo_client_conn_t *ctx = demo_hq_conn_get_user_data(conn);
+    if (!ctx->client->datagram) {
+        return;
+    }
+    if (mss == 0) {
+        demo_client_datagram_fail(ctx->client, "echo mode requires MSS > 0");
+        return;
+    }
+    ctx->client->datagram_ready = 1;
+    demo_client_datagram_write(conn);
+}
+
+static void
+demo_client_datagram_read(demo_hq_conn_t *conn, const void *data, size_t len)
+{
+    demo_client_conn_t *ctx = demo_hq_conn_get_user_data(conn);
+    demo_client_t *client = ctx->client;
+    if (!client->datagram || client->event_runtime.stop) {
+        return;
+    }
+    if (!client->datagram_sent || len != strlen(client->datagram)
+        || (len && memcmp(data, client->datagram, len) != 0)) {
+        demo_client_datagram_fail(client, "echo mismatch");
+        return;
+    }
+    printf("OK datagram bytes=%zu\n", len);
+    client->exit_code = 0;
+    demo_event_runtime_stop(&client->event_runtime);
+}
+
 static int
 demo_client_init_engine(demo_client_t *client)
 {
@@ -301,6 +394,9 @@ demo_client_init_engine(demo_client_t *client)
     demo_event_runtime_set_engine(&client->event_runtime, client->engine);
 
     memset(&hq_cb, 0, sizeof(hq_cb));
+    hq_cb.datagram_read = demo_client_datagram_read;
+    hq_cb.datagram_write = demo_client_datagram_write;
+    hq_cb.datagram_mss_updated = demo_client_datagram_mss;
     hq_cb.conn_create = demo_client_hq_conn_create;
     hq_cb.conn_close = demo_client_hq_conn_close;
     hq_cb.stream_create = demo_client_hq_stream_create;
@@ -328,6 +424,7 @@ demo_client_start_request(demo_client_t *client)
     settings.idle_time_out = 5000;
     settings.max_pkt_out_size = 1350;
     settings.max_udp_payload_size = 1366;
+    settings.max_datagram_frame_size = 65535;
     settings.adaptive_ack_frequency = 1;
 
     client->conn.client = client;
@@ -339,6 +436,11 @@ demo_client_start_request(demo_client_t *client)
     client->conn.write_ctx.engine = client->engine;
     client->conn.write_ctx.user_data = &client->conn;
 
+    if (client->datagram != NULL) {
+        client->event_runtime.deadline_at = demo_now() + 5000000;
+        client->event_runtime.deadline_cb = demo_client_datagram_timeout;
+        client->event_runtime.deadline_arg = client;
+    }
     cid = demo_hq_connect(client->engine, &settings, client->host,
         (const struct sockaddr *)&client->peer.addr, client->peer.addrlen,
         &client->conn.write_ctx);
@@ -349,6 +451,10 @@ demo_client_start_request(demo_client_t *client)
     memcpy(&client->conn.cid, cid, sizeof(client->conn.cid));
     memcpy(&client->conn.write_ctx.cid, cid, sizeof(client->conn.write_ctx.cid));
     client->conn.write_ctx.has_cid = 1;
+
+    if (client->datagram != NULL) {
+        return 0;
+    }
 
     client->stream = demo_hq_stream_create(client->engine, client->conn.hq_conn,
         &client->conn.cid, client);

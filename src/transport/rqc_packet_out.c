@@ -165,6 +165,7 @@ rqc_packet_out_get_and_insert_send(rqc_send_queue_t *send_queue, enum rqc_pkt_ty
 void
 rqc_packet_out_destroy(rqc_packet_out_t *packet_out)
 {
+    rqc_free(packet_out->po_datagram);
     rqc_free(packet_out->po_buf);
     rqc_free(packet_out);
 }

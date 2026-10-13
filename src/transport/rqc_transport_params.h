@@ -34,12 +34,14 @@ typedef enum {
     RQC_TRANSPORT_PARAM_INITIAL_MAX_STREAMS_UNI             = 0x0007,
     RQC_TRANSPORT_PARAM_ACK_DELAY_EXPONENT                  = 0x0008,
     RQC_TRANSPORT_PARAM_MAX_ACK_DELAY                       = 0x0009,
+    RQC_TRANSPORT_PARAM_MAX_DATAGRAM_FRAME_SIZE             = 0x0020,
 } rqc_transport_param_id_t;
 
 /* transport parameters */
 typedef struct {
     rqc_usec_t              max_idle_timeout;
     uint64_t                max_udp_payload_size;
+    uint64_t                max_datagram_frame_size;
     uint64_t                initial_max_data;
     uint64_t                initial_max_stream_data_bidi_local;
     uint64_t                initial_max_stream_data_bidi_remote;

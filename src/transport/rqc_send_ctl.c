@@ -2,6 +2,7 @@
  * @copyright Copyright (c) 2022, Alibaba Group Holding Limited
  */
 
+#include "src/transport/rqc_datagram.h"
 #include "src/congestion_control/rqc_bbr.h"
 #include "src/congestion_control/rqc_bbr2.h"
 #include "src/congestion_control/rqc_bbr_common.h"
@@ -892,6 +893,7 @@ rqc_send_ctl_detect_lost(rqc_send_ctl_t *send_ctl, rqc_send_queue_t *send_queue,
             || (lost_pn != RQC_MAX_UINT64_VALUE && po->po_pkt.pkt_num <= lost_pn))
         {
             if (po->po_flag & RQC_POF_IN_FLIGHT) {
+                rqc_datagram_record_feedback(conn, po, RQC_TRUE);
                 rqc_send_ctl_decrease_inflight(conn, po);
 
                 if (RQC_NEED_REPAIR(po->po_frame_types)
@@ -1061,6 +1063,8 @@ rqc_send_ctl_on_packet_acked(rqc_send_ctl_t *send_ctl,
     rqc_packet_out_t *packet_out = acked_packet;
     rqc_connection_t *conn = send_ctl->ctl_conn;
     rqc_bool_t notify_ping;
+
+    rqc_datagram_record_feedback(conn, packet_out, RQC_FALSE);
 
     if (acked_packet->po_frame_types & RQC_FRAME_BIT_HANDSHAKE) {
         rqc_conn_on_handshake_acked(conn);

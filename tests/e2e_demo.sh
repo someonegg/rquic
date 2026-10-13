@@ -98,3 +98,54 @@ start_server "$port" "$www_root"
 "$client_bin" --host 127.0.0.1 --port "$port" --path /empty.txt --output "$file_out" >"$client_log" 2>&1
 grep -q "OK bytes=" "$client_log"
 cmp "$www_root/empty.txt" "$file_out"
+
+stop_server
+port=$((port + 1))
+start_server "$port"
+"$client_bin" --host 127.0.0.1 --port "$port" --datagram 'hello datagram' >"$client_log" 2>&1
+grep -qx 'OK datagram bytes=14' "$client_log"
+"$client_bin" --host 127.0.0.1 --port "$port" --datagram '' >"$client_log" 2>&1
+grep -qx 'OK datagram bytes=0' "$client_log"
+
+expect_failure() {
+    if "$client_bin" "$@" >"$client_log" 2>&1; then
+        echo "expected client failure: $*" >&2
+        exit 1
+    fi
+}
+
+large_text=$(awk 'BEGIN { for (i = 0; i < 2000; i++) printf "x" }')
+expect_failure --host 127.0.0.1 --port "$port" --datagram "$large_text"
+grep -q 'datagram too large: bytes=2000 MSS=' "$client_log"
+expect_failure --datagram x --path /hello
+grep -q 'conflicts' "$client_log"
+expect_failure --path /hello --datagram x
+grep -q 'conflicts' "$client_log"
+expect_failure --datagram x --output "$file_out"
+grep -q 'conflicts' "$client_log"
+expect_failure --output "$file_out" --datagram x
+grep -q 'conflicts' "$client_log"
+expect_failure --datagram '' --datagram x
+grep -q 'duplicate --datagram' "$client_log"
+stop_server
+
+# Bind a real UDP socket without responding, so there is no ICMP shortcut.
+# The outer watchdog bounds hangs independently of the demo application timer.
+python3 - "$client_bin" "$port" "$client_log" <<'PY'
+import socket
+import subprocess
+import sys
+import time
+with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock:
+    sock.bind(('127.0.0.1', int(sys.argv[2])))
+    start = time.monotonic()
+    with open(sys.argv[3], 'w') as log:
+        result = subprocess.run([sys.argv[1], '--host', '127.0.0.1',
+                                 '--port', sys.argv[2], '--datagram', 'timeout'],
+                                stdout=log, stderr=log, timeout=8)
+    elapsed = time.monotonic() - start
+    assert result.returncode != 0, 'client unexpectedly succeeded'
+    assert elapsed < 6.5, f'client exceeded application deadline: {elapsed}'
+with open(sys.argv[3]) as log:
+    assert 'datagram timeout after 5 seconds' in log.read()
+PY

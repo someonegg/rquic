@@ -77,3 +77,7 @@ The install target exports `RQUIC::rquic` and installs public headers under
 - `RQC_ENABLE_TESTING=1`: enable testing; this also enables `RQC_ENABLE_DEMO`
 - `RQC_ENABLE_EVENT_LOG=1`: enable qlog/event log support
 - `RQC_ENABLE_BBR2=1`: include BBRv2 congestion control
+
+## Documentation
+
+- [Connection-level DATAGRAM API](docs/datagram.md)

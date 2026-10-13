@@ -25,6 +25,7 @@ typedef enum {
     RQC_FRAME_PATH_RESPONSE,
     RQC_FRAME_CONNECTION_CLOSE,
     RQC_FRAME_Extension,
+    RQC_FRAME_DATAGRAM,
     RQC_FRAME_NUM,
 } rqc_frame_type_t;
 
@@ -46,6 +47,7 @@ typedef enum {
     RQC_FRAME_BIT_PATH_RESPONSE         = 1ULL << RQC_FRAME_PATH_RESPONSE,
     RQC_FRAME_BIT_CONNECTION_CLOSE      = 1ULL << RQC_FRAME_CONNECTION_CLOSE,
     RQC_FRAME_BIT_Extension             = 1ULL << RQC_FRAME_Extension,
+    RQC_FRAME_BIT_DATAGRAM              = 1ULL << RQC_FRAME_DATAGRAM,
     RQC_FRAME_BIT_NUM                   = 1ULL << RQC_FRAME_NUM,
 } rqc_frame_type_bit_t;
 
@@ -73,9 +75,9 @@ typedef enum {
 
 /*
  * PING and PADDING frames contain no information, so lost PING or
- *     PADDING frames do not require repair
+ *     PADDING frames do not require repair. DATAGRAM is never retransmitted.
  */
-#define RQC_NEED_REPAIR(types) ((types) & ~(RQC_FRAME_BIT_ACK| RQC_FRAME_BIT_PADDING | RQC_FRAME_BIT_PING | RQC_FRAME_BIT_CONNECTION_CLOSE))
+#define RQC_NEED_REPAIR(types) ((types) & ~(RQC_FRAME_BIT_ACK| RQC_FRAME_BIT_PADDING | RQC_FRAME_BIT_PING | RQC_FRAME_BIT_CONNECTION_CLOSE | RQC_FRAME_BIT_DATAGRAM))
 
 const char *rqc_frame_type_2_str(rqc_engine_t *engine, rqc_frame_type_bit_t type_bit);
 

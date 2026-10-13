@@ -17,6 +17,9 @@ typedef int (*demo_hq_stream_notify_pt)(demo_hq_stream_t *stream,
     void *stream_user_data);
 
 typedef struct demo_hq_callbacks_s {
+    void (*datagram_read)(demo_hq_conn_t *, const void *, size_t);
+    void (*datagram_write)(demo_hq_conn_t *);
+    void (*datagram_mss_updated)(demo_hq_conn_t *, size_t);
     demo_hq_conn_notify_pt conn_create;
     demo_hq_conn_notify_pt conn_close;
     demo_hq_stream_notify_pt stream_create;
@@ -34,6 +37,8 @@ const rqc_cid_t *demo_hq_connect(rqc_engine_t *engine,
     const rqc_conn_settings_t *conn_settings, const char *server_host,
     const struct sockaddr *peer_addr, socklen_t peer_addrlen, void *user_data);
 
+size_t demo_hq_datagram_get_mss(demo_hq_conn_t *conn);
+int demo_hq_datagram_send(demo_hq_conn_t *conn, const void *data, size_t len);
 int demo_hq_conn_close(rqc_engine_t *engine, const rqc_cid_t *cid);
 void demo_hq_conn_set_user_data(demo_hq_conn_t *conn, void *user_data);
 void *demo_hq_conn_get_user_data(demo_hq_conn_t *conn);

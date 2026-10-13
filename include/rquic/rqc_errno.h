@@ -74,6 +74,9 @@ typedef enum {
     RQC_EALPN_NOT_REGISTERED            = 634,      /**< alpn is not registered */
     RQC_EPACKET_FILETER_CALLBACK        = 635,      /**< error with packet filter callback function */
 
+    RQC_EDATAGRAM_NOT_SUPPORTED         = 636,
+    RQC_EDATAGRAM_TOO_LARGE             = 637,
+
     RQC_EMP_CREATE_PATH                 = 660,      /**< create path error */
 
 } rqc_transport_error_t;

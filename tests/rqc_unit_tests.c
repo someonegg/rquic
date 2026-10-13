@@ -1,3 +1,7 @@
+#include "src/transport/rqc_packet_parser.h"
+#include "src/transport/rqc_datagram.h"
+#include "src/transport/rqc_multipath.h"
+#include "src/common/utils/vint/rqc_variable_len_int.h"
 #include <rquic/rquic.h>
 #include <rquic/rqc_errno.h>
 
@@ -32,6 +36,10 @@ typedef enum test_resp_proto_ext_mode_e {
 } test_resp_proto_ext_mode_t;
 
 typedef struct test_ctx_s {
+    int socket_blocked;
+    unsigned char (*wire_packets)[1500];
+    size_t *wire_lengths;
+    size_t wire_count;
     int handshake_finished;
     int conn_create;
     int timer_calls;
@@ -133,6 +141,11 @@ test_socket_write(const unsigned char *buf, size_t size,
     (void)peer_addrlen;
     if (ctx != NULL) {
         ctx->socket_writes++;
+        if (ctx->socket_blocked) { return RQC_SOCKET_EAGAIN; }
+        if (ctx->wire_packets && ctx->wire_count < 64 && size <= 1500) {
+            memcpy(ctx->wire_packets[ctx->wire_count], buf, size);
+            ctx->wire_lengths[ctx->wire_count++] = size;
+        }
         if (ctx->mutate_on_socket_write != NULL) {
             memset(ctx->mutate_on_socket_write, 'x', ctx->mutate_on_socket_write_len);
             ctx->mutate_on_socket_write = NULL;
@@ -2097,5 +2110,497 @@ rqc_test_stream_close_next_read(void)
     CHECK_EQ(b->stream_flag & RQC_STREAM_FLAG_READY_TO_READ, 0);
     rqc_engine_destroy(eng.engine);
     CHECK_EQ(b_ctx.closes, 1);
+    return 0;
+}
+
+typedef struct {
+    size_t lengths[32];
+    uint8_t first[32];
+    unsigned reads, writes, mss_updates, acks, losses;
+    uint64_t ack_id, loss_id;
+    size_t mss;
+    int close_on_callback, send_on_callback;
+} test_datagram_ctx_t;
+
+static void
+test_datagram_read(rqc_connection_t *conn, const void *data, size_t len, void *user)
+{
+    test_datagram_ctx_t *ctx = user;
+    if (ctx->reads < 32) {
+        ctx->lengths[ctx->reads] = len;
+        ctx->first[ctx->reads] = len ? *(const uint8_t *)data : 0;
+    }
+    ++ctx->reads;
+    if (ctx->send_on_callback) { rqc_datagram_send(conn, "reply", 5, NULL, 1); }
+    if (ctx->close_on_callback) { rqc_conn_close(conn->engine, &conn->scid_set.user_scid); }
+}
+
+static void test_datagram_write(rqc_connection_t *conn, void *user)
+{
+    test_datagram_ctx_t *ctx = user;
+    ++ctx->writes;
+    if (ctx->send_on_callback) { rqc_datagram_send(conn, "retry", 5, NULL, 1); }
+}
+static void test_datagram_mss(rqc_connection_t *conn, size_t mss, void *user)
+{
+    test_datagram_ctx_t *ctx = user;
+    ++ctx->mss_updates;
+    ctx->mss = mss;
+    if (ctx->close_on_callback) { rqc_conn_close(conn->engine, &conn->scid_set.user_scid); }
+}
+static void test_datagram_ack(rqc_connection_t *conn, uint64_t id, void *user)
+{
+    test_datagram_ctx_t *ctx = user;
+    ++ctx->acks; ctx->ack_id = id;
+    if (ctx->close_on_callback) { rqc_conn_close(conn->engine, &conn->scid_set.user_scid); }
+}
+static void test_datagram_loss(rqc_connection_t *conn, uint64_t id, void *user)
+{
+    test_datagram_ctx_t *ctx = user;
+    ++ctx->losses; ctx->loss_id = id;
+    (void)conn;
+}
+static void
+setup_datagram_callbacks(rqc_connection_t *conn, test_datagram_ctx_t *ctx)
+{
+    rqc_datagram_callbacks_t cbs = {test_datagram_read, test_datagram_write,
+        test_datagram_ack, test_datagram_loss, test_datagram_mss};
+    conn->app_proto_cbs.dgram_cbs = cbs;
+    rqc_datagram_set_user_data(conn, ctx);
+}
+
+static int
+complete_datagram_handshake(rqc_connection_t *conn, uint64_t limit)
+{
+    uint8_t tp[256]; size_t len;
+    rqc_transport_params_t params;
+    rqc_init_transport_params(&params);
+    params.max_datagram_frame_size = limit;
+    params.initial_max_data = 1024 * 1024;
+    params.initial_max_stream_data_bidi_local = 65536;
+    params.initial_max_stream_data_bidi_remote = 65536;
+    params.initial_max_streams_bidi = 16;
+    CHECK_EQ(rqc_encode_transport_params(&params, tp, sizeof(tp), &len), RQC_OK);
+    CHECK_EQ(rqc_conn_process_handshake(conn, (const uint8_t *)TEST_ALPN,
+        strlen(TEST_ALPN), tp, len, NULL, 0), RQC_OK);
+    return 0;
+}
+
+int
+rqc_test_datagram_negotiation(void)
+{
+    uint8_t buf[256]; size_t len;
+    rqc_transport_params_t params, decoded;
+    uint64_t limits[] = {0, 1, 63, 65535, (1ULL << 40), (1ULL << 62) - 1};
+    for (size_t i = 0; i < sizeof(limits)/sizeof(limits[0]); ++i) {
+        rqc_init_transport_params(&params);
+        params.max_datagram_frame_size = limits[i];
+        CHECK_EQ(rqc_encode_transport_params(&params, buf, sizeof(buf), &len), 0);
+        CHECK_EQ(rqc_decode_transport_params(&decoded, buf, len), 0);
+        CHECK_EQ(decoded.max_datagram_frame_size, limits[i]);
+    }
+    params.max_datagram_frame_size = 1ULL << 62;
+    CHECK_EQ(rqc_encode_transport_params(&params, buf, sizeof(buf), &len), -RQC_EILLTP);
+    const uint8_t truncated[] = {0x20, 1, 0x40};
+    const uint8_t extra[] = {0x20, 2, 1, 0};
+    const uint8_t duplicate[] = {0x20, 1, 0, 0x20, 1, 0};
+    CHECK_EQ(rqc_decode_transport_params(&decoded, truncated, sizeof(truncated)), -RQC_EILLTP);
+    CHECK_EQ(rqc_decode_transport_params(&decoded, extra, sizeof(extra)), -RQC_EILLTP);
+    CHECK_EQ(rqc_decode_transport_params(&decoded, duplicate, sizeof(duplicate)), -RQC_EILLTP);
+    /* Verify public configuration reaches the actual handshake on the wire. */
+    {
+        test_engine_t eng;
+        create_test_engine(&eng, RQC_ENGINE_CLIENT); CHECK(eng.engine);
+        rqc_conn_settings_t settings; init_conn_settings(&settings);
+        settings.max_datagram_frame_size = 1ULL << 40;
+        rqc_server_set_conn_settings(eng.engine, &settings);
+        CHECK_EQ(eng.engine->default_conn_settings.max_datagram_frame_size, settings.max_datagram_frame_size);
+        rqc_cid_t dcid, scid; make_cid(&dcid, 0x10); make_cid(&scid, 0x20);
+        rqc_connection_t *conn = rqc_client_create_connection(eng.engine, dcid, scid,
+            &settings, "localhost", TEST_ALPN, NULL, &eng.ctx);
+        CHECK(conn); CHECK_EQ(conn->local_settings.max_datagram_frame_size, settings.max_datagram_frame_size);
+        rqc_packet_out_t *po = rqc_list_entry(conn->conn_send_queue->sndq_send_packets.next,
+            rqc_packet_out_t, po_list);
+        rqc_packet_in_t pi = {0};
+        uint8_t alpn[256], ext[256]; size_t alpn_len, ext_len;
+        rqc_packet_in_init(&pi, po->po_payload, po->po_used_size - (po->po_payload - po->po_buf), 0);
+        CHECK_EQ(rqc_parse_handshake_frame(&pi, conn, alpn, sizeof(alpn), &alpn_len,
+            buf, sizeof(buf), &len, ext, sizeof(ext), &ext_len), 0);
+        CHECK_EQ(rqc_decode_transport_params(&decoded, buf, len), 0);
+        CHECK_EQ(decoded.max_datagram_frame_size, settings.max_datagram_frame_size);
+        rqc_engine_destroy(eng.engine);
+    }
+    for (int enabled = 0; enabled < 2; ++enabled) {
+        test_engine_t eng; test_datagram_ctx_t ctx = {0};
+        create_test_engine(&eng, RQC_ENGINE_CLIENT);
+        CHECK(eng.engine);
+        rqc_connection_t *conn = create_client_conn(&eng, NULL, 0);
+        CHECK(conn);
+        setup_datagram_callbacks(conn, &ctx);
+        CHECK_EQ(conn->local_settings.max_datagram_frame_size, 0);
+        CHECK_EQ(rqc_datagram_get_mss(conn), 0);
+        CHECK_EQ(rqc_datagram_send(conn, NULL, 0, NULL, 0), -RQC_EAGAIN);
+        CHECK_EQ(complete_datagram_handshake(conn, enabled ? (1ULL << 40) : 0), 0);
+        rqc_datagram_process_callbacks(conn);
+        CHECK_EQ(ctx.mss_updates, 1);
+        CHECK_EQ(ctx.writes, 1);
+        CHECK_EQ(ctx.mss, rqc_datagram_get_mss(conn));
+        CHECK_EQ(rqc_datagram_send(conn, NULL, 0, NULL, 0), enabled ? 0 : -RQC_EDATAGRAM_NOT_SUPPORTED);
+        rqc_datagram_process_callbacks(conn);
+        CHECK_EQ(ctx.mss_updates, 1);
+        conn->pkt_out_size -= 20;
+        rqc_datagram_process_callbacks(conn);
+        CHECK_EQ(ctx.mss_updates, enabled ? 2 : 1);
+        rqc_engine_destroy(eng.engine);
+    }
+    return 0;
+}
+
+int
+rqc_test_datagram_submission(void)
+{
+    test_engine_t eng; test_datagram_ctx_t ctx = {0};
+    create_test_engine(&eng, RQC_ENGINE_CLIENT);
+    CHECK(eng.engine);
+    rqc_connection_t *conn = create_client_conn(&eng, NULL, 0);
+    CHECK(conn);
+    setup_datagram_callbacks(conn, &ctx);
+    CHECK_EQ(complete_datagram_handshake(conn, 65535), 0);
+    rqc_send_queue_t *q = conn->conn_send_queue;
+    uint64_t frame_limits[] = {1, 2, 3, 65, 66, 67};
+    size_t expected_mss[] = {0, 0, 1, 63, 63, 64};
+    uint8_t boundary[128] = {0};
+    for (size_t i = 0; i < sizeof(frame_limits)/sizeof(frame_limits[0]); ++i) {
+        conn->remote_settings.max_datagram_frame_size = frame_limits[i];
+        CHECK_EQ(rqc_datagram_get_mss(conn), expected_mss[i]);
+        CHECK_EQ(rqc_datagram_send(conn, boundary, expected_mss[i] + 1, NULL, 0), -RQC_EDATAGRAM_TOO_LARGE);
+        CHECK_EQ(rqc_datagram_send(conn, boundary, expected_mss[i], NULL, 0),
+            frame_limits[i] == 1 ? -RQC_EDATAGRAM_TOO_LARGE : 0);
+    }
+    conn->remote_settings.max_datagram_frame_size = 65535;
+    conn->remote_settings.max_udp_payload_size = 1200;
+    size_t udp_mss = rqc_datagram_get_mss(conn);
+    CHECK_EQ(rqc_datagram_send(conn, boundary, udp_mss + 1, NULL, 0), -RQC_EDATAGRAM_TOO_LARGE);
+    CHECK(udp_mss + rqc_put_varint_len(udp_mss) + 1
+        + rqc_short_packet_header_size(conn->dcid_set.current_dcid.cid_len, RQC_PKTNO_CLASS)
+        + RQC_PACKET_OUT_EXT_SPACE <= 1200);
+    conn->remote_settings.max_udp_payload_size = 1500;
+    /* Use a fresh ID sequence for the ordered batch assertions below. */
+    uint64_t next_id = conn->datagram_next_id;
+    q->sndq_packets_used_max = q->sndq_packets_used + 2;
+    uint8_t bytes[1500]; memset(bytes, 0xa5, sizeof(bytes));
+    size_t mss = rqc_datagram_get_mss(conn);
+    CHECK_GT(mss, 1000);
+    uint64_t id = UINT64_MAX;
+    CHECK_EQ(rqc_datagram_send(conn, NULL, 1, &id, 0), -RQC_EPARAM);
+    CHECK_EQ(rqc_datagram_send(conn, bytes, mss + 1, &id, 0), -RQC_EDATAGRAM_TOO_LARGE);
+    CHECK_EQ(id, UINT64_MAX);
+    rquic_iovec_t messages[] = {{NULL, 0}, {bytes, (unsigned)mss}, {bytes, 1}};
+    uint64_t ids[] = {UINT64_MAX, UINT64_MAX, UINT64_MAX}; size_t accepted = 42;
+    CHECK_EQ(rqc_datagram_send_multiple(conn, messages, 3, ids, &accepted, 0), -RQC_EAGAIN);
+    CHECK_EQ(accepted, 2); CHECK_EQ(ids[0], next_id); CHECK_EQ(ids[1], next_id + 1); CHECK_EQ(ids[2], UINT64_MAX);
+    CHECK(!q->sndq_full); CHECK(conn->datagram_wait_write);
+    rqc_packet_out_t *po = rqc_list_entry(q->sndq_send_packets.prev, rqc_packet_out_t, po_list);
+    CHECK_EQ(po->po_frame_types, RQC_FRAME_BIT_DATAGRAM);
+    CHECK_EQ(po->po_used_size, po->po_payload - po->po_buf + 1 + rqc_put_varint_len(mss) + mss);
+    CHECK_EQ(memcmp(po->po_buf + po->po_used_size - mss, bytes, mss), 0);
+    memset(bytes, 0x11, sizeof(bytes));
+    CHECK_EQ(po->po_buf[po->po_used_size - 1], 0xa5);
+    q->sndq_packets_used_max += 4;
+    rqc_datagram_process_callbacks(conn);
+    CHECK_EQ(ctx.writes, 1);
+    CHECK_EQ(rqc_datagram_send_multiple(conn, messages + accepted, 3 - accepted, ids + accepted, &accepted, 0), 0);
+    CHECK_EQ(accepted, 1); CHECK_EQ(ids[2], next_id + 2);
+    rqc_packet_out_t *control = rqc_write_packet(conn, RQC_PTYPE_SHORT_HEADER, 1);
+    CHECK(control); CHECK(!(control->po_frame_types & RQC_FRAME_BIT_DATAGRAM));
+    rqc_stream_t *stream = rqc_stream_create_with_direction(conn, RQC_STREAM_BIDI, &eng.ctx);
+    CHECK(stream); CHECK_EQ(rqc_stream_send(stream, bytes, 3, 0, 0), 3);
+    rqc_list_head_t *pos;
+    rqc_list_for_each(pos, &q->sndq_send_packets) {
+        po = rqc_list_entry(pos, rqc_packet_out_t, po_list);
+        if (po->po_frame_types & RQC_FRAME_BIT_DATAGRAM) {
+            CHECK_EQ(po->po_frame_types & ~(RQC_FRAME_BIT_DATAGRAM|RQC_FRAME_BIT_ACK|RQC_FRAME_BIT_PADDING), 0);
+        }
+    }
+    CHECK_EQ(rqc_datagram_send_multiple(conn, NULL, 0, NULL, &accepted, 0), 0);
+    CHECK_EQ(accepted, 0);
+    rquic_iovec_t invalid[] = {{bytes, 1}, {NULL, 1}};
+    CHECK_EQ(rqc_datagram_send_multiple(conn, invalid, 2, NULL, &accepted, 0), -RQC_EPARAM);
+    CHECK_EQ(accepted, 1);
+    conn->conn_state = RQC_CONN_STATE_CLOSING;
+    CHECK_EQ(rqc_datagram_send(conn, NULL, 0, NULL, 0), -RQC_CLOSING);
+    CHECK_EQ(rqc_datagram_send_multiple(conn, NULL, 0, NULL, &accepted, 0), -RQC_CLOSING);
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
+rqc_test_datagram_frames(void)
+{
+    const uint8_t valid[] = {0x31, 0, 0x31, 2, 'a', 'b', 0x30, 'z'};
+    const uint8_t truncated[] = {0x31, 2, 'a'};
+    const uint8_t badvarint[] = {0x31, 0x40};
+    const uint8_t large[] = {0x31, 3, 'a', 'b', 'c'};
+    for (int kind = 0; kind < 7; ++kind) {
+        test_engine_t eng; test_datagram_ctx_t ctx = {0};
+        create_test_engine(&eng, RQC_ENGINE_CLIENT); CHECK(eng.engine);
+        rqc_connection_t *conn = create_client_conn(&eng, NULL, 0); CHECK(conn);
+        setup_datagram_callbacks(conn, &ctx);
+        CHECK_EQ(complete_datagram_handshake(conn, 65535), 0);
+        conn->local_settings.max_datagram_frame_size = kind == 3 ? 0 : kind == 4 ? 4 : 65535;
+        const uint8_t *data = kind == 1 ? truncated : kind == 2 ? badvarint : kind == 4 ? large : valid;
+        size_t size = kind == 1 ? sizeof(truncated) : kind == 2 ? sizeof(badvarint) : kind == 4 ? sizeof(large) : sizeof(valid);
+        rqc_packet_in_t pi = {0};
+        rqc_packet_in_init(&pi, data, size, 0);
+        pi.pi_pkt.pkt_type = kind == 5 ? RQC_PTYPE_INIT : RQC_PTYPE_SHORT_HEADER;
+        uint64_t recv = conn->conn_flow_ctl.fc_data_recved;
+        if (kind == 6) { ctx.close_on_callback = 1; }
+        int ret = rqc_process_frames(conn, &pi);
+        if (kind == 0 || kind == 6) {
+            CHECK_EQ(ret, 0);
+            CHECK_EQ(ctx.reads, kind == 6 ? 1 : 3);
+            CHECK_EQ(ctx.lengths[0], 0);
+            if (kind == 0) { CHECK_EQ(ctx.lengths[1], 2); CHECK_EQ(ctx.first[2], 'z'); }
+        } else {
+            CHECK(ret < 0); CHECK_EQ(ctx.reads, 0);
+            CHECK_EQ(conn->conn_err, kind <= 2 ? TRA_FRAME_ENCODING_ERROR : TRA_PROTOCOL_VIOLATION);
+        }
+        CHECK_EQ(conn->conn_flow_ctl.fc_data_recved, recv);
+        rqc_engine_destroy(eng.engine);
+    }
+    return 0;
+}
+
+static void
+mark_datagram_sent(rqc_connection_t *conn, rqc_packet_out_t *po, uint64_t pn, rqc_usec_t now)
+{
+    rqc_send_queue_remove_send(&po->po_list);
+    po->po_sent_time = now; po->po_pkt.pkt_num = pn;
+    rqc_send_ctl_on_packet_sent(conn->the_path->path_send_ctl, conn->the_path->path_pn_ctl, po, now);
+    rqc_send_queue_insert_unacked(po, &conn->conn_send_queue->sndq_unacked_packets, conn->conn_send_queue);
+}
+
+int
+rqc_test_datagram_recovery(void)
+{
+    test_engine_t eng; test_datagram_ctx_t ctx = {0};
+    create_test_engine(&eng, RQC_ENGINE_CLIENT); CHECK(eng.engine);
+    rqc_connection_t *conn = create_client_conn(&eng, NULL, 0); CHECK(conn);
+    setup_datagram_callbacks(conn, &ctx);
+    CHECK_EQ(complete_datagram_handshake(conn, 65535), 0);
+    rqc_send_queue_t *q = conn->conn_send_queue;
+    rqc_send_ctl_t *ctl = conn->the_path->path_send_ctl;
+    uint64_t ids[2]; rqc_packet_out_t *packets[2];
+    rqc_usec_t now = rqc_monotonic_timestamp();
+    for (int i = 0; i < 2; ++i) {
+        CHECK_EQ(rqc_datagram_send(conn, "sample", 6, &ids[i], 0), 0);
+        packets[i] = rqc_list_entry(q->sndq_send_packets.prev, rqc_packet_out_t, po_list);
+        mark_datagram_sent(conn, packets[i], i + 10, now);
+    }
+    CHECK_GT(ctl->ctl_bytes_in_flight, 0);
+    CHECK_GT(ctl->ctl_bytes_ack_eliciting_inflight, 0);
+    uint64_t used = q->sndq_packets_used;
+    rqc_send_queue_copy_to_lost(packets[0], q, RQC_TRUE);
+    rqc_send_queue_copy_to_probe(packets[0], q, conn->the_path);
+    CHECK_EQ(q->sndq_packets_used, used);
+    rqc_path_send_one_or_two_ack_elicit_pkts(conn->the_path);
+    rqc_list_head_t *pos;
+    rqc_list_for_each(pos, &q->sndq_pto_probe_packets) {
+        rqc_packet_out_t *po = rqc_list_entry(pos, rqc_packet_out_t, po_list);
+        CHECK(po->po_frame_types & RQC_FRAME_BIT_PING);
+        CHECK(!(po->po_frame_types & RQC_FRAME_BIT_DATAGRAM));
+    }
+    rqc_ack_info_t ack = {0}; ack.n_ranges = 1;
+    ack.ranges[0].low = 11; ack.ranges[0].high = 11;
+    CHECK_EQ(rqc_send_ctl_on_ack_received(ctl, conn->the_path->path_pn_ctl, q, &ack, now + 1000), 0);
+    CHECK_GT(ctl->ctl_delivered, 0); CHECK_EQ(ctl->ctl_latest_rtt, 1000);
+    CHECK_EQ(ctx.acks, 0);
+    ctl->ctl_largest_acked = 20;
+    rqc_send_ctl_detect_lost(ctl, q, now + 10000);
+    CHECK_GT(ctl->ctl_lost_pkts_number, 0); CHECK_GT(ctl->sampler.loss, 0);
+    CHECK(rqc_list_empty(&q->sndq_lost_packets));
+    rqc_datagram_process_callbacks(conn);
+    CHECK_EQ(ctx.acks, 1); CHECK_EQ(ctx.ack_id, ids[1]);
+    CHECK_EQ(ctx.losses, 1); CHECK_EQ(ctx.loss_id, ids[0]);
+    ack.ranges[0].low = 10; ack.ranges[0].high = 10;
+    CHECK_EQ(rqc_send_ctl_on_ack_received(ctl, conn->the_path->path_pn_ctl, q, &ack, now + 20000), 0);
+    rqc_datagram_process_callbacks(conn);
+    CHECK_EQ(ctx.acks, 1); CHECK_EQ(ctx.losses, 1);
+    rqc_stream_t *reliable = rqc_stream_create_with_direction(conn, RQC_STREAM_BIDI, &eng.ctx);
+    CHECK(reliable);
+    CHECK_EQ(rqc_stream_send(reliable, (uint8_t *)"retransmit", 10, 0, 0), 10);
+    rqc_packet_out_t *stream_po = rqc_list_entry(q->sndq_send_packets.prev, rqc_packet_out_t, po_list);
+    CHECK(stream_po->po_frame_types & RQC_FRAME_BIT_STREAM);
+    mark_datagram_sent(conn, stream_po, 21, now + 20000);
+    ctl->ctl_largest_acked = 30;
+    rqc_send_ctl_detect_lost(ctl, q, now + 30000);
+    CHECK(!rqc_list_empty(&q->sndq_lost_packets));
+    rqc_packet_out_t *repair = rqc_list_entry(q->sndq_lost_packets.next, rqc_packet_out_t, po_list);
+    CHECK(repair->po_frame_types & RQC_FRAME_BIT_STREAM);
+    CHECK(!(repair->po_frame_types & RQC_FRAME_BIT_DATAGRAM));
+    CHECK_EQ(rqc_datagram_send(conn, "pending", 7, NULL, 0), 0);
+    rqc_packet_out_t *pending = rqc_list_entry(q->sndq_send_packets.prev, rqc_packet_out_t, po_list);
+    rqc_datagram_record_feedback(conn, pending, RQC_FALSE);
+    ctx.close_on_callback = 1;
+    CHECK_EQ(rqc_datagram_send(conn, "pending", 7, NULL, 0), 0);
+    pending = rqc_list_entry(q->sndq_send_packets.prev, rqc_packet_out_t, po_list);
+    rqc_datagram_record_feedback(conn, pending, RQC_FALSE);
+    rqc_datagram_process_callbacks(conn);
+    CHECK_EQ(ctx.acks, 2);
+    CHECK(!conn->datagram_feedback_head);
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
+rqc_test_datagram_backpressure(void)
+{
+    test_engine_t eng; test_datagram_ctx_t ctx = {0};
+    create_test_engine(&eng, RQC_ENGINE_CLIENT); CHECK(eng.engine);
+    rqc_connection_t *conn = create_client_conn(&eng, NULL, 0); CHECK(conn);
+    setup_datagram_callbacks(conn, &ctx);
+    CHECK_EQ(complete_datagram_handshake(conn, 65535), 0);
+    rqc_engine_conn_logic(eng.engine, conn); /* drain the initial handshake */
+    rqc_send_ctl_t *ctl = conn->the_path->path_send_ctl;
+    uint64_t inflight = ctl->ctl_bytes_in_flight;
+    int writes = eng.ctx.socket_writes;
+    CHECK_EQ(rqc_datagram_send(conn, "cc", 2, NULL, 0), 0);
+    CHECK_EQ(eng.ctx.socket_writes, writes);
+    ctl->ctl_bytes_in_flight = ctl->ctl_cong_callback->rqc_cong_ctl_get_cwnd(ctl->ctl_cong);
+    rqc_engine_conn_logic(eng.engine, conn);
+    CHECK_EQ(eng.ctx.socket_writes, writes);
+    ctl->ctl_bytes_in_flight = inflight;
+    ctl->ctl_pacing.pacing_on = 1;
+    ctl->ctl_pacing.bytes_budget = 0;
+    rqc_timer_set(&ctl->path_timer_manager, RQC_TIMER_PACING, rqc_monotonic_timestamp(), 1000000);
+    rqc_engine_conn_logic(eng.engine, conn);
+    CHECK_EQ(eng.ctx.socket_writes, writes);
+    ctl->ctl_pacing.pacing_on = 0;
+    rqc_timer_unset(&ctl->path_timer_manager, RQC_TIMER_PACING);
+    eng.ctx.socket_blocked = 1;
+    rqc_engine_conn_logic(eng.engine, conn);
+    CHECK_GT(eng.ctx.socket_writes, writes);
+    CHECK_EQ(ctl->ctl_bytes_in_flight, inflight); /* failed writes never become inflight */
+    rqc_send_queue_t *q = conn->conn_send_queue;
+    q->sndq_packets_used_max = q->sndq_packets_used;
+    writes = eng.ctx.socket_writes;
+    CHECK_EQ(rqc_datagram_send(conn, "blocked", 7, NULL, 1), -RQC_EAGAIN);
+    CHECK_GT(eng.ctx.socket_writes, writes); /* flush also drives earlier submissions */
+    eng.ctx.socket_blocked = 0;
+    rqc_engine_conn_logic(eng.engine, conn);
+    CHECK_GT(ctl->ctl_bytes_in_flight, inflight);
+    rqc_packet_out_t *po = rqc_list_entry(q->sndq_unacked_packets.prev, rqc_packet_out_t, po_list);
+    rqc_ack_info_t ack = {0}; ack.n_ranges = 1;
+    ack.ranges[0].low = 0; ack.ranges[0].high = po->po_pkt.pkt_num;
+    CHECK_EQ(rqc_send_ctl_on_ack_received(ctl, conn->the_path->path_pn_ctl, q, &ack,
+        rqc_monotonic_timestamp() + 1000), 0);
+    rqc_engine_conn_logic(eng.engine, conn);
+    CHECK_EQ(ctx.writes, 1);
+    CHECK_EQ(ctx.acks, 1);
+    /* Batch flush is once at commit: socket mutations cannot alter later
+     * messages before they have all been copied. */
+    q->sndq_packets_used_max += 10;
+    uint8_t data[] = {'a','b','c'};
+    rquic_iovec_t batch[] = {{data, 1}, {data + 1, 1}, {data + 2, 1}};
+    size_t accepted;
+    eng.ctx.mutate_on_socket_write = data; eng.ctx.mutate_on_socket_write_len = sizeof(data);
+    CHECK_EQ(rqc_datagram_send_multiple(conn, batch, 3, NULL, &accepted, 1), 0);
+    CHECK_EQ(accepted, 3); CHECK_EQ(data[0], 'x');
+    int index = 0; rqc_list_head_t *pos;
+    rqc_list_for_each(pos, &q->sndq_unacked_packets) {
+        po = rqc_list_entry(pos, rqc_packet_out_t, po_list);
+        if (po->po_frame_types & RQC_FRAME_BIT_DATAGRAM) {
+            CHECK_EQ(po->po_buf[po->po_payload - po->po_buf + 2], 'a' + index);
+            ++index;
+        }
+    }
+    CHECK_EQ(index, 3);
+    rqc_engine_destroy(eng.engine);
+    return 0;
+}
+
+int
+rqc_test_datagram_wire(void)
+{
+    test_engine_t client_eng, server_eng;
+    test_datagram_ctx_t client_ctx = {0}, server_ctx = {0};
+    unsigned char packets[64][1500]; size_t lengths[64];
+    create_test_engine(&client_eng, RQC_ENGINE_CLIENT); CHECK(client_eng.engine);
+    create_test_engine(&server_eng, RQC_ENGINE_SERVER); CHECK(server_eng.engine);
+    rqc_connection_t *client = create_client_conn(&client_eng, NULL, 0); CHECK(client);
+    rqc_connection_t *server = create_server_conn(&server_eng); CHECK(server);
+    server->version = RQC_VERSION_V1;
+    client->local_settings.max_datagram_frame_size = 65535;
+    server->local_settings.max_datagram_frame_size = 65535;
+    CHECK_EQ(complete_datagram_handshake(client, 65535), 0);
+    CHECK_EQ(complete_datagram_handshake(server, 65535), 0);
+    rqc_conn_on_handshake_acked(server);
+    setup_datagram_callbacks(client, &client_ctx);
+    setup_datagram_callbacks(server, &server_ctx);
+    /* Match the independent test connections' CIDs, then use actual encoded
+     * packets and engine receive processing, with controlled drop/reordering. */
+    rqc_cid_copy(&client->dcid_set.current_dcid, &server->scid_set.user_scid);
+    rqc_cid_copy(&client->the_path->path_dcid, &server->scid_set.user_scid);
+    rqc_cid_copy(&server->dcid_set.current_dcid, &client->scid_set.user_scid);
+    rqc_cid_copy(&server->the_path->path_dcid, &client->scid_set.user_scid);
+    client->conn_flag |= RQC_CONN_FLAG_DCID_DONE;
+    server->conn_flag |= RQC_CONN_FLAG_DCID_DONE;
+    rqc_engine_conn_logic(client_eng.engine, client);
+    rqc_engine_conn_logic(server_eng.engine, server);
+    client_eng.ctx.wire_packets = packets; client_eng.ctx.wire_lengths = lengths;
+    const uint8_t data[] = {'a', 'b', 'c', 'd', 'e', 'f'};
+    rquic_iovec_t batch[6]; uint64_t ids[6]; size_t accepted;
+    for (int i = 0; i < 6; ++i) { batch[i].data = data + i; batch[i].len = 1; }
+    CHECK_EQ(rqc_datagram_send_multiple(client, batch, 6, ids, &accepted, 1), 0);
+    CHECK_EQ(accepted, 6); CHECK_EQ(client_eng.ctx.wire_count, 6);
+    int order[] = {2, 1, 3, 4, 5}; /* drop a, deliver c before b */
+    for (size_t i = 0; i < sizeof(order)/sizeof(order[0]); ++i) {
+        int index = order[i];
+        CHECK_EQ(rqc_engine_packet_process(server_eng.engine, packets[index], lengths[index],
+            NULL, 0, NULL, 0, rqc_monotonic_timestamp(), &server_eng.ctx), 0);
+        CHECK_EQ(server_ctx.reads, i + 1);
+        CHECK_EQ(server_ctx.first[i], data[index]);
+    }
+    CHECK_EQ(server->conn_flow_ctl.fc_data_recved, 0);
+    CHECK_EQ(server_ctx.first[4], 'f');
+    /* An independent reliable stream remains usable after DATAGRAM loss. */
+    client_eng.ctx.wire_count = 0;
+    rqc_stream_t *stream = rqc_stream_create_with_direction(client, RQC_STREAM_BIDI, &client_eng.ctx);
+    CHECK(stream);
+    CHECK_EQ(rqc_stream_send(stream, (uint8_t *)"reliable", 8, 0, 1), 8);
+    CHECK_GT(client_eng.ctx.wire_count, 0);
+    for (size_t i = 0; i < client_eng.ctx.wire_count; ++i) {
+        CHECK_EQ(rqc_engine_packet_process(server_eng.engine, packets[i], lengths[i],
+            NULL, 0, NULL, 0, rqc_monotonic_timestamp(), &server_eng.ctx), 0);
+    }
+    rqc_stream_t *received = rqc_find_stream_by_id(stream->stream_id, server->streams_hash);
+    CHECK(received);
+    uint8_t read[16], fin;
+    CHECK_EQ(rqc_stream_recv(received, read, sizeof(read), &fin), 8);
+    CHECK_EQ(memcmp(read, "reliable", 8), 0);
+    /* Feed generated ACKs back through the sender's engine. */
+    server_eng.ctx.wire_packets = packets; server_eng.ctx.wire_lengths = lengths;
+    server->ack_flag = 1;
+    rqc_engine_conn_logic(server_eng.engine, server);
+    CHECK_GT(server_eng.ctx.wire_count, 0);
+    for (size_t i = 0; i < server_eng.ctx.wire_count; ++i) {
+        CHECK_EQ(rqc_engine_packet_process(client_eng.engine, packets[i], lengths[i],
+            NULL, 0, NULL, 0, rqc_monotonic_timestamp(), &client_eng.ctx), 0);
+    }
+    CHECK_EQ(client_ctx.acks, 5); CHECK_EQ(client_ctx.losses, 1); CHECK_EQ(client_ctx.loss_id, ids[0]);
+    /* Receive callback can enqueue a reply with flush without recursive sends. */
+    client_eng.ctx.wire_packets = NULL;
+    client_ctx.send_on_callback = 1;
+    server_eng.ctx.wire_count = 0;
+    CHECK_EQ(rqc_datagram_send(server, NULL, 0, NULL, 1), 0);
+    CHECK_GT(server_eng.ctx.wire_count, 0);
+    for (size_t i = 0; i < server_eng.ctx.wire_count; ++i) {
+        CHECK_EQ(rqc_engine_packet_process(client_eng.engine, packets[i], lengths[i],
+            NULL, 0, NULL, 0, rqc_monotonic_timestamp(), &client_eng.ctx), 0);
+    }
+    CHECK_EQ(client_ctx.reads, 1); CHECK_EQ(client_ctx.lengths[0], 0);
+    CHECK(!client->datagram_callback_running);
+    rqc_engine_destroy(client_eng.engine);
+    rqc_engine_destroy(server_eng.engine);
     return 0;
 }

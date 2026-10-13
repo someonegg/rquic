@@ -17,7 +17,7 @@ The demo shows the minimum application integration path:
 skips this directory.
 
 ```sh
-cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DRQC_ENABLE_EVENT_LOG=1
+cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DRQC_ENABLE_DEMO=ON -DRQC_ENABLE_EVENT_LOG=1
 cmake --build build --target demo_server demo_client
 ```
 
@@ -42,6 +42,47 @@ rquic demo response
 resource: /hello
 OK bytes=37
 ```
+
+## DATAGRAM echo
+
+Start the same server, then send one text message without creating a stream:
+
+```sh
+./build/demo/demo_server --port 8443
+./build/demo/demo_client --host 127.0.0.1 --port 8443 --datagram 'hello datagram'
+```
+
+Expected client output:
+
+```text
+OK datagram bytes=14
+```
+
+An empty message (`--datagram ''`) prints `OK datagram bytes=0`.
+`--datagram` cannot be repeated or combined with explicit `--path` or `--output`.
+The client checks both the length and content of the echo and waits at most five
+seconds from connection startup. Timeout, early connection closure, zero MSS
+after negotiation, send errors, and mismatched echoes produce a nonzero exit status.
+
+Both peers advertise `max_datagram_frame_size = 65535` as their receive capability.
+This is not the send payload limit: the demo checks `rqc_datagram_get_mss()` after
+negotiation and rejects oversized messages without fragmentation. Packet settings
+remain `max_pkt_out_size = 1350` and `max_udp_payload_size = 1366`, suitable for a
+path with MTU 1500. The demo does not discover path MTU or promise support for
+arbitrary MTUs.
+
+The demo client requires MSS > 0 after negotiation, including for empty messages.
+A zero MSS produces `client datagram echo mode requires MSS > 0`. This is a demo
+policy: a peer advertising `max_datagram_frame_size = 2` can support empty
+DATAGRAMs with zero MSS at the library level, but this echo mode rejects it.
+Before negotiation finishes, a zero MSS does not trigger this check; the client
+waits for the negotiation result callback.
+
+DATAGRAM delivery is unreliable. The client retries only when submission returns
+`EAGAIN`; after successful submission it never automatically retransmits. The
+server echoes immediately or keeps one copied message until writable, dropping
+and logging additional messages while an echo is pending. There is no application
+retransmission or message fragmentation/reassembly.
 
 ## Download a file
 
@@ -90,5 +131,6 @@ Client:
 --port PORT
 --path /resource
 --output FILE
+--datagram TEXT
 --log-level error|warn|info|debug
 ```

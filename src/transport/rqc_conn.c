@@ -2,6 +2,7 @@
  * @copyright Copyright (c) 2022, Alibaba Group Holding Limited
  */
 
+#include "src/transport/rqc_datagram.h"
 #include <rquic/rquic.h>
 #include <errno.h>
 #include "src/common/rqc_algorithm.h"
@@ -73,6 +74,7 @@ rqc_server_set_conn_settings(rqc_engine_t *engine, const rqc_conn_settings_t *se
 {
     engine->default_conn_settings.cong_ctrl_callback = settings->cong_ctrl_callback;
     engine->default_conn_settings.cc_params = settings->cc_params;
+    engine->default_conn_settings.max_datagram_frame_size = settings->max_datagram_frame_size;
     engine->default_conn_settings.pacing_on = settings->pacing_on;
     engine->default_conn_settings.ping_on   = settings->ping_on;
     engine->default_conn_settings.so_sndbuf = settings->so_sndbuf;
@@ -578,6 +580,7 @@ rqc_conn_init_trans_settings(rqc_connection_t *conn)
 
     ls->max_idle_timeout = conn->conn_settings.idle_time_out;
 
+    ls->max_datagram_frame_size = conn->conn_settings.max_datagram_frame_size;
     ls->max_udp_payload_size = conn->conn_settings.max_udp_payload_size;
 
     ls->max_ack_delay = conn->conn_settings.max_ack_delay;
@@ -1183,6 +1186,7 @@ rqc_conn_destroy(rqc_connection_t *xc)
         xc->conn_flag &= ~RQC_CONN_FLAG_UPPER_CONN_EXIST;
     }
 
+    rqc_datagram_cleanup(xc);
     rqc_send_queue_destroy(xc->conn_send_queue);
 
     /* free streams hash */
@@ -2518,6 +2522,9 @@ int
 rqc_conn_send_probe_pkt(rqc_connection_t *c, rqc_path_ctx_t *path,
     rqc_packet_out_t *packet_out)
 {
+    if (packet_out->po_frame_types & RQC_FRAME_BIT_DATAGRAM) {
+        return 0;
+    }
     if (packet_out->po_flag & RQC_POF_IN_FLIGHT) {
         c->detected_loss_cnt++;
     }
@@ -2670,6 +2677,7 @@ rqc_conn_get_local_transport_params(rqc_connection_t *conn, rqc_transport_params
     rqc_trans_settings_t *settings = &conn->local_settings;
     params->max_idle_timeout = settings->max_idle_timeout;
     params->max_udp_payload_size = settings->max_udp_payload_size;
+    params->max_datagram_frame_size = settings->max_datagram_frame_size;
     params->initial_max_data = settings->max_data;
     params->initial_max_stream_data_bidi_local = settings->max_stream_data_bidi_local;
     params->initial_max_stream_data_bidi_remote = settings->max_stream_data_bidi_remote;
@@ -2746,6 +2754,7 @@ rqc_conn_set_remote_transport_params(rqc_connection_t *conn, const rqc_transport
     rqc_trans_settings_t *settings = &conn->remote_settings;
     settings->max_idle_timeout = params->max_idle_timeout;
     settings->max_udp_payload_size = params->max_udp_payload_size;
+    settings->max_datagram_frame_size = params->max_datagram_frame_size;
     settings->max_data = params->initial_max_data;
     settings->max_stream_data_bidi_local = params->initial_max_stream_data_bidi_local;
     settings->max_stream_data_bidi_remote = params->initial_max_stream_data_bidi_remote;
