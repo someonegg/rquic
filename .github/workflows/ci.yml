@@ -39,3 +39,14 @@ jobs:
 
       - name: Test
         run: ctest --test-dir build --output-on-failure --timeout 60 --no-tests=error
+
+  ci-result:
+    name: CI Passed
+    needs: build-and-test
+    if: always()
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Require all matrix checks to pass
+        env:
+          CHECK_RESULT: ${{ needs.build-and-test.result }}
+        run: test "$CHECK_RESULT" = success
